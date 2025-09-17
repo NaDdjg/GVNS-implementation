@@ -110,9 +110,9 @@ def clone_solution(sol):
 
 def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
     """
-    - identify visits causing penalties (late or unsynchronised).
-    - try best insertion using early-exit when an improving feasible
-      solution is found.
+    - its greedy and local so avoids expensive global search
+    - focuses only on visits that actually violate constraintss
+    - accept ny lower-f condidate even if still infeasible (we accept some violation as worst case) so it monotonically improves
     """
     best_sol = clone_solution(sol)
     best_eval = evaluate_solution(inst, best_sol)
@@ -120,8 +120,10 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
         return best_sol, best_eval
 
     # 1) collect offending visits
+    # herer i try to find nodes that cause penalties or are missing
     offending = set()
     for r_idx, route in enumerate(sol.routes):
+        #find any customer whose start time is after its latest allowed time window
         schedule, _ = compute_route_schedule(inst, route)
         for (vid, _, start, _) in schedule:
             if start > inst.visits[vid].tw_late + 1e-9:
@@ -131,6 +133,7 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
     missing = set(inst.visits.keys()) - planned
     offending.update(missing)
 
+    # for each sync pair (i, j), if their start times differ or one is missing, mark both as offending
     for (i, j) in getattr(inst, "sync_pairs", []):
         si = best_eval.get("start_times", {}).get(i)
         sj = best_eval.get("start_times", {}).get(j)
@@ -162,6 +165,7 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
             for pos in range(route_len + 1):
                 cand = clone_solution(base)
                 cand.routes[ridx].insert(pos, vid)
+                #evaluate F
                 ev_c = evaluate_solution(inst, cand)
                 if ev_c["F"] + 1e-9 < best_local_val:
                     best_local_val = ev_c["F"]
@@ -175,10 +179,11 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
             if improved_for_vid:
                 break
 
-        # try new route
+        # try new route for vid
         cand = clone_solution(base)
         cand.routes.append([vid])
         ev_c = evaluate_solution(inst, cand)
+        # if it gives an improvement, update best_sol, and best_eval
         if ev_c["F"] + 1e-9 < best_local_val:
             best_local_val = ev_c["F"]
             best_local_for_vid = (cand, ev_c)

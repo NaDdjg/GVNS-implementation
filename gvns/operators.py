@@ -1,7 +1,7 @@
 from .solution import Solution
 from .instance import Instance
 from .evaluate import evaluate_solution
-from .viz import visualize_solution
+from .viz import plot_side_by_side, which_nodes_changed
 import random
 
 def clone_solution(sol: Solution) -> Solution:
@@ -42,19 +42,26 @@ def inter_route_swap(sol: Solution, r1:int, p1:int, r2:int, p2:int) -> Solution:
 def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None, debug_visual: bool = False):
     """
     apply p randomized moves: with prob Dp pick a swap move (N3/N4), else insertion (N1/N2)
-    will return shaken solution and applied moves (surtout for debug)
+    returns shaken solution and applied moves
+    debug_visual -> show small side-by-side plots for each move (limited)
     """
-    if debug_visual:
-        ev0 = evaluate_solution(inst, sol)
-        visualize_solution(inst, sol,
-                           start_times=ev0.get("start_times"),
-                           title="shake_before", show=True)
-
     if seed is not None:
         random.seed(seed)
+
     cur = clone_solution(sol)
     moves = []
-    for _ in range(p):
+
+    # Visualize whole sol before if requested
+    if debug_visual:
+        ev0 = evaluate_solution(inst, sol)
+        plot_side_by_side(inst, sol, sol, title="shake_solution_before",
+                          highlight_nodes=set(), move_desc="initial", show=True)
+
+    max_visual_moves = 6   # limit how many move-steps we'll draw (avoid OOM)
+    visual_count = 0
+
+    for step in range(p):
+        before = clone_solution(cur)
         if random.random() < Dp:
             # swap move: choose intra or inter swap with 50-50
             if random.random() < 0.5 and len(cur.routes) > 0:
@@ -63,7 +70,9 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
                 if len(cur.routes[r]) >= 2:
                     i, j = random.sample(range(len(cur.routes[r])), 2)
                     cur = intra_route_swap(cur, r, i, j)
-                    moves.append(('intra_swap', r, i, j))
+                    move = ('intra_swap', r, i, j)
+                else:
+                    move = None
             else:
                 if len(cur.routes) >= 2:
                     r1, r2 = random.sample(range(len(cur.routes)), 2)
@@ -71,7 +80,11 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
                         p1 = random.randrange(len(cur.routes[r1]))
                         p2 = random.randrange(len(cur.routes[r2]))
                         cur = inter_route_swap(cur, r1, p1, r2, p2)
-                        moves.append(('inter_swap', r1, p1, r2, p2))
+                        move = ('inter_swap', r1, p1, r2, p2)
+                    else:
+                        move = None
+                else:
+                    move = None
         else:
             # insertion move
             if random.random() < 0.5:
@@ -82,7 +95,11 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
                         from_pos = random.randrange(len(cur.routes[r]))
                         to_pos = random.randrange(len(cur.routes[r]))
                         cur = intra_route_insertion(cur, r, from_pos, to_pos)
-                        moves.append(('intra_ins', r, from_pos, to_pos))
+                        move = ('intra_ins', r, from_pos, to_pos)
+                    else:
+                        move = None
+                else:
+                    move = None
             else:
                 # inter insertion
                 if len(cur.routes) >= 2:
@@ -91,12 +108,36 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
                         p = random.randrange(len(cur.routes[r1]))
                         inspos = random.randrange(len(cur.routes[r2])+1)
                         cur = inter_route_insertion(cur, r1, p, r2, inspos)
-                        moves.append(('inter_ins', r1, p, r2, inspos))
+                        move = ('inter_ins', r1, p, r2, inspos)
+                    else:
+                        move = None
+                else:
+                    move = None
+
+        if move is not None:
+            moves.append(move)
+            # map move type -> neighborhood label
+            mt = move[0]
+            nb = {'intra_ins':'N1','inter_ins':'N2','intra_swap':'N3','inter_swap':'N4'}.get(mt, 'UNK')
+            msg = f"shake step {step+1}/{p}: move={move} -> neighborhood={nb}"
+            print(msg)
+
+            # visualize the move if debug and under cap
+            if debug_visual and visual_count < max_visual_moves:
+                diff = which_nodes_changed(before, cur)
+                highlight = set(diff['added'] + diff['removed'] + [d[0] for d in diff['moved']])
+                desc = f"shake step {step+1} | move={move} | nb={nb} | changed={len(highlight)}"
+                savepath = plot_side_by_side(inst, before, cur,
+                                             title=f"shake_move_{step+1}",
+                                             highlight_nodes=highlight,
+                                             move_desc=desc,
+                                             show=True)
+                print("Saved:", savepath)
+                visual_count += 1
 
     if debug_visual:
-          ev1 = evaluate_solution(inst, cur)
-          visualize_solution(inst, cur,
-                            start_times=ev1.get("start_times"),
-                            title="shake_after", show=True)
+        ev1 = evaluate_solution(inst, cur)
+        plot_side_by_side(inst, sol, cur, title="shake_solution_after",
+                          highlight_nodes=set(), move_desc=f"Total moves: {len(moves)}", show=True)
 
     return cur, moves

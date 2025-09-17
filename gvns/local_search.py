@@ -4,7 +4,7 @@ from .instance import Instance
 from .operators import (intra_route_insertion, inter_route_insertion,
                         intra_route_swap, inter_route_swap, clone_solution, shake_solution)
 from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible
-from .viz import visualize_solution
+from .viz import plot_side_by_side, which_nodes_changed
 import random, time
 from .instance import random_insertion, SEED
 
@@ -25,7 +25,7 @@ def b_vnd(inst: Instance,
 
     if sample_limit is None:
         sample_limit = max(2000, len(inst.visits) * 20)
-        
+    
     current = clone_solution(sol)
     current_eval = evaluate_solution(inst, current)
     current_val = eval_f(current)
@@ -33,15 +33,10 @@ def b_vnd(inst: Instance,
     improved_flag = False
 
     if debug_visual:
-        visualize_solution(
-            inst,
-            current,
-            start_times=current_eval.get("start_times"),
-            title="b_vnd_start",
-            show=True,
-        )
+        plot_side_by_side(inst, current, current, title="b_vnd_start",
+                          move_desc="B-VND start", show=True)
 
-    # neighborhood enumerators
+    # neighborhood enumerators (same as your code)
     def enum_N1(cur):
         for r_idx in range(len(cur.routes)):
             L = len(cur.routes[r_idx])
@@ -75,7 +70,7 @@ def b_vnd(inst: Instance,
 
     enum_map = {'N1': enum_N1, 'N2': enum_N2, 'N3': enum_N3, 'N4': enum_N4}
 
-    #  main loop 
+    # main loop
     while total_iters < max_total_iters:
         improved = False
         for nb in neighborhoods:
@@ -89,24 +84,30 @@ def b_vnd(inst: Instance,
                 cand_val = cand_eval['F']
 
                 if cand_val + 1e-9 < current_val:
+                    # accepted improvement
+                    before = clone_solution(current)
                     current, current_val, current_eval = cand, cand_val, cand_eval
                     improved = improved_flag = True
 
+                    # print & visualize
+                    print(f"[B-VND] improvement found by {nb}: new F={current_val:.6g} (sampled={sampled})")
                     if debug_visual:
-                        visualize_solution(
-                            inst,
-                            current,
-                            start_times=current_eval.get("start_times"),
-                            title=f"b_vnd_improve_{nb}",
-                            show=True,
-                        )
-                    break  # restart from first neighborhood
+                        diff = which_nodes_changed(before, current)
+                        highlight = set(diff['added'] + diff['removed'] + [d[0] for d in diff['moved']])
+                        desc = f"B-VND {nb} -> F={current_val:.3f} | changed={len(highlight)}"
+                        savepath = plot_side_by_side(inst, before, current,
+                                                     title=f"b_vnd_improve_{nb}",
+                                                     highlight_nodes=highlight,
+                                                     move_desc=desc, show=True)
+                        print("Saved:", savepath)
+
+                    # restart from first neighborhood
+                    break
             if improved:
                 break
         if not improved:
             break
 
-    # return eval dict so caller doesn’t need to recompute
     return current, improved_flag, current_val, current_eval
 
 def update_penalties(w1, w2, PenT, PenH, alpha=0.03, w1_min=1e-6, w2_min=1e-6,
