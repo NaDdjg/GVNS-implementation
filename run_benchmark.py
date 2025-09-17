@@ -1,0 +1,29 @@
+from gvns.benchmark import benchmark_folder, summarize_by_class
+
+df_summary = benchmark_folder(
+    folder=r"C:\Users\HP\Documents\GitHub\GVNS-implementation\vrptws",
+    runs_per_instance=5,
+    Tmax_rule= lambda n: max(5, int(n*n/10)),
+    gvns_kwargs={
+        "contmax": 100,
+        "p_init": 1,
+        "p_max": 10,
+        "Dp": 0.3,
+        "w1_init": 0.5,
+        "w2_init": 0.1,
+        "alpha": 0.1,
+        "delta": 0.4,
+        "M": 1e6,
+        "w1_max": None,
+        "w2_max": None,
+        "update_every": 1,
+    },
+    out_csv="gvns_per_instance.csv",
+)
+
+print(df_summary.shape)
+print(df_summary)
+
+df_class = summarize_by_class(df_summary)
+df_class.to_csv("results/gvns_per_class.csv", index=False)
+print(df_class)
