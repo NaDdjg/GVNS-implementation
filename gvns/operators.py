@@ -39,7 +39,7 @@ def inter_route_swap(sol: Solution, r1:int, p1:int, r2:int, p2:int) -> Solution:
     new_sol.routes[r2][p2] = a
     return new_sol
 
-def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None, debug_visual: bool = False):
+def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None, verbose: bool = False, debug_visual: bool = False):
     """
     apply p randomized moves: with prob Dp pick a swap move (N3/N4), else insertion (N1/N2)
     returns shaken solution and applied moves
@@ -62,6 +62,8 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
 
     for step in range(p):
         before = clone_solution(cur)
+        move = None
+
         if random.random() < Dp:
             # swap move: choose intra or inter swap with 50-50
             if random.random() < 0.5 and len(cur.routes) > 0:
@@ -81,25 +83,19 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
                         p2 = random.randrange(len(cur.routes[r2]))
                         cur = inter_route_swap(cur, r1, p1, r2, p2)
                         move = ('inter_swap', r1, p1, r2, p2)
-                    else:
-                        move = None
-                else:
-                    move = None
+                        break
         else:
             # insertion move
-            if random.random() < 0.5:
+            if random.random() < 0.5 and cur.routes:
                 # intra insertion if possible
-                if len(cur.routes)>0:
-                    r = random.randrange(len(cur.routes))
-                    if len(cur.routes[r]) >= 1:
-                        from_pos = random.randrange(len(cur.routes[r]))
-                        to_pos = random.randrange(len(cur.routes[r]))
-                        cur = intra_route_insertion(cur, r, from_pos, to_pos)
-                        move = ('intra_ins', r, from_pos, to_pos)
-                    else:
-                        move = None
-                else:
-                    move = None
+                r = random.randrange(len(cur.routes))
+                if len(cur.routes[r]) >= 1:
+                    from_pos = random.randrange(len(cur.routes[r]))
+                    to_pos = random.randrange(len(cur.routes[r]))
+                    if from_pos != to_pos:
+                            cur = intra_route_insertion(cur, r, from_pos, to_pos)
+                            move = ('intra_ins', r, from_pos, to_pos)  # N1
+                            break
             else:
                 # inter insertion
                 if len(cur.routes) >= 2:
@@ -116,11 +112,12 @@ def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None
 
         if move is not None:
             moves.append(move)
-            # map move type -> neighborhood label
-            mt = move[0]
-            nb = {'intra_ins':'N1','inter_ins':'N2','intra_swap':'N3','inter_swap':'N4'}.get(mt, 'UNK')
-            msg = f"shake step {step+1}/{p}: move={move} -> neighborhood={nb}"
-            print(msg)
+            if verbose:
+                # map move type -> neighborhood label
+                mt = move[0]
+                nb = {'intra_ins':'N1','inter_ins':'N2','intra_swap':'N3','inter_swap':'N4'}.get(mt, 'UNK')
+                msg = f"shake step {step+1}/{p}: move={move} -> neighborhood={nb}"
+                print(msg)
 
             # visualize the move if debug and under cap
             if debug_visual and visual_count < max_visual_moves:

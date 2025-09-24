@@ -1,5 +1,6 @@
 from .evaluate import evaluate_solution
 from .viz import visualize_solution
+import re
 
 def _maybe_get_inst_and_sol_from_args(args, kwargs):
     if len(args) >= 2:
@@ -52,3 +53,9 @@ def wrap_with_visualization(func_name, before=True, after=True, debug_visual=Tru
     globals()[func_name] = wrapped
     print(f"[wrap] {func_name} wrapped for visualization (before={before}, after={after})")
     return True
+
+def infer_vehicle_estimate(default=30) -> int:
+    """
+    i'll keep it static following the paper values for now
+    """
+    return default

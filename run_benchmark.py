@@ -2,8 +2,8 @@ from gvns.benchmark import benchmark_folder, summarize_by_class
 
 df_summary = benchmark_folder(
     folder=r"C:\Users\HP\Documents\GitHub\GVNS-implementation\vrptws",
-    runs_per_instance=5,
-    Tmax_rule= lambda n: max(5, int(n*n/10)),
+    runs_per_instance= 1,
+    Tmax_rule= lambda n: 5000,
     gvns_kwargs={
         "contmax": 100,
         "p_init": 1,

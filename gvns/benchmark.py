@@ -1,9 +1,11 @@
 import os, glob, time
 import pandas as pd
+import matplotlib.pyplot as plt
 from .instance import parse_vrptws_txt, Instance, SEED
 from .local_search import gvns
 from .evaluate import evaluate_solution
 from .solution import Solution
+from .utils import infer_vehicle_estimate
 
 def run_multiple(inst, runs=5, Tmax_seconds=10, **gvns_kwargs):
     results = []
@@ -40,7 +42,7 @@ def solution_details(inst: Instance, sol: Solution):
 
 def benchmark_folder(folder='vrptws',
                      runs_per_instance=5,
-                     Tmax_rule=lambda n: max(5, int(n*n/10)),
+                     Tmax_rule=lambda n: None,
                      gvns_kwargs=None,
                      out_csv='gvns_benchmark_results.csv'):
 
@@ -53,6 +55,8 @@ def benchmark_folder(folder='vrptws',
         }
 
     results_dir = os.path.join(os.getcwd(), "results")
+    plots_dir = os.path.join(os.getcwd(), "results/plots")
+    traces_dir = os.path.join(os.getcwd(), "results/traces")
     os.makedirs(results_dir, exist_ok=True)
 
     files = sorted(glob.glob(os.path.join(folder, '**', '*.txt'), recursive=True))
@@ -65,6 +69,8 @@ def benchmark_folder(folder='vrptws',
     for fpath in files:
         instance_name = os.path.basename(fpath)
         instance_class = os.path.basename(os.path.dirname(fpath))
+        num_veh_est = infer_vehicle_estimate()
+
         print(f"Benchmarking: {fpath} (class={instance_class})")
 
         inst = parse_vrptws_txt(fpath)
@@ -75,8 +81,46 @@ def benchmark_folder(folder='vrptws',
         for run_id in range(runs_per_instance):
             seed = SEED + run_id*31
             t0 = time.time()
-            best, history = gvns(inst, Tmax_seconds=Tmax, seed=seed, verbose=False, **gvns_kwargs)
+            best, history = gvns(
+                inst, 
+                Tmax_seconds=Tmax, 
+                seed=seed, 
+                verbose=False, 
+                num_vehicles_estimate=num_veh_est,
+                **gvns_kwargs)
             t_run = time.time() - t0
+
+            # inspect convergence
+            times  = [h['time']    for h in history]
+            f_best = [h['f_best']  for h in history]
+            f_hist  = [h['raw_f']  for h in history]
+
+            print(f"    improvement trace (f over time): {f_hist}")
+
+            plt.figure()
+            plt.plot(times, f_hist, marker='.')
+            plt.xlabel("time (s)")
+            plt.ylabel("f")
+            plt.title(f"Convergence – {instance_name} run {run_id}")
+            plt.grid(True)
+            plt.savefig(os.path.join(plots_dir,
+                        f"curve_{instance_name}_run{run_id}_f_improvement.png"))
+            plt.close()
+
+            plt.figure()
+            plt.plot(times, f_best, marker='.')
+            plt.xlabel("time (s)")
+            plt.ylabel("best f")
+            plt.title(f"Convergence – {instance_name} run {run_id}")
+            plt.grid(True)
+            plt.savefig(os.path.join(plots_dir,
+                        f"curve_{instance_name}_run{run_id}_best_f.png"))
+            plt.close()
+
+            pd.DataFrame(history).to_csv(
+                os.path.join(traces_dir,
+                    f"trace_{instance_name}_run{run_id}.csv"),
+                index=False)
 
             if history:
                 min_F = min(h['F_best'] for h in history)
