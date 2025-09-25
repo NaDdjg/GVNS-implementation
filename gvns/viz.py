@@ -1,7 +1,6 @@
 from typing import Tuple, Dict, Any, List
 import matplotlib.pyplot as plt
 import os
-from gvns.instance import Instance
 from gvns.solution import Solution
 
 VIZ_DIR = "gvns_viz"
@@ -97,13 +96,16 @@ def which_nodes_changed(sol_a: Solution, sol_b: Solution) -> Dict[str, Any]:
     }
 
 # small side-by-side plotter (keeps style similar to visualize_solution)
-def plot_side_by_side(inst: Instance, sol_a: Solution, sol_b: Solution,
+def plot_side_by_side(inst, sol_a: Solution, sol_b: Solution,
                       title: str = "move", highlight_nodes: set = None,
                       move_desc: str = None, savepath=None, show=True):
     """
     Draw two subplots: left = sol_a, right = sol_b.
     Uses the same plotting style as visualize_solution.
     """
+    from .instance import Instance
+    assert isinstance(inst, Instance)
+
     if highlight_nodes is None:
         highlight_nodes = set()
 

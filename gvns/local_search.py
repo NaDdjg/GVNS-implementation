@@ -1,141 +1,11 @@
 from typing import Tuple
 from .solution import Solution
-from .instance import Instance
+from .instance import Instance, paper_initial_fixed, SEED
 from .operators import (intra_route_insertion, inter_route_insertion,
                         intra_route_swap, inter_route_swap, clone_solution, shake_solution)
 from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible
 from .viz import plot_side_by_side, which_nodes_changed
 import random, time
-from .instance import random_insertion, SEED
-
-def build_initial_solution(
-    inst: Instance,
-    num_vehicles_estimate: int = 5,
-    seed: int = SEED,
-    max_random_attempts: int = 10,
-    repair_max_tries: int = 500,
-    greedy_w1: float = 100.0,
-    greedy_w2: float = 10.0,
-    greedy_M: float = None,
-    verbose: bool = False
-):
-    """
-    Build an initial solution trying, in order:
-      1) several random_insertion() starts followed by quick_repair_greedy()
-      2) a constructive greedy insertion (minimize penalized F during insertion)
-      3) final quick_repair_greedy() attempt on the greedy result
-
-    Returns: (Solution, eval_dict) where eval_dict = evaluate_solution(inst, sol, ...)
-    """
-
-    # helpers
-    def _violates_same_route(candidate, route_idx, routes):
-        # mimic the same rule used in your random_insertion:
-        for (a, b) in getattr(inst, "sync_pairs", []):
-            if candidate == a and b in routes[route_idx]:
-                return True
-            if candidate == b and a in routes[route_idx]:
-                return True
-        return False
-
-    # compute fallback large M for greedy if not provided
-    if greedy_M is None:
-        try:
-            # inst.travel_time might be dict -> take max value
-            max_tt = max(inst.travel_time.values()) if getattr(inst, "travel_time", None) else 1.0
-            n_vis = max(1, len(getattr(inst, "visits", {})))
-            greedy_M = max_tt * n_vis * 100.0
-        except Exception:
-            greedy_M = 1e6
-
-    best_overall_sol = None
-    best_overall_eval = None
-
-    #  1) Try several random starts + repair 
-    for attempt in range(max_random_attempts):
-        s_rand = random_insertion(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed + attempt * 31)
-        ev_rand = evaluate_solution(inst, s_rand, 0.5, 0.1, greedy_M)  # lightweight eval
-        if is_feasible(inst, s_rand, ev_rand):
-            if verbose:
-                print(f"[init] Random start {attempt} already feasible.")
-            return s_rand, ev_rand
-
-        # attempt repair
-        repaired, ev_repaired = quick_repair_greedy(inst, s_rand, max_tries=repair_max_tries, verbose=verbose)
-        if is_feasible(inst, repaired, ev_repaired):
-            if verbose:
-                print(f"[init] Repaired feasible from random start {attempt}.")
-            return repaired, ev_repaired
-
-        # keep best penalised solution as fallback
-        if best_overall_eval is None or ev_repaired["F"] < best_overall_eval["F"]:
-            best_overall_sol, best_overall_eval = repaired, ev_repaired
-
-    #  2) Greedy constructive insertion fallback 
-    # deterministic ordering: by earliest time window
-    customers = sorted(inst.visits.keys(), key=lambda i: inst.visits[i].tw_early)
-
-    # start with estimated empty routes
-    routes = [[] for _ in range(num_vehicles_estimate)]
-
-    # build incrementally
-    for vid in customers:
-        best_local_val = float("inf")
-        best_local_routes = None
-
-        # try inserting into all existing routes at all positions
-        for ridx in range(len(routes)):
-            # skip route positions if violates same-route rule
-            if _violates_same_route(vid, ridx, routes):
-                # still try other positions in other routes; we skip this entire route
-                continue
-            for pos in range(len(routes[ridx]) + 1):
-                cand_routes = [list(r) for r in routes]
-                cand_routes[ridx].insert(pos, vid)
-                cand = clone_solution(Solution(routes=cand_routes))
-                ev_c = evaluate_solution(inst, cand, greedy_w1, greedy_w2, greedy_M)
-                if ev_c["F"] < best_local_val:
-                    best_local_val = ev_c["F"]
-                    best_local_routes = cand_routes
-
-        # try creating new route for this vid
-        cand_routes = [list(r) for r in routes]
-        cand_routes.append([vid])
-        cand = clone_solution(Solution(routes=cand_routes))
-        ev_c = evaluate_solution(inst, cand, greedy_w1, greedy_w2, greedy_M)
-        if ev_c["F"] < best_local_val:
-            best_local_val = ev_c["F"]
-            best_local_routes = cand_routes
-
-        # if we found any insertion, adopt it
-        if best_local_routes is not None:
-            routes = best_local_routes
-        else:
-            # As a safety: append to last route if nothing else (unlikely)
-            routes[-1].append(vid)
-
-    greedy_sol = clone_solution(Solution(routes=[list(r) for r in routes]))
-    greedy_eval = evaluate_solution(inst, greedy_sol, greedy_w1, greedy_w2, greedy_M)
-    if verbose:
-        print("[init] Greedy built solution: F=%.3f f=%.3f PenT=%.3f" % (greedy_eval["F"], greedy_eval["f"], greedy_eval["PenT"]))
-
-    #  3) Final repair attempt on greedy solution 
-    repaired2, ev_repaired2 = quick_repair_greedy(inst, greedy_sol, max_tries=repair_max_tries, verbose=verbose)
-    if is_feasible(inst, repaired2, ev_repaired2):
-        if verbose:
-            print("[init] Greedy+repair produced feasible solution.")
-        return repaired2, ev_repaired2
-
-    # if still not feasible, return best among all attempts (prefer feasible if any)
-    candidates = [(best_overall_sol, best_overall_eval), (greedy_sol, greedy_eval), (repaired2, ev_repaired2)]
-    # filter out None
-    candidates = [(s, e) for (s, e) in candidates if s is not None and e is not None]
-    # find min F
-    best = min(candidates, key=lambda se: se[1]["F"]) if candidates else (greedy_sol, greedy_eval)
-    if verbose:
-        print("[init] Returning best penalised initial solution (F=%.3f)." % best[1]["F"])
-    return best
-
 
 def b_vnd(inst: Instance,
           sol: Solution,
@@ -169,80 +39,6 @@ def b_vnd(inst: Instance,
     if debug_visual:
         plot_side_by_side(inst, current, current, title="b_vnd_start",
                           move_desc="B-VND start", show=True)
-
-    # focused repair phase if PenT > 0
-    # if current_eval.get('PenT', 0.0) > 1e-9:
-    #     # collect offending visits
-    #     offending = set()
-    #     for r_sched in current_eval.get('route_schedules', []):
-    #         for (vid, _, start, _) in r_sched:
-    #             if start > inst.visits[vid].tw_late + 1e-9:
-    #                 offending.add(vid)
-    #     # also include missing visits (PenS) - though PenS usually zero here
-    #     # limit attempts
-    #     focused_tries = min(2000, max(200, n_vis * 5))
-    #     tries = 0
-    #     if verbose:
-    #         print(f"[B-VND] focused repair phase: offending count={len(offending)} tries={focused_tries}")
-    #     # enumerate some targeted moves involving offending nodes
-    #     while tries < focused_tries and offending:
-    #         tries += 1
-    #         # pick an offending visit and try a few insertion/relocation positions
-    #         vid = random.choice(list(offending))
-    #         # find route & pos
-    #         src_r = None; src_pos = None
-    #         for ri, r in enumerate(current.routes):
-    #             if vid in r:
-    #                 src_r = ri
-    #                 src_pos = r.index(vid)
-    #                 break
-
-    #         # try moving vid to other routes and earlier positions within same route
-    #         candidates = []
-
-    #         if src_r is None:
-    #             continue
-
-    #         # try inserting earlier in same route
-    #         for to_pos in range(max(0, src_pos - 5), src_pos):
-    #             candidates.append(intra_route_insertion(current, src_r, src_pos, to_pos))
-            
-    #         # move to other routes
-    #         for tr in range(len(current.routes)):
-    #             if tr == src_r: 
-    #                 continue
-    #             for inspos in range(len(current.routes[tr]) + 1):
-    #                 candidates.append(inter_route_insertion(current, src_r, src_pos, tr, inspos))
-    #         # try or-opt small chunk around vid
-    #         L = len(current.routes[src_r])
-    #         if L > 1:
-    #             start = max(0, src_pos - 1)
-    #             end = min(L, start + 2)
-    #             for tr in range(len(current.routes)):
-    #                 for inspos in range(len(current.routes[tr]) + 1):
-    #                     candidates.append(relocate_subroute(current, src_r, start, end, tr, inspos))
-
-    #         # accept first candidate with lower PenT or F
-    #         for cand in candidates:
-    #             total_iters += 1
-    #             cand_eval = evaluate_solution(inst, cand, w1, w2, M)
-    #             if (cand_eval['PenT'] + 1e-9 < current_eval['PenT'] or
-    #                     cand_eval['F'] + 1e-9 < current_val):
-    #                 current, current_eval, current_val = cand, cand_eval, eval_f(cand)
-    #                 improved_flag = True
-    #                 if verbose:
-    #                     print(f"[B-VND focused] accepted -> PenT {cand_eval['PenT']:.3f} F {current_val:.3f}")
-    #                 break
-
-    #         # refresh offending set
-    #         offending = {
-    #             v for r_sched in current_eval.get('route_schedules', [])
-    #             for (v, a, s, d) in r_sched
-    #             if s > inst.visits[v].tw_late + 1e-9
-    #         }
-
-    #         if total_iters >= max_total_iters:
-    #             break
 
     # neighborhood enumerators (same as your code)
     def enum_N1(cur):
@@ -374,22 +170,14 @@ def gvns(inst: Instance,
         max_tt = max(inst.travel_time.values()) if inst.travel_time else 1.0
         M = max_tt * max(1, len(inst.visits)) * 100.0
 
-    current = random_insertion(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed)
-    eval_current = evaluate_solution(inst, current, w1_init, w2_init, M)
+    # current = random_insertion(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed)
+    # eval_current = evaluate_solution(inst, current, w1_init, w2_init, M)
+
+    current, eval_current = paper_initial_fixed(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed, avoid_pair=True)
+    current, eval_current = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
+
     feasibility = is_feasible(inst, current, eval_current)
-    if not feasibility:
-        if verbose:
-            print("[gvns] initial solution infeasible → quick_repair_greedy")
-        current, eval_current = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
-        feasibility = is_feasible(inst, current, eval_current)
-        if verbose:
-            print("[gvns] after quick_repair: f=%.2f PenT=%.2f F=%.2f"
-                  % (eval_current['f'], eval_current['PenT'], eval_current['F']))
-    else:
-        if verbose:
-            print("[gvns] initial solution feasible. f=%.2f" % eval_current['f'])
-
-
+    
     # best overall (may be infeasible)
     best = clone_solution(current)
     eval_best = eval_current

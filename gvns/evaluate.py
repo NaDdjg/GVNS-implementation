@@ -1,5 +1,4 @@
 from .solution import Solution
-from .instance import Instance
 
 def compute_route_schedule(inst, route, speed=1.0):
     """
@@ -205,7 +204,7 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
     return best_sol, best_eval
 
 
-def evaluate_solution(inst: Instance, sol: Solution, w1=0.5, w2=0.1, M=None):
+def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
     """
     evaluate a solution and also return diagnostic timing info.
 
@@ -216,6 +215,9 @@ def evaluate_solution(inst: Instance, sol: Solution, w1=0.5, w2=0.1, M=None):
 
     this is compatible with previously-existing code that expects 'f' and 'F'.
     """
+    from .instance import Instance 
+    assert isinstance(inst, Instance)
+
     try:
         if M is None:
             if getattr(inst, "travel_time", None):

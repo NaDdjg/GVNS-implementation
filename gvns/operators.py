@@ -1,5 +1,4 @@
 from .solution import Solution
-from .instance import Instance
 from .evaluate import evaluate_solution
 from .viz import plot_side_by_side, which_nodes_changed
 import random
@@ -39,12 +38,15 @@ def inter_route_swap(sol: Solution, r1:int, p1:int, r2:int, p2:int) -> Solution:
     new_sol.routes[r2][p2] = a
     return new_sol
 
-def shake_solution(inst: Instance, sol: Solution, p:int, Dp:float=0.3, seed=None, verbose: bool = False, debug_visual: bool = False):
+def shake_solution(inst, sol: Solution, p:int, Dp:float=0.3, seed=None, verbose: bool = False, debug_visual: bool = False):
     """
     apply p randomized moves: with prob Dp pick a swap move (N3/N4), else insertion (N1/N2)
     returns shaken solution and applied moves
     debug_visual -> show small side-by-side plots for each move (limited)
     """
+    from .instance import Instance
+    assert isinstance(inst, Instance)
+
     if seed is not None:
         random.seed(seed)
 
