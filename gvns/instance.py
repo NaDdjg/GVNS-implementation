@@ -167,13 +167,13 @@ def augment_with_synchronization(inst: Instance, sync_fraction=0.2, seed=SEED):
 def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None, avoid_pair: bool = True):
     """
       - for each customer choose a vehicle j = rand()%m
-      - if avoid_pair=True: while partner is already assigned to j, choose another j (so partners are NOT placed in same vehicle)
-      - set VF[cid] = j (important fix)
+      - if avoid_pair=True: while partner is already assigned to j, choose another j 
+      - set VF[cid] = j
     it returns (Solution, eval).
     """
     from .solution import Solution
     from .operators import clone_solution
-    from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible
+    from .evaluate import evaluate_solution
 
     if seed is not None:
         random.seed(seed)
@@ -199,7 +199,6 @@ def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None,
             while partner is not None and VF.get(partner, -1) == j and tries < 5*m:
                 j = random.randrange(m)
                 tries += 1
-        # set VF properly (fix)
         VF[cid] = j
         routes[j].append(cid)
 
