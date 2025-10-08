@@ -9,7 +9,7 @@ from gvns.local_search import paper_initial_fixed
 from gvns.instance import parse_vrptws_txt
 
 def train_dqn_on_instance(instance_path: str, num_episodes: int = 500,
-                          save_path: str = "results/agents_results/dqn.pth",
+                          save_path: str = "models/dqn.pth",
                           device: str = "cpu"):
     inst = parse_vrptws_txt(instance_path)
     init_sol, _ = paper_initial_fixed(inst, num_vehicles_estimate=30, seed=42)
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--instance", type=str, required=True)
     parser.add_argument("--episodes", type=int, default=300)
-    parser.add_argument("--out", type=str, default="results/agents_results/dqn.pth")
+    parser.add_argument("--out", type=str, default="models/dqn.pth")
     parser.add_argument("--device", type=str, default="cpu")
     args = parser.parse_args()
     os.makedirs(os.path.dirname(args.out), exist_ok=True)

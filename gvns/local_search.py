@@ -5,6 +5,7 @@ from .operators import (intra_route_insertion, inter_route_insertion,
                         intra_route_swap, inter_route_swap, clone_solution, shake_solution)
 from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible
 from .viz import plot_side_by_side, which_nodes_changed
+from .utils import NEIGHBORHOODS, extract_state
 import random, time
 
 def b_vnd(inst: Instance,
@@ -163,8 +164,10 @@ def gvns(inst: Instance,
          w1_max=None, w2_max=None,
          update_every=1,
          seed=SEED,
-        num_vehicles_estimate=30,
-         verbose=False):
+         num_vehicles_estimate=30,
+         agent=None,
+         verbose=False
+        ):
     random.seed(seed)
     if M is None:
         max_tt = max(inst.travel_time.values()) if inst.travel_time else 1.0
@@ -197,6 +200,9 @@ def gvns(inst: Instance,
     stagn_penT_iters = 0
     last_penT = eval_current.get('PenT', 0.0)
 
+    neigh_attempts = [0.0] * len(NEIGHBORHOODS)
+    neigh_success = [0.0] * len(NEIGHBORHOODS)
+
     while True:
         iter_no += 1
         if Tmax_seconds is not None and time.time() - t0 > Tmax_seconds: break
@@ -215,9 +221,20 @@ def gvns(inst: Instance,
 
         # 2) local search
         b_max_iters = 20000 * (3 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
+
+        # rl integration
+        if agent is not None:
+            # Build state vector like in BVNDEnv
+            state = extract_state(inst, current, eval_current, iter_no, t0, neigh_success, neigh_attempts)
+            action = agent.select_action(state)
+            chosen_neigh = [NEIGHBORHOODS[action]]
+        else:
+            chosen_neigh = ['N1', 'N2', 'N3', 'N4']
+
+        # bvnd call
         local, _, F_local, _ = b_vnd(
             inst, shaken,
-            neighborhoods=['N1','N2','N3','N4'],
+            neighborhoods=chosen_neigh,
             eval_f=lambda s: evaluate_solution(inst, s, w1, w2, M)['F'],
             w1=w1, w2=w2, M=M,
             max_total_iters=b_max_iters,

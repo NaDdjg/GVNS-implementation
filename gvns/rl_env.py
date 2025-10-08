@@ -8,8 +8,7 @@ from typing import Optional, Tuple, Dict, Any
 from .operators import clone_solution
 from .evaluate import evaluate_solution
 from .local_search import b_vnd
-
-NEIGHBORHOODS = ['N1', 'N2', 'N3', 'N4']
+from .utils import NEIGHBORHOODS, extract_state, obs_dim
 
 class BVNDEnv(gym.Env):
     """
@@ -41,7 +40,7 @@ class BVNDEnv(gym.Env):
         self.neigh_success = [0.0] * len(NEIGHBORHOODS)
 
         # build observation space dynamically (here i use use 14 dims: 3 + 5 + 2 + 4)
-        self._obs_dim = 3 + 5 + 2 + len(NEIGHBORHOODS)
+        self._obs_dim = obs_dim(len(NEIGHBORHOODS))
         low = -np.inf * np.ones(self._obs_dim, dtype=np.float32)
         high = np.inf * np.ones(self._obs_dim, dtype=np.float32)
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
@@ -70,33 +69,11 @@ class BVNDEnv(gym.Env):
 
     # state extraction and feature vector part 
     def _make_state(self) -> np.ndarray:
-        """construct the state vector in deterministic order."""
-        # instance features
-        n = len(self.inst.visits)
-        tw_widths = [v.tw_late - v.tw_early for v in self.inst.visits.values()]
-        avg_tw = float(np.mean(tw_widths)) if len(tw_widths) > 0 else 0.0
-        sync_ratio = len(getattr(self.inst, "sync_pairs", [])) / max(1, n)
-
-        feats = [float(n), float(avg_tw), float(sync_ratio)]
-        # evaluation features
-        evalf = [float(self.eval['F']), float(self.eval['f']),
-                 float(self.eval.get('PenT', 0.0)), float(self.eval.get('PenH', 0.0)),
-                 float(self.eval.get('PenS', 0.0))]
-        
-        # search progress features
-        progress = [float(self.step_count), float(time.time() - self.start_time)]
-        # compute success rates (successes / attempts)
-        succ_rates = []
-
-        # neighborhood history
-        for a, att in zip(self.neigh_success, self.neigh_attempts):
-            if att > 0:
-                succ_rates.append(float(a / att))
-            else:
-                succ_rates.append(0.0)
-        vec = np.array(feats + evalf + progress + succ_rates, dtype=np.float32)
-        assert vec.shape[0] == self._obs_dim
-        return vec
+        return extract_state(
+            self.inst, self.current, self.eval,
+            iter_no=self.step_count, start_time=self.start_time,
+            neigh_success=self.neigh_success, neigh_attempts=self.neigh_attempts
+        )
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> np.ndarray:
         if seed is not None:

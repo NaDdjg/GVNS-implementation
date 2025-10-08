@@ -4,11 +4,11 @@ import argparse
 import numpy as np
 
 from gvns.rl_env import BVNDEnv
-from gvns.agents.qtable_agent import QTableAgent
+from gvns.agents.qlearning_agent import QTableAgent
 from gvns.local_search import paper_initial_fixed
-from gvns.instance import parse_vrptws_txt  # your instance loader
+from gvns.instance import parse_vrptws_txt
 
-def train_on_instance(instance_path: str, num_episodes: int = 500, save_path: str = "results/agents_results/qtable.pkl"):
+def train_on_instance(instance_path: str, num_episodes: int = 500, save_path: str = "models/qlearning.pkl"):
     inst = parse_vrptws_txt(instance_path)
     init_sol, _ = paper_initial_fixed(inst, num_vehicles_estimate=30, seed=42)
 
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--instance", type=str, required=True)
     parser.add_argument("--episodes", type=int, default=200)
-    parser.add_argument("--out", type=str, default="results/agents_results/qtable.pkl")
+    parser.add_argument("--out", type=str, default="models/qlearning.pkl")
     args = parser.parse_args()
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     agent, stats = train_on_instance(args.instance, num_episodes=args.episodes, save_path=args.out)
