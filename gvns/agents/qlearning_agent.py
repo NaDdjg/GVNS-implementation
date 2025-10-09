@@ -7,21 +7,6 @@ from typing import Tuple, Any, Dict
 
 from .base_agent import BaseAgent
 
-# =============================================================================
-# QTableAgent: Tabular Q-learning for neighborhood selection
-# =============================================================================
-#
-# Design notes:
-# - Uses a discretizer to convert BVNDEnv observation vector into a compact state_key tuple.
-# - Q is stored as a dict: Q[state_key] -> numpy array (n_actions,)
-# - Designed for online updates: call select_action(obs) -> env.step(action) -> update(...)
-#
-# Mapping to architecture:
-# - Discretizer -> "Discretizer" box
-# - Q-table -> "Q-Table" box
-# - Epsilon-Greedy -> "Action selection" box
-# =============================================================================
-
 class QTableAgent(BaseAgent):
     def __init__(self,
                  n_actions: int = 4,

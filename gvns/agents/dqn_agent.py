@@ -163,7 +163,7 @@ class DQNAgent(BaseAgent):
         return loss.item()
 
     def update(self, *args, **kwargs):
-        # DQN uses store_transition + train_step called by trainer script
+        # uses store_transition + train_step called by trainer script
         raise NotImplementedError("Use store_transition() and train_step() directly for DQNAgent")
 
     def save(self, path: str):

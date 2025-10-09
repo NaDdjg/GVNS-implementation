@@ -249,6 +249,31 @@ def gvns(inst: Instance,
         eval_current = evaluate_solution(inst, current, w1, w2, M)
         F_current = eval_current['F']
 
+        # RL online update
+        if agent is not None:
+            # Compute reward based on improvement
+            F_before = float(eval_current['F'])
+            F_after = float(eval_local['F'])
+            improved = F_after + 1e-9 < F_before
+            reward = (F_before - F_after) / (1.0 + abs(F_before))
+            if not improved:
+                reward -= 0.01  # small penalty for failed improvement
+
+            # reward -= 0.001 * (time.time() - t0)  
+
+            # extract the next state
+            next_state = extract_state(inst, local, eval_local, iter_no, start_time=t0)
+
+            # update online agent
+            try:
+                agent.update(state, action, reward, next_state, done=False)
+            except Exception as e:
+                print("[RL-Update] warning:", e)
+
+            neigh_attempts[action] += 1
+            if improved:
+                neigh_success[action] += 1
+
         # 4) acceptance rule
         accepted = False
         if F_local_after <= (1.0 + delta) * F_current:

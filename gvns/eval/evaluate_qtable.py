@@ -1,9 +1,9 @@
 from gvns.rl_env import BVNDEnv
 from gvns.local_search import paper_initial_fixed, clone_solution, evaluate_solution
 from gvns.instance import parse_vrptws_txt
-from gvns.agents.qtable_agent import QTableAgent
+from gvns.agents.qlearning_agent import QTableAgent
 
-inst = parse_vrptws_txt(".../C101.txt")
+inst = parse_vrptws_txt("")
 init_sol, _ = paper_initial_fixed(inst, num_vehicles_estimate=30, seed=1)
 env = BVNDEnv(inst, init_sol, Tmax=600, b_vnd_max_iters=200, max_steps=100)
 
@@ -13,7 +13,6 @@ agent.load("results/qtable.pkl")
 obs = env.reset()
 done = False
 while not done:
-    a = agent.select_action(obs)  # deterministic by default (epsilon low at end)
+    a = agent.select_action(obs) 
     obs, reward, done, info = env.step(a)
-    # optionally log info for analysis
 print("Final F:", env.eval['F'])

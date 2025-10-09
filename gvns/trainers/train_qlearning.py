@@ -30,7 +30,7 @@ def train_on_instance(instance_path: str, num_episodes: int = 500, save_path: st
         stats.append(total_reward)
         if (ep+1) % 10 == 0:
             print(f"Episode {ep+1}/{num_episodes}  total_reward={total_reward:.3f}  eps={agent.eps:.4f}")
-    # save q-table
+    # save 
     agent.save(save_path)
     print("Saved Q-table to", save_path)
     return agent, stats
