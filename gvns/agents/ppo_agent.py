@@ -1,5 +1,3 @@
-# gvns/agents/ppo_agent.py
-
 import numpy as np
 import pickle
 from stable_baselines3 import PPO

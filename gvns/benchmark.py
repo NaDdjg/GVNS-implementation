@@ -44,7 +44,8 @@ def benchmark_folder(folder='vrptws',
                      runs_per_instance=5,
                      Tmax_rule=lambda n: None,
                      gvns_kwargs=None,
-                     out_csv='gvns_benchmark_results.csv'):
+                     out_csv='gvns_benchmark_results.csv',
+                     agent_factory=None):
 
     if gvns_kwargs is None:
         gvns_kwargs = {
@@ -54,10 +55,39 @@ def benchmark_folder(folder='vrptws',
             'update_every':1
         }
 
-    results_dir = os.path.join(os.getcwd(), "results")
-    plots_dir = os.path.join(os.getcwd(), "results/plots")
-    traces_dir = os.path.join(os.getcwd(), "results/traces")
+    cwd = os.getcwd()
+    results_dir = os.path.join(cwd, "results")
+    plots_dir = os.path.join(results_dir, "plots")
+    traces_dir = os.path.join(results_dir, "traces")
+    models_dir = os.path.join(cwd, "models")
+
     os.makedirs(results_dir, exist_ok=True)
+    os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(traces_dir, exist_ok=True)
+    os.makedirs(models_dir, exist_ok=True)
+
+    if agent_factory is not None:
+        try:
+            agent_name = getattr(agent_factory, "__name__", None) or "agent"
+            if agent_name in ("<lambda>", "partial", None):
+                # fallback: make a temporary agent to read its class name
+                tmp_agent = agent_factory()
+                agent_name = tmp_agent.__class__.__name__
+                del tmp_agent
+        except Exception:
+            agent_name = "agent"
+    else:
+        agent_name = "classic"
+
+    agent_results_dir = os.path.join(results_dir, "agents", agent_name)
+    agent_plots_dir = os.path.join(agent_results_dir, "plots")
+    agent_traces_dir = os.path.join(agent_results_dir, "traces")
+    agent_models_dir = os.path.join(models_dir, agent_name)
+
+    os.makedirs(agent_results_dir, exist_ok=True)
+    os.makedirs(agent_plots_dir, exist_ok=True)
+    os.makedirs(agent_traces_dir, exist_ok=True)
+    os.makedirs(agent_models_dir, exist_ok=True)
 
     files = sorted(glob.glob(os.path.join(folder, '**', '*.txt'), recursive=True))
     
@@ -81,53 +111,102 @@ def benchmark_folder(folder='vrptws',
         for run_id in range(runs_per_instance):
             seed = SEED + run_id*31
             t0 = time.time()
+
+            agent = agent_factory() if agent_factory is not None else None
             best, history = gvns(
                 inst, 
                 Tmax_seconds=Tmax, 
                 seed=seed, 
                 verbose=False, 
                 num_vehicles_estimate=num_veh_est,
+                agent=agent,
                 **gvns_kwargs)
             t_run = time.time() - t0
 
+            if agent is not None:
+                agent_path = os.path.join(agent_models_dir, f"QTable_{instance_name}_run{run_id}.pkl")
+                os.makedirs(os.path.dirname(agent_path), exist_ok=True)
+                try:
+                    agent.save(agent_path)
+                except Exception as e:
+                    print(f"[WARN] could not save agent model: {e}")
+
+                # also save a CSV summary of the Q-table if available
+                try:
+                    if hasattr(agent, "Q"):
+                        q_items = []
+                        for k, v in agent.Q.items():
+                            row = {"state": repr(k)}
+                            for i, val in enumerate(v):
+                                row[f"q{i}"] = float(val)
+                            q_items.append(row)
+                        if q_items:
+                            qdf = pd.DataFrame(q_items)
+                            qcsv = os.path.join(agent_traces_dir, f"qtable_{instance_name}_run{run_id}.csv")
+                            qdf.to_csv(qcsv, index=False)
+                except Exception as e:
+                    print(f"[WARN] could not dump Q-table CSV: {e}")
+ 
             # inspect convergence
-            times  = [h['time']    for h in history]
-            f_best = [h['f_best']  for h in history]
-            f_hist  = [h['raw_f']  for h in history]
+            times = [h.get('time', None) for h in history]
+            raw_f = [h.get('raw_f', None) for h in history]
+            best_f = [h.get('f_best', None) for h in history]
 
-            print(f"    improvement trace (f over time): {f_hist}")
+            print(f"    improvement trace (raw_f over time): {raw_f}")
 
-            plt.figure()
-            plt.plot(times, f_hist, marker='.')
-            plt.xlabel("time (s)")
-            plt.ylabel("f")
-            plt.title(f"Convergence – {instance_name} run {run_id}")
-            plt.grid(True)
-            plt.savefig(os.path.join(plots_dir,
-                        f"curve_{instance_name}_run{run_id}_f_improvement.png"))
-            plt.close()
+            # plots
+            if agent is not None:
+                try:
+                    plt.figure()
+                    plt.plot(times, raw_f, marker='.', label='raw_f')
+                    plt.plot(times, best_f, marker='.', label='best_f')
+                    plt.xlabel("time (s)")
+                    plt.ylabel("f")
+                    plt.title(f"Convergence – {instance_name} run {run_id} ({agent_name})")
+                    plt.grid(True)
+                    plt.legend()
+                    afname = os.path.join(agent_plots_dir, f"curve_{instance_name}_run{run_id}_combined_{agent_name}.png")
+                    plt.savefig(afname)
+                    plt.close()
+                except Exception as e:
+                    print(f"[WARN] plotting agent-specific failed: {e}")
+            else:
+                try:
+                    plt.figure()
+                    plt.plot(times, raw_f, marker='.', label='raw_f')
+                    plt.plot(times, best_f, marker='.', label='best_f')
+                    plt.xlabel("time (s)")
+                    plt.ylabel("f")
+                    plt.title(f"Convergence – {instance_name} run {run_id}")
+                    plt.grid(True)
+                    plt.legend()
+                    fname = os.path.join(plots_dir, f"curve_{instance_name}_run{run_id}_combined.png")
+                    plt.savefig(fname)
+                    plt.close()
+                except Exception as e:
+                    print(f"[WARN] plotting classic combined failed: {e}")
 
-            plt.figure()
-            plt.plot(times, f_best, marker='.')
-            plt.xlabel("time (s)")
-            plt.ylabel("best f")
-            plt.title(f"Convergence – {instance_name} run {run_id}")
-            plt.grid(True)
-            plt.savefig(os.path.join(plots_dir,
-                        f"curve_{instance_name}_run{run_id}_best_f.png"))
-            plt.close()
-
-            pd.DataFrame(history).to_csv(
-                os.path.join(traces_dir,
-                    f"trace_{instance_name}_run{run_id}.csv"),
-                index=False)
+            if agent is not None:
+                try:
+                    trace_agent_csv = os.path.join(agent_traces_dir, f"trace_{instance_name}_run{run_id}_{agent_name}.csv")
+                    pd.DataFrame(history).to_csv(trace_agent_csv, index=False)
+                except Exception as e:
+                    print(f"[WARN] saving agent trace failed: {e}")
+            else:
+                try:
+                    trace_csv = os.path.join(traces_dir, f"trace_{instance_name}_run{run_id}.csv")
+                    pd.DataFrame(history).to_csv(trace_csv, index=False)
+                except Exception as e:
+                    print(f"[WARN] saving classic trace failed: {e}")
 
             if history:
-                min_F = min(h['F_best'] for h in history)
-                # first time we hit that min
-                best_time = min(h['time'] for h in history if abs(h['F_best']-min_F) < 1e-9)
+                try:
+                    min_F = min(h['F_best'] for h in history)
+                    best_time = min(h['time'] for h in history if abs(h['F_best']-min_F) < 1e-9)
+                except Exception:
+                    best_time = t_run
             else:
-                best_time = t_run  # fallback if history empty
+                best_time = t_run
 
             stats = evaluate_solution(inst, best,
                                       gvns_kwargs.get('w1_init',0.5),

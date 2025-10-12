@@ -1,9 +1,21 @@
 from gvns.benchmark import benchmark_folder, summarize_by_class
+from gvns.agents.qlearning_agent import QTableAgent
+
+def make_agent():
+    return QTableAgent(
+        n_actions=4,
+        alpha=0.1,
+        gamma=0.99,
+        eps_start=0.5,
+        eps_min=0.01,
+        eps_decay=1e-4,
+        seed=42
+    )
 
 df_summary = benchmark_folder(
     folder=r"C:\Users\HP\Documents\GitHub\GVNS-implementation\vrptws",
-    runs_per_instance= 2,
-    Tmax_rule= lambda n: 3000,
+    runs_per_instance= 4,
+    Tmax_rule= lambda n: 5000,
     gvns_kwargs={
         "contmax": 100,
         "p_init": 1,
@@ -18,7 +30,8 @@ df_summary = benchmark_folder(
         "w2_max": None,
         "update_every": 1,
     },
-    out_csv="gvns_per_instance.csv",
+    out_csv="gvns_per_instance_qlearning_online.csv",
+    agent_factory=make_agent
 )
 
 print(df_summary.shape)

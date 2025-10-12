@@ -12,7 +12,7 @@ def train_on_instance(instance_path: str, num_episodes: int = 500, save_path: st
     inst = parse_vrptws_txt(instance_path)
     init_sol, _ = paper_initial_fixed(inst, num_vehicles_estimate=30, seed=42)
 
-    env = BVNDEnv(inst, init_sol, Tmax=300, b_vnd_max_iters=500, max_steps=50)
+    env = BVNDEnv(inst, init_sol, Tmax=500, b_vnd_max_iters=500, max_steps=50)
     agent = QTableAgent(n_actions=4, alpha=0.1, gamma=0.99, eps_start=0.2, eps_min=0.01, eps_decay=1e-4)
 
     stats = []

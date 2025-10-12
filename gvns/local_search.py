@@ -228,8 +228,10 @@ def gvns(inst: Instance,
             state = extract_state(inst, current, eval_current, iter_no, t0, neigh_success, neigh_attempts)
             action = agent.select_action(state)
             chosen_neigh = [NEIGHBORHOODS[action]]
+            action_id = action
         else:
             chosen_neigh = ['N1', 'N2', 'N3', 'N4']
+            action_id = -1
 
         # bvnd call
         local, _, F_local, _ = b_vnd(
@@ -336,8 +338,12 @@ def gvns(inst: Instance,
             'F_current': eval_current_after['F'], 'F_local_after': F_local, 'F_best': F_best,
             'f_best': eval_best['f'],
             'raw_f': raw_f,
-            'w1': w1, 'w2': w2,
-            'PenT': eval_current_after['PenT'], 'PenH': eval_current_after['PenH'],
+            'chosen_action': action_id,
+            'chosen_neigh': chosen_neigh[0] if agent is not None else "classic",
+            'w1': w1, 
+            'w2': w2,
+            'PenT': eval_current_after['PenT'], 
+            'PenH': eval_current_after['PenH'],
             'PenS': eval_current_after['PenS'],
             'sync_mismatch': eval_current_after.get('sync_time_diff', 0.0),
             'accepted': accepted
