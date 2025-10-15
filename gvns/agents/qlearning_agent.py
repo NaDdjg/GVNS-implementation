@@ -26,6 +26,12 @@ class QTableAgent(BaseAgent):
         self.eps_min = eps_min
         self.eps_decay = eps_decay
         self.Q = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.float32))
+
+        # counts needed for ucb 
+        self.counts = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.int32))   # N(s,a)
+        self.state_counts = defaultdict(int)                                          # N(s)
+        self.ucb_c = 1.0 # exploration coeff 
+
         # discretizer_config can hold thresholds/bins; we'll use defaults if None
         self.disc_cfg = discretizer_config or {}
 
@@ -85,6 +91,7 @@ class QTableAgent(BaseAgent):
         return key
 
     # BaseAgent API
+    # epsilon greedy selection
     def select_action(self, obs: np.ndarray) -> int:
         """
         given an observation (raw vector), discretize and pick action via epsilon-greedy.
@@ -95,6 +102,36 @@ class QTableAgent(BaseAgent):
         else:
             a = int(np.argmax(self.Q[key]))
         return a
+
+    # ucb selection
+    # def select_action(self, obs: np.ndarray) -> int:
+    #     """
+    #     Given an observation (raw vector), discretize and pick action via UCB1 with a small random fallback.
+    #     """
+    #     key = self.discretize_obs(obs)
+
+    #     # if state is unseen, pick a random action to initialize counts (encourages coverage)
+    #     if self.state_counts[key] == 0:
+    #         a = random.randrange(self.n_actions)
+    #         return a
+
+    #     # compute UCB scores: Q(s,a) + ucb_c * sqrt( 2 * log(N(s)) / N(s,a) )
+    #     qvals = self.Q[key].astype(np.float64)  
+    #     n_s = max(1, self.state_counts[key])
+    #     # small epsilon to denominators to avoid div-by-zero
+    #     denom = self.counts[key].astype(np.float64) + 1e-9
+
+    #     bonus = np.sqrt(2.0 * np.log(float(n_s)) / denom)
+    #     scores = qvals + (self.ucb_c * bonus)
+
+    #     # choose argmax score
+    #     a = int(np.argmax(scores))
+
+    #     # tiny random fallback to keep some exploration/noise (prevents pathological determinism)
+    #     if random.random() < self.eps_min:
+    #         a = random.randrange(self.n_actions)
+
+    #     return a
 
     def update(self,
                obs: np.ndarray,
@@ -111,6 +148,10 @@ class QTableAgent(BaseAgent):
         q_next_max = 0.0 if done else float(np.max(self.Q[s_next]))
         target = reward + self.gamma * q_next_max
         self.Q[s][action] = q_sa + self.alpha * (target - q_sa)
+        
+        # increment visit counts for UCB bookkeeping
+        self.counts[s][action] += 1
+        self.state_counts[s] += 1
 
         # decay epsilon a bit
         if self.eps > self.eps_min:
