@@ -5,7 +5,7 @@ from .instance import parse_vrptws_txt, Instance, SEED
 from .local_search import gvns
 from .evaluate import evaluate_solution
 from .solution import Solution
-from .utils import infer_vehicle_estimate
+from .utils import infer_vehicle_estimate 
 
 def run_multiple(inst, runs=5, Tmax_seconds=10, **gvns_kwargs):
     results = []
@@ -44,6 +44,7 @@ def benchmark_folder(folder='vrptws',
                      runs_per_instance=5,
                      Tmax_rule=lambda n: None,
                      gvns_kwargs=None,
+                     num_pairs=0,
                      out_csv='gvns_benchmark_results.csv',
                      agent_factory=None):
 
@@ -104,6 +105,12 @@ def benchmark_folder(folder='vrptws',
         print(f"Benchmarking: {fpath} (class={instance_class})")
 
         inst = parse_vrptws_txt(fpath)
+
+        if inst.sync_pairs:
+            print(f"  sync_pairs found in file: {len(inst.sync_pairs)}")
+        else:
+            print(f"  no sync pairs for this instance")
+
         n = len(inst.visits)
         Tmax = Tmax_rule(n)
         per_instance_values = []

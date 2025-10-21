@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple, Dict, List, Optional
 import math, random, os
-from .solution import Solution
-from .evaluate import is_feasible, quick_repair_greedy
-from .operators import clone_solution
+from .utils import pick_vehicle_avoiding_partners
 
 SEED = 42
 
@@ -12,7 +10,6 @@ class Visit:
     id: int
     x: float
     y: float
-    demand: float = 0.0
     service: float = 0.0
     tw_early: float = 0.0
     tw_late: float = 1e9
@@ -27,15 +24,15 @@ class Instance:
     visits: Dict[int, Visit] = field(default_factory=dict)  # id = visit
     travel_time: Dict[Tuple[int,int], float] = field(default_factory=dict)
     horizon: float = 10000.0
-    sync_pairs: List[Tuple[int,int]] = field(default_factory=list) 
+    sync_pairs: List[Tuple[int,int]] = field(default_factory=list)
+    sync_count: int = 0
 
 def euclid_time(a: Visit, b: Visit, speed=1.0):
     dist = math.hypot(a.x - b.x, a.y - b.y)
     return dist / speed
 
 def build_travel_matrix(inst: Instance, speed=1.0):
-    ids = [0] + sorted(inst.visits.keys()) + [max(inst.visits.keys())+1]
-    # instead build from depot + all visits:
+    # build from depot + all visits:
     all_nodes = [inst.depot] + [inst.visits[i] for i in sorted(inst.visits.keys())]
     T = {}
     for i, vi in enumerate(all_nodes):
@@ -43,86 +40,123 @@ def build_travel_matrix(inst: Instance, speed=1.0):
             T[(vi.id, vj.id)] = euclid_time(vi, vj, speed)
     inst.travel_time = T
 
-# # random insertion initial solution generator
-# def random_insertion(inst: Instance, num_vehicles_estimate=5, seed=SEED):
-#     """
-#     simple random insertion:
-#     - start with empty routes number = num_vehicles_estimate
-#     - shuffle visits (excluding depot)
-#     - insert customers one by one: choose a random vehicle that does not violate the "same vehicle" rule for sync pairs
-#     - if no vehicle can accept, create a new one
-#     (i'll keep it like that for now but can be improved with greedy insertion)
-#     """
-#     random.seed(seed)
-#     unassigned = set(inst.visits.keys())
-#     routes = [[] for _ in range(num_vehicles_estimate)]
-#     # map visit -> assigned route index
-#     assigned = {}
-#     def violates_same_route(candidate, route_idx):
-#         # candidate is id , will check if any synced partner of candidate is already in route route_idx
-#         for (a,b) in inst.sync_pairs:
-#             if candidate == a and b in routes[route_idx]:
-#                 return True
-#             if candidate == b and a in routes[route_idx]:
-#                 return True
-#         return False
-
-#     visit_list = list(inst.visits.keys())
-#     random.shuffle(visit_list)
-#     for v in visit_list:
-#         placed = False
-#         vehicle_indices = list(range(len(routes)))
-#         random.shuffle(vehicle_indices)
-#         for ridx in vehicle_indices:
-#             if not violates_same_route(v, ridx):
-#                 routes[ridx].append(v)
-#                 assigned[v] = ridx
-#                 placed = True
-#                 break
-#         if not placed:
-#             # create new route
-#             routes.append([v])
-#             assigned[v] = len(routes)-1
-#     # prune empty routes
-#     routes = [r for r in routes if len(r)>0]
-#     return Solution(routes=routes)
-
+# parser with synch visits 
 def parse_vrptws_txt(path):
     visits = {}
     with open(path, "r") as f:
-        lines = [l.strip() for l in f if l.strip()]  # remove empty lines
+        lines = [l.strip() for l in f if l.strip()]
 
-    # skip first 5 rows = metadata
-    data_lines = lines[5:]
+    # --- Parse metadata ---
+    try:
+        num_vehicles = int(lines[0])
+        num_customers = int(lines[1])
+        horizon = float(lines[2])
+    except Exception as e:
+        print(f"[parse_vrptws_txt] Metadata parsing failed for {path}: {e}")
+        return None
 
-    for l in data_lines:
-        parts = l.strip().split()
-        if len(parts) < 7:
-            continue
+    # Optional sync info (not always present)
+    sync_count = 0
+    sync_ids = []
+    if len(lines) > 3:
         try:
-            vid = int(parts[0])
-            x, y = float(parts[1]), float(parts[2])
-            demand = float(parts[3])
-            ready, due = float(parts[4]), float(parts[5])
-            service = float(parts[6])
-        except ValueError:
+            sync_count = int(lines[3])
+        except:
+            sync_count = 0
+    if sync_count > 0 and len(lines) > 4:
+        sync_ids = [int(x) for x in lines[4].split()]
+
+    # --- Parse visits ---
+    data_start_idx = 5 if sync_count > 0 else 3
+    for l in lines[data_start_idx:]:
+        parts = l.strip().split()
+        if len(parts) < 6:
             continue
+        vid = int(parts[0])
+        x, y = float(parts[1]), float(parts[2])
+        ready, due = float(parts[3]), float(parts[4])
+        service = float(parts[5])
 
         visits[vid] = Visit(
-            id=vid, x=x, y=y, demand=demand,
+            id=vid, x=x, y=y,
             service=service, tw_early=ready, tw_late=due,
             original_id=vid
         )
 
+    # Depot
     dep_id = 0 if 0 in visits else min(visits.keys())
-    depot = visits.pop(dep_id)
+    depot_due = visits[dep_id].tw_late
+
+    depot = visits.pop(dep_id, None)
+    
+    print(f"[parse_vrptws_txt] Depot id: {dep_id}")
+    if depot is None:
+        print(f"[parse_vrptws_txt] No depot found in {path}")
+        return None
 
     inst = Instance(name=os.path.basename(path), depot=depot)
     inst.visits = visits
+    inst.horizon = depot_due
+    inst.sync_count = sync_count
+
+    # --- Add sync IDs info ---
+    if sync_count > 0 and sync_ids:
+        # Build pair list (order matters: Liu pairs are consecutive)
+        inst.sync_pairs = [(sync_ids[i], sync_ids[i+1]) 
+                           for i in range(0, len(sync_ids)-1, 2)]
+    else:
+        inst.sync_pairs = []
+
+    # logs
+    print(f"[parse_vrptws_txt] Parsed {path}: {len(visits)} visits, "
+            f"sync_count={sync_count}, sync_pairs={inst.sync_pairs}", 
+            f"horizon={inst.horizon}")
+
     build_travel_matrix(inst)
     return inst
 
+def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None, avoid_pair: bool = True):
+    """
+      - for each customer choose a vehicle j = rand()%m
+      - if avoid_pair=True: while partner is already assigned to j, choose another j 
+      - set VF[cid] = j
+    it returns (Solution, eval).
+    """
+    from .solution import Solution
+    from .operators import clone_solution
+    from .evaluate import evaluate_solution
 
+    if seed is not None:
+        random.seed(seed)
+
+    customer_ids = sorted(list(inst.visits.keys()))
+    m = max(1, num_vehicles_estimate)
+    VF = {cid: -1 for cid in customer_ids}
+    routes = [[] for _ in range(m)]
+    sync_map = {}
+    for (a,b) in getattr(inst, "sync_pairs", []) or []:
+        sync_map.setdefault(a, set()).add(b)
+        sync_map.setdefault(b, set()).add(a)
+
+    for cid in customer_ids:
+        j = random.randrange(m)
+        if avoid_pair:
+            partner = None
+            partners = sorted(list(sync_map.get(cid, [])))  # maybe empty list
+            j = pick_vehicle_avoiding_partners(VF, m, partners)
+            # while partner already assigned to j, pick another
+            tries = 0
+            while partner is not None and VF.get(partner, -1) == j and tries < 5*m:
+                j = random.randrange(m)
+                tries += 1
+        VF[cid] = j
+        routes[j].append(cid)
+
+    sol = clone_solution(Solution(routes=[list(r) for r in routes]))
+    eval_sol = evaluate_solution(inst, sol, 0.5, 0.1, 1e6)
+    return sol, eval_sol
+
+# ---- only for tests without benchmark 
 def generate_synthetic_vrptw(n_customers=10, tw_window=50, service_mean=10.0):
     """
     create a small random VRPTW instance for testing.
@@ -163,45 +197,4 @@ def augment_with_synchronization(inst: Instance, sync_fraction=0.2, seed=SEED):
         next_id += 1
     build_travel_matrix(inst)
     return inst
-
-def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None, avoid_pair: bool = True):
-    """
-      - for each customer choose a vehicle j = rand()%m
-      - if avoid_pair=True: while partner is already assigned to j, choose another j 
-      - set VF[cid] = j
-    it returns (Solution, eval).
-    """
-    from .solution import Solution
-    from .operators import clone_solution
-    from .evaluate import evaluate_solution
-
-    if seed is not None:
-        random.seed(seed)
-
-    customer_ids = sorted(list(inst.visits.keys()))
-    m = max(1, num_vehicles_estimate)
-    VF = {cid: -1 for cid in customer_ids}
-    routes = [[] for _ in range(m)]
-    sync_map = {}
-    for (a,b) in getattr(inst, "sync_pairs", []) or []:
-        sync_map.setdefault(a, set()).add(b)
-        sync_map.setdefault(b, set()).add(a)
-
-    for cid in customer_ids:
-        j = random.randrange(m)
-        if avoid_pair:
-            partner = None
-            partners = sync_map.get(cid, None)
-            if partners:
-                partner = next(iter(partners))
-            # while partner already assigned to j, pick another
-            tries = 0
-            while partner is not None and VF.get(partner, -1) == j and tries < 5*m:
-                j = random.randrange(m)
-                tries += 1
-        VF[cid] = j
-        routes[j].append(cid)
-
-    sol = clone_solution(Solution(routes=[list(r) for r in routes]))
-    eval_sol = evaluate_solution(inst, sol, 0.5, 0.1, None)
-    return sol, eval_sol
+#----

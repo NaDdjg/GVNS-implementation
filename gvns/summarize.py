@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 RESULTS_FOLDER = "results"
-OUT_SUMMARY = "summary_per_instance_qlearning_egreedy.csv"
+OUT_SUMMARY = "new_summary_per_instance_qlearning.csv"
 
 def summarize_results(results_folder: str = RESULTS_FOLDER) -> pd.DataFrame:
     files = sorted(glob.glob(os.path.join(results_folder, "results_*.csv")))

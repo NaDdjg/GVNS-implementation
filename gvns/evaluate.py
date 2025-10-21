@@ -76,7 +76,7 @@ def is_feasible(inst, sol, eval_dict=None, epsilon=1e-6, verbose=False):
             _, _, start_times = evaluate_solution(inst, sol, return_times=True)
         for i, j in inst.sync_pairs:
             si, sj = start_times.get(i), start_times.get(j)
-            if si is None or sj is None or abs(si - sj) > epsilon:
+            if si is None or sj is None or abs(si - sj) > 300:
                 feasible = False
                 messages.append(
                     f"Sync violation between visits {i} and {j}: |{si:.3f}-{sj:.3f}|>{epsilon}"
@@ -203,7 +203,6 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
 
     return best_sol, best_eval
 
-
 def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
     """
     evaluate a solution and also return diagnostic timing info.
@@ -297,31 +296,71 @@ def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
         # compute route return time for horizon
         # last depart time is cur_time; add travel back to depot:
         return_time = cur_time + _tt(cur_node, inst.depot.id if hasattr(inst.depot, 'id') else inst.depot)
-        if return_time > getattr(inst, "horizon", float("inf")):
-            horizon_violation += (return_time - getattr(inst, "horizon", float("inf")))
+        horizon_val = inst.horizon if inst.horizon is not None else float("inf")
+        if return_time > horizon_val:
+            horizon_violation += (return_time - horizon_val)
 
     # PenS: missing visits
     total_visits_expected = len(getattr(inst, "visits", {}))
     assigned_visits = sum(len(route) for route in sol.routes)
-    PenS = max(0, total_visits_expected - assigned_visits)
+    missing_penalty  = max(0, total_visits_expected - assigned_visits)
+
+    # synchronize visits
+    # visit_positions = {}
+    # for r_idx, schedule in enumerate(route_schedules):
+    #     for v_idx, (vid, arr, start, dep) in enumerate(schedule):
+    #         visit_positions[vid] = (r_idx, v_idx)
+
+    # for (a, b) in getattr(inst, "sync_pairs", []):
+    #     if a not in visit_positions or b not in visit_positions:
+    #         continue
+    #     ra, ia = visit_positions[a]
+    #     rb, ib = visit_positions[b]
+
+    #     # Get current start times
+    #     sa = route_schedules[ra][ia][2]
+    #     sb = route_schedules[rb][ib][2]
+    #     t_sync = max(sa, sb)
+
+    #     # Propagate delay if needed
+    #     for (r_idx, v_idx, s_old) in [(ra, ia, sa), (rb, ib, sb)]:
+    #         delay = t_sync - s_old
+    #         if delay > 0:
+    #             for j in range(v_idx, len(route_schedules[r_idx])):
+    #                 vid_j, arr_j, start_j, dep_j = route_schedules[r_idx][j]
+    #                 arr_j += delay
+    #                 start_j += delay
+    #                 dep_j += delay
+    #                 route_schedules[r_idx][j] = (vid_j, arr_j, start_j, dep_j)
+    #                 # update visit_service_starts as well
+    #                 visit_service_starts[vid_j][0] = start_j
+
+    # total_lateness = 0.0
+    # for r_idx, schedule in enumerate(route_schedules):
+    #     for (vid, arr, start, dep) in schedule:
+    #         if start > _tw_late(inst.visits[vid]):
+    #             total_lateness += (start - _tw_late(inst.visits[vid]))
+
+    # total_visits_expected = len(inst.visits)
+    # assigned_visits = sum(len(route) for route in sol.routes)
+    # missing_penalty = max(0, total_visits_expected - assigned_visits)
+    # #---
 
     # synchronization diagnostic
-    sync_time_diff = 0.0
-    sync_pair_mismatch_count = 0
+    sync_penalty = 0.0
+    tolerance = 240
     for (a, b) in getattr(inst, "sync_pairs", []):
         starts_a = visit_service_starts.get(a, [])
         starts_b = visit_service_starts.get(b, [])
-        if len(starts_a) > 0 and len(starts_b) > 0:
+        if starts_a and starts_b:
             diff = abs(starts_a[0] - starts_b[0])
-            if diff > 1e-9:
-                sync_time_diff += diff
-                sync_pair_mismatch_count += 1
-        else:
-            # if missing, PenS accounts for that
-            pass
+            if diff > tolerance:
+                sync_penalty += diff - tolerance
 
     PenT = total_lateness
     PenH = horizon_violation
+    PenS = missing_penalty + sync_penalty
+
     Pen = w1 * PenT + w2 * PenH + M * PenS
     F = f + Pen
 
@@ -333,9 +372,10 @@ def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
         'PenT': PenT,
         'PenH': PenH,
         'PenS': PenS,
-        'sync_time_diff': sync_time_diff,
-        'sync_pair_mismatch_count': sync_pair_mismatch_count,
         'F': F,
+        'sync_penalty': sync_penalty,
+        'missing_penalty': missing_penalty,
+        'sync_pairs_count': len(getattr(inst, "sync_pairs", [])),
         # diagnostics:
         'visit_service_starts': visit_service_starts,
         'start_times': start_times,

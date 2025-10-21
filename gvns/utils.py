@@ -5,6 +5,75 @@ import numpy as np, time
 NEIGHBORHOODS = ['N1','N2','N3','N4']
 
 # clssic utils 
+
+import random
+from typing import List, Tuple, Optional
+
+def add_sync_pairs(inst, num_sync_visits: int, seed: Optional[int] = None, avoid_duplicate_nodes: bool = True) -> List[Tuple[int,int]]:
+    """
+    Add synchronization pairs to the instance `inst` using `num_sync_visits` visits.
+    Each pair is formed from 2 visits, so the number of pairs = num_sync_visits // 2.
+    - inst.visits is expected to be a mapping (keys = visit ids).
+    - The function sets inst.sync_pairs to a list of unordered tuples (i, j).
+    - By default, we avoid a node appearing in >1 pair (avoid_duplicate_nodes=True).
+    - Returns the list of pairs added.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    visit_ids = sorted(list(getattr(inst, "visits", {}).keys()))
+
+    n = len(visit_ids)
+    if n < 2 or num_sync_visits < 2:
+        inst.sync_pairs = []
+        return []
+
+    # convert visits to pairs
+    num_pairs = num_sync_visits // 2
+    max_pairs_possible = n // 2 if avoid_duplicate_nodes else (n * (n - 1)) // 2
+    if num_pairs > max_pairs_possible:
+        raise ValueError(
+            f"Requested {num_pairs} pairs ({num_sync_visits} visits) "
+            f"but only {max_pairs_possible} pairs possible (n={n})."
+        )
+
+    pairs = []
+    used = set()
+
+    attempts = 0
+    max_attempts = 10_000
+    while len(pairs) < num_pairs and attempts < max_attempts:
+        attempts += 1
+        if avoid_duplicate_nodes:
+            remaining = [v for v in visit_ids if v not in used]
+            if len(remaining) < 2:
+                break
+            a, b = random.sample(remaining, 2)
+        else:
+            a, b = random.sample(visit_ids, 2)
+
+        if a == b:
+            continue
+        if a > b:
+            a, b = b, a
+        if (a, b) in pairs:
+            continue
+
+        pairs.append((a, b))
+        if avoid_duplicate_nodes:
+            used.add(a)
+            used.add(b)
+
+    if len(pairs) < num_pairs:
+        raise RuntimeError(
+            f"Could not generate requested number of sync pairs ({num_pairs}); "
+            f"produced {len(pairs)} after {attempts} attempts."
+        )
+
+    inst.sync_pairs = pairs
+    return pairs
+
+
 def _maybe_get_inst_and_sol_from_args(args, kwargs):
     if len(args) >= 2:
         return args[0], args[1]
@@ -57,11 +126,19 @@ def wrap_with_visualization(func_name, before=True, after=True, debug_visual=Tru
     print(f"[wrap] {func_name} wrapped for visualization (before={before}, after={after})")
     return True
 
-def infer_vehicle_estimate(default=30) -> int:
+def infer_vehicle_estimate(default=60) -> int:
     """
     i'll keep it static following the paper values for now
     """
     return default
+
+def pick_vehicle_avoiding_partners(VF, m, partners):
+    # Return a vehicle index in 0..m-1 that is not assigned to any partner already.
+    available = [v for v in range(m) if all(VF.get(p, -1) != v for p in partners)]
+    if available:
+        return random.choice(available)
+    # if none available, return random (or extend fleet)
+    return random.randrange(m)
 
 # rl utils
 class RunningMeanStd:

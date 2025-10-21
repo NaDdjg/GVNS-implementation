@@ -28,8 +28,16 @@ def b_vnd(inst: Instance,
         eval_f = lambda s: evaluate_solution(inst, s)['F']
 
     n_vis = max(1, len(getattr(inst, "visits", {})))
+    # sensible defaults when not provided
     if sample_limit is None:
-        sample_limit = max(2000, len(inst.visits) * 25)
+        sample_limit = max(5000, len(inst.visits) * 75)
+
+    sample_limit = int(sample_limit)
+
+    if max_total_iters is None:
+        max_total_iters = 10000
+
+    max_total_iters = int(max_total_iters)
     
     current = clone_solution(sol)
     current_eval = evaluate_solution(inst, current, w1, w2, M)
@@ -90,6 +98,7 @@ def b_vnd(inst: Instance,
                     break
                 total_iters += 1
 
+                # compute cand evals
                 cand_eval = evaluate_solution(inst, cand, w1, w2, M)
                 cand_val = cand_eval['F']
 
@@ -122,7 +131,7 @@ def b_vnd(inst: Instance,
     return current, improved_flag, current_val, current_eval
 
 def update_penalties(w1, w2, PenT, PenH, alpha=0.1, w1_min=1e-6, w2_min=1e-6,
-                     w1_max=None, w2_max=None, iter_no=0, update_every=1):
+                     w1_max=None, w2_max=None, iter_no=0, update_every=1, stagn_penT_iters=0):
     """
     multiplicative update like the paper but:
       - alpha smaller by default (0.03),
@@ -130,6 +139,7 @@ def update_penalties(w1, w2, PenT, PenH, alpha=0.1, w1_min=1e-6, w2_min=1e-6,
       - optional update_every: only update weights every k iterations.
     it returns the updated (w1,w2).
     """
+
     if update_every > 1:
         if (iter_no % update_every) != 0:
             return w1, w2
@@ -137,7 +147,6 @@ def update_penalties(w1, w2, PenT, PenH, alpha=0.1, w1_min=1e-6, w2_min=1e-6,
         w1 = w1 * (1.0 + alpha)
     else:
         w1 = max(w1 * (1.0 - alpha), w1_min)
-
     if PenH > 0:
         w2 = w2 * (1.0 + alpha)
     else:
@@ -217,9 +226,10 @@ def gvns(inst: Instance,
                 strong_shake = True
 
         shaken, _ = shake_solution(inst, current, p=p, Dp=Dp,
-                                   seed=random.randint(0, 1_000_000), verbose=verbose, debug_visual=verbose)
+                                   seed=random.randint(0, 1_000_000), verbose=verbose, debug_visual=False)
 
         # 2) local search
+        # b_max_iters = 20000 * (6 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
         b_max_iters = 20000 * (3 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
 
         # rl integration
@@ -241,7 +251,7 @@ def gvns(inst: Instance,
             w1=w1, w2=w2, M=M,
             max_total_iters=b_max_iters,
             verbose=verbose,
-            debug_visual=verbose
+            debug_visual=False
         )
 
         # 3) evaluate
@@ -277,29 +287,28 @@ def gvns(inst: Instance,
                 neigh_success[action] += 1
 
         # 4) acceptance rule
-        accepted = False
         if F_local_after <= (1.0 + delta) * F_current:
             current = local
             eval_current = eval_local
-            accepted = True
             cont = 0
             p = p_init
+            accepted = True
 
-            #  update overall best 
+            # update overall best 
             if eval_current['F'] < F_best:
                 best = clone_solution(local)
                 eval_best = eval_current
                 F_best = eval_current['F']
                 if verbose:
                     print(f"[{iter_no}] New best F={F_best:.3f} at t={time.time()-t0:.2f}s")
-                    print(f"[{iter_no}] New best f={eval_best:.3f} at t={time.time()-t0:.2f}s")
 
-            #  update best feasible 
-            if is_feasible(inst, local, eval_current):
-                if eval_current['f'] < f_best_feasible:
-                    best_feasible = clone_solution(local)
-                    f_best_feasible = eval_current['f']
-        else:
+            # update best feasible if applicable
+            if is_feasible(inst, local, eval_current) and eval_current['f'] < f_best_feasible:
+                best_feasible = clone_solution(local)
+                f_best_feasible = eval_current['f']
+
+        # if not accepted, increment counters 
+        if not accepted:
             cont += 1
             p = min(p + 1, p_max)
 
@@ -307,7 +316,8 @@ def gvns(inst: Instance,
         w1, w2 = update_penalties(
             w1, w2, eval_current['PenT'], eval_current['PenH'],
             alpha=alpha, w1_max=w1_max, w2_max=w2_max,
-            iter_no=iter_no, update_every=update_every
+            iter_no=iter_no, update_every=update_every, 
+            stagn_penT_iters =stagn_penT_iters
         )
 
         # check PenT stagnation

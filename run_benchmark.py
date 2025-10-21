@@ -6,17 +6,17 @@ def make_agent():
         n_actions=4,
         alpha=0.1,
         gamma=0.99,
-        eps_start=0.2,
+        eps_start=0.5,
         eps_min=0.01,
         eps_decay=1e-4,
         seed=42
     )
 
 df_summary = benchmark_folder(
-    folder=r"C:\Users\HP\Documents\GitHub\GVNS-implementation\vrptws",
-    runs_per_instance= 1,
-    Tmax_rule= lambda n: 5000,
-    gvns_kwargs={
+    folder=r"C:\Users\HP\Documents\GitHub\GVNS-implementation\ALNS instances\test",
+    runs_per_instance = 1,
+    Tmax_rule = lambda n: 5000,
+    gvns_kwargs ={
         "contmax": 100,
         "p_init": 1,
         "p_max": 10,
@@ -31,7 +31,7 @@ df_summary = benchmark_folder(
         "update_every": 1,
     },
     out_csv="gvns_per_instance_qlearning_online.csv",
-    agent_factory=make_agent
+    agent_factory = None
 )
 
 print(df_summary.shape)
