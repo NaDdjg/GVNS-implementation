@@ -1,0 +1,16 @@
+the metadata of the instances' files are :
+    1. number of vehicles
+    2. number of customers 
+    3. horizon : due of the depot
+    4. number of synchronized customers: should have a pair of vehicles (2 vehicles) that arrive at the same time with respect to the tw starting time
+    5. IDs of the customers that should be synchronized
+    
+the following example is the C106_100_5.txt
+    1. number of vehicles: 30			
+    2. number of customers in the instance: 100
+    3. horizon: 1236
+    4. number of synchronized visits: 5
+    5. IDs of the synchronized customers: 18 30 61 76 88
+
+
+the "test" folder is used just for tests, i copy the instances i want to run the algorithm/model on in it to make it easier 

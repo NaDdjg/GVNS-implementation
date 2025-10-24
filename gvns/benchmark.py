@@ -7,6 +7,7 @@ from .evaluate import evaluate_solution
 from .solution import Solution
 from .utils import infer_vehicle_estimate 
 
+# this is to run tests when i generated the instances (not the benchmark)
 def run_multiple(inst, runs=5, Tmax_seconds=10, **gvns_kwargs):
     results = []
     for i in range(runs):
@@ -260,6 +261,7 @@ def benchmark_folder(folder='vrptws',
     print("Benchmark finished. Results saved to", out_csv)
     return dfres
 
+# summarize results by class
 def get_instance_class(instance_name):
     base = instance_name.upper().replace('.TXT','')
     if base.startswith('RC'):

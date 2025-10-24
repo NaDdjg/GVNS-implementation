@@ -3,7 +3,7 @@ from .solution import Solution
 from .instance import Instance, paper_initial_fixed, SEED
 from .operators import (intra_route_insertion, inter_route_insertion,
                         intra_route_swap, inter_route_swap, clone_solution, shake_solution)
-from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible
+from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible, repair_missing_and_sync
 from .viz import plot_side_by_side, which_nodes_changed
 from .utils import NEIGHBORHOODS, extract_state
 import random, time
@@ -25,7 +25,7 @@ def b_vnd(inst: Instance,
     """
 
     if eval_f is None:
-        eval_f = lambda s: evaluate_solution(inst, s)['F']
+        eval_f = lambda s: evaluate_solution(inst, s, w1, w2, M)['F']
 
     n_vis = max(1, len(getattr(inst, "visits", {})))
     # sensible defaults when not provided
@@ -187,6 +187,16 @@ def gvns(inst: Instance,
 
     current, eval_current = paper_initial_fixed(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed, avoid_pair=True)
     current, eval_current = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
+    if eval_current['PenS'] > 0:
+        current, eval_current = repair_missing_and_sync(inst, current, verbose=True)
+
+    print(f"[init] After repair_missing_and_sync: PenS={eval_current['PenS']}, sync_pairs={getattr(inst, 'sync_pairs', [])}")
+    missing = set(inst.visits.keys()) - {v for r in current.routes for v in r}
+    print(f"[init] Missing visits: {missing}")
+    for (i, j) in getattr(inst, "sync_pairs", []):
+        si = eval_current.get("start_times", {}).get(i)
+        sj = eval_current.get("start_times", {}).get(j)
+        print(f"   Pair ({i},{j}) start_times: {si}, {sj}")
 
     feasibility = is_feasible(inst, current, eval_current)
     
@@ -287,6 +297,7 @@ def gvns(inst: Instance,
                 neigh_success[action] += 1
 
         # 4) acceptance rule
+        accepted = False 
         if F_local_after <= (1.0 + delta) * F_current:
             current = local
             eval_current = eval_local
@@ -322,21 +333,31 @@ def gvns(inst: Instance,
 
         # check PenT stagnation
         curPenT = eval_current.get('PenT', 0.0)
-        if abs(curPenT - last_penT) < 1e-9:
+        if abs(curPenT - last_penT) < 1e-6:
             stagn_penT_iters += 1
         else:
             stagn_penT_iters = 0
         last_penT = curPenT
 
         # if PenT persists and stagnated, try a quick_repair_greedy attempt to aggressively remove offending nodes
-        if stagn_penT_iters >= 8 and curPenT > 1e-9:
+        if stagn_penT_iters >= 8 or eval_current.get('PenS', 0.0) > 1e-9:
             if verbose:
-                print("[gvns] PenT stagnation detected -> trying quick_repair_greedy aggressive pass")
+                print("[gvns] Repair triggered: stagnation or PenS>0 detected")
+
+            # 1try quick repair first (time-window / horizon / general structure)
             try_repair_sol, try_repair_eval = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
-            if try_repair_eval['PenT'] + 1e-9 < curPenT or try_repair_eval['F'] + 1e-9 < F_current:
-                current, eval_current = try_repair_sol, try_repair_eval
+
+            # handle missing/sync issues explicitly
+            fix_sol, fix_eval = repair_missing_and_sync(inst, try_repair_sol, verbose=verbose)
+
+            # accept if improvement or better feasibility
+            if (fix_eval['F'] + 1e-9 < eval_current['F'] or
+                (fix_eval['PenS'] + fix_eval['PenT'] + fix_eval['PenH']) <
+                (eval_current['PenS'] + eval_current['PenT'] + eval_current['PenH'])):
+                current, eval_current = fix_sol, fix_eval
+                stagn_penT_iters = 0  # reset stagnation counter
                 if verbose:
-                    print("[gvns] quick_repair improved PenT/F - accepted")
+                    print("[gvns] repair improved penalties or cost -> accepted")
 
         # 6) Re-evaluate current with updated weights for logging/history
         eval_current_after = evaluate_solution(inst, current, w1, w2, M)
@@ -345,7 +366,7 @@ def gvns(inst: Instance,
 
         history.append({
             'iter': iter_no, 'time': time.time() - t0,
-            'F_current': eval_current_after['F'], 'F_local_after': F_local, 'F_best': F_best,
+            'F_current': eval_current_after['F'], 'F_local_after': F_local_after, 'F_best': F_best,
             'f_best': eval_best['f'],
             'raw_f': raw_f,
             'chosen_action': action_id,

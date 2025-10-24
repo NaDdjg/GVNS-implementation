@@ -86,10 +86,7 @@ def parse_vrptws_txt(path):
     # Depot
     dep_id = 0 if 0 in visits else min(visits.keys())
     depot_due = visits[dep_id].tw_late
-
     depot = visits.pop(dep_id, None)
-    
-    print(f"[parse_vrptws_txt] Depot id: {dep_id}")
     if depot is None:
         print(f"[parse_vrptws_txt] No depot found in {path}")
         return None
@@ -99,20 +96,37 @@ def parse_vrptws_txt(path):
     inst.horizon = depot_due
     inst.sync_count = sync_count
 
-    # --- Add sync IDs info ---
+    # -Synchronized visits
+    inst.sync_pairs = []
     if sync_count > 0 and sync_ids:
-        # Build pair list (order matters: Liu pairs are consecutive)
-        inst.sync_pairs = [(sync_ids[i], sync_ids[i+1]) 
-                           for i in range(0, len(sync_ids)-1, 2)]
-    else:
-        inst.sync_pairs = []
+        print(f"[parse_vrptws_txt] Duplicating {len(sync_ids)} synchronized visits...")
+        next_id = max(visits.keys()) + 1
+        for sid in sync_ids:
+            if sid not in visits:
+                print(f"  [warning] Sync id {sid} not found among visits, skipping.")
+                continue
 
+            orig = visits[sid]
+            newv = Visit(
+                id=next_id,
+                x=orig.x,
+                y=orig.y,
+                service=orig.service,
+                tw_early=orig.tw_early,
+                tw_late=orig.tw_late,
+                original_id=sid
+            )
+            visits[next_id] = newv
+            inst.sync_pairs.append((sid, next_id))
+            next_id += 1
+        print(f"  [sync] Created {len(inst.sync_pairs)} duplicate pairs: {inst.sync_pairs}")
+
+    build_travel_matrix(inst)
     # logs
     print(f"[parse_vrptws_txt] Parsed {path}: {len(visits)} visits, "
             f"sync_count={sync_count}, sync_pairs={inst.sync_pairs}", 
             f"horizon={inst.horizon}")
 
-    build_travel_matrix(inst)
     return inst
 
 def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None, avoid_pair: bool = True):
@@ -138,19 +152,32 @@ def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None,
         sync_map.setdefault(a, set()).add(b)
         sync_map.setdefault(b, set()).add(a)
 
+
     for cid in customer_ids:
-        j = random.randrange(m)
-        if avoid_pair:
-            partner = None
-            partners = sorted(list(sync_map.get(cid, [])))  # maybe empty list
-            j = pick_vehicle_avoiding_partners(VF, m, partners)
-            # while partner already assigned to j, pick another
-            tries = 0
-            while partner is not None and VF.get(partner, -1) == j and tries < 5*m:
-                j = random.randrange(m)
-                tries += 1
-        VF[cid] = j
-        routes[j].append(cid)
+        # attempt to pick a vehicle that does not already hold the partner(s)
+        if avoid_pair and cid in sync_map:
+            partners = list(sync_map[cid])
+            # pick a vehicle uniform randomly but avoid vehicles that already have any partner
+            candidate_vehicles = list(range(m))
+            random.shuffle(candidate_vehicles)
+            chosen = None
+            for j in candidate_vehicles:
+                bad = False
+                for p in partners:
+                    if VF.get(p, -1) == j:
+                        bad = True
+                        break
+                if not bad:
+                    chosen = j
+                    break
+            if chosen is None:
+                # fallback: random
+                chosen = random.randrange(m)
+        else:
+            chosen = random.randrange(m)
+
+        VF[cid] = chosen
+        routes[chosen].append(cid)
 
     sol = clone_solution(Solution(routes=[list(r) for r in routes]))
     eval_sol = evaluate_solution(inst, sol, 0.5, 0.1, 1e6)
