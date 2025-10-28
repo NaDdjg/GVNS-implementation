@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Tuple, Dict, List, Optional
 import math, random, os
-from .utils import pick_vehicle_avoiding_partners
+from .utils import set_vehicle_estimate
 
-SEED = 42
+SEED = 32
 
 @dataclass
 class Visit:
@@ -54,7 +54,9 @@ def parse_vrptws_txt(path):
     except Exception as e:
         print(f"[parse_vrptws_txt] Metadata parsing failed for {path}: {e}")
         return None
-
+    
+    set_vehicle_estimate(num_vehicles)
+    
     # Optional sync info (not always present)
     sync_count = 0
     sync_ids = []
@@ -130,12 +132,6 @@ def parse_vrptws_txt(path):
     return inst
 
 def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None, avoid_pair: bool = True):
-    """
-      - for each customer choose a vehicle j = rand()%m
-      - if avoid_pair=True: while partner is already assigned to j, choose another j 
-      - set VF[cid] = j
-    it returns (Solution, eval).
-    """
     from .solution import Solution
     from .operators import clone_solution
     from .evaluate import evaluate_solution
@@ -147,31 +143,47 @@ def paper_initial_fixed(inst, num_vehicles_estimate: int = 30, seed: int = None,
     m = max(1, num_vehicles_estimate)
     VF = {cid: -1 for cid in customer_ids}
     routes = [[] for _ in range(m)]
+
+    # Build partner map from pairs (since we create duplicates each pair is (orig,new))
     sync_map = {}
     for (a,b) in getattr(inst, "sync_pairs", []) or []:
         sync_map.setdefault(a, set()).add(b)
         sync_map.setdefault(b, set()).add(a)
 
+    assigned = set()
 
-    for cid in customer_ids:
-        # attempt to pick a vehicle that does not already hold the partner(s)
+    # First: handle sync pairs explicitly so we ensure partners go to different vehicles
+    for (a,b) in getattr(inst, "sync_pairs", []) or []:
+        # skip if already assigned (could happen if same id appears duplicated)
+        if a in assigned or b in assigned:
+            continue
+        # choose two distinct vehicles
+        v1 = random.randrange(m)
+        # choose v2 different from v1 (try a few times to randomize)
+        candidates = list(range(m))
+        random.shuffle(candidates)
+        v2 = next((x for x in candidates if x != v1), None)
+        if v2 is None:
+            v2 = (v1 + 1) % m
+        VF[a] = v1
+        VF[b] = v2
+        routes[v1].append(a)
+        routes[v2].append(b)
+        assigned.add(a); assigned.add(b)
+
+    # Then assign the rest of customers
+    remaining = [cid for cid in customer_ids if cid not in assigned]
+    for cid in remaining:
         if avoid_pair and cid in sync_map:
+            # avoid vehicles that already have any partner of cid
             partners = list(sync_map[cid])
-            # pick a vehicle uniform randomly but avoid vehicles that already have any partner
-            candidate_vehicles = list(range(m))
-            random.shuffle(candidate_vehicles)
-            chosen = None
-            for j in candidate_vehicles:
-                bad = False
-                for p in partners:
-                    if VF.get(p, -1) == j:
-                        bad = True
-                        break
-                if not bad:
-                    chosen = j
-                    break
-            if chosen is None:
-                # fallback: random
+            # gather vehicles used by partners
+            forbidden = {VF[p] for p in partners if VF.get(p, -1) != -1}
+            # pick a random vehicle not in forbidden if possible
+            candidates = [j for j in range(m) if j not in forbidden]
+            if candidates:
+                chosen = random.choice(candidates)
+            else:
                 chosen = random.randrange(m)
         else:
             chosen = random.randrange(m)

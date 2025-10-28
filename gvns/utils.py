@@ -3,6 +3,7 @@ from .viz import visualize_solution
 import numpy as np, time
 
 NEIGHBORHOODS = ['N1','N2','N3','N4']
+_vehicle_estimate = 60
 
 # clssic utils 
 
@@ -62,11 +63,17 @@ def wrap_with_visualization(func_name, before=True, after=True, debug_visual=Tru
     print(f"[wrap] {func_name} wrapped for visualization (before={before}, after={after})")
     return True
 
+def set_vehicle_estimate(n: int):
+    """set the current estimated number of vehicles."""
+    global _vehicle_estimate
+    _vehicle_estimate = n
+
 def infer_vehicle_estimate(default=60) -> int:
     """
-    i'll keep it static following the paper values for now
+    Return the current vehicle estimate.
+    If it was never set, return the default value.
     """
-    return default
+    return _vehicle_estimate if _vehicle_estimate is not None else default
 
 def pick_vehicle_avoiding_partners(VF, m, partners):
     # Return a vehicle index in 0..m-1 that is not assigned to any partner already.

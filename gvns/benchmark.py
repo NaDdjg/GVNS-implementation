@@ -45,7 +45,6 @@ def benchmark_folder(folder='vrptws',
                      runs_per_instance=5,
                      Tmax_rule=lambda n: None,
                      gvns_kwargs=None,
-                     num_pairs=0,
                      out_csv='gvns_benchmark_results.csv',
                      agent_factory=None):
 
@@ -101,11 +100,11 @@ def benchmark_folder(folder='vrptws',
     for fpath in files:
         instance_name = os.path.basename(fpath)
         instance_class = os.path.basename(os.path.dirname(fpath))
-        num_veh_est = infer_vehicle_estimate()
 
         print(f"Benchmarking: {fpath} (class={instance_class})")
 
         inst = parse_vrptws_txt(fpath)
+        num_veh_est = infer_vehicle_estimate()
 
         if inst.sync_pairs:
             print(f"  sync_pairs found in file: {len(inst.sync_pairs)}")
@@ -119,6 +118,8 @@ def benchmark_folder(folder='vrptws',
         for run_id in range(runs_per_instance):
             seed = SEED + run_id*31
             t0 = time.time()
+
+            print(f"number of vehicles: {num_veh_est}")
 
             agent = agent_factory() if agent_factory is not None else None
             best, history = gvns(

@@ -14,8 +14,8 @@ def make_agent():
 
 df_summary = benchmark_folder(
     folder=r"C:\Users\HP\Documents\GitHub\GVNS-implementation\ALNS instances\test",
-    runs_per_instance = 1,
-    Tmax_rule = lambda n: 10000,
+    runs_per_instance = 5,
+    Tmax_rule = lambda n: 5000,
     gvns_kwargs ={
         "contmax": 100,
         "p_init": 1,

@@ -1,13 +1,8 @@
-C106_100_10					
-									
-Number of caregivers: 30			
-
-The synchronized service customers are 18th, 26th, 30th, 31th, 61th, 74th, 76th, 78th, 88th and 95th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+30			
+100
+1236
+5
+18 26 30 31 61 74 76 78 88 95
 0	40	50	0	1236	0
 1	45	68	890	989	90
 2	45	70	816	879	90

@@ -212,65 +212,27 @@ def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
 
     return best_sol, best_eval
 
-def repair_missing_and_sync(inst, sol, verbose=False, snap_tol=1e-3):
+def repair_missing_and_sync(inst, sol, verbose=False, sync_tol=1e-4):
     """
-    Repair missing visits and synchronization violations.
-
-    Behavior:
-      - Reinserts missing visits (best insertion into existing routes).
-      - For each sync pair (i,j) with different start times, make them consecutive
-        (merge routes or reorder) and align temporally by delaying the earlier
-        visit to the later start time (target = max(si, sj)).
-      - Only commit time-window changes when the candidate *improves* PenS, or
-        keeps PenS equal and improves F.
-      - After accepting a candidate, run quick_repair_greedy to heal TW violations.
+    Repair missing visits and synchronization violations WITHOUT changing instance TWs.
+    - Reinsert missing visits (best insertion).
+    - For each sync pair (i,j):
+        * if both are in the same route -> move one to a different route (or new route)
+        * if in different routes and start times differ > sync_tol -> try local reinsertion
+          (delay the earlier visit by moving it later in its route) or move the later earlier.
+    Accept a candidate only if it reduces PenS or keeps PenS and reduces F.
     """
     from .operators import clone_solution
     from .evaluate import evaluate_solution, quick_repair_greedy
 
     repaired = clone_solution(sol)
 
-    # helper to save/restore original TWs (so we can rollback on rejection)
-    original_tws = {}  # vid -> (orig_early, orig_late)
-    def save_tw(vid):
-        if vid not in original_tws:
-            v = inst.visits[vid]
-            original_tws[vid] = (getattr(v, "tw_early", 0.0), getattr(v, "tw_late", float("inf")))
-    def restore_saved_tws():
-        for vid, (e, l) in original_tws.items():
-            v = inst.visits.get(vid)
-            if v is not None:
-                v.tw_early = e
-                v.tw_late = l
-        original_tws.clear()
-    def clear_saved_tws_commit():
-        # candidate accepted -> commit changes (forget originals)
-        original_tws.clear()
-
-    # small helpers for travel/service (robust)
-    def _svc(vid):
-        v = inst.visits[vid]
-        return getattr(v, "service", getattr(v, "service_time", 0.0))
-    def _tt(a, b):
-        # try dict keyed by (a,b) or callable
-        try:
-            if hasattr(inst, "travel_time"):
-                if isinstance(inst.travel_time, dict):
-                    # keys may be ints or visit ids; assume a,b are ids (int)
-                    return inst.travel_time.get((a, b), inst.travel_time.get((getattr(a,'id',a), getattr(b,'id',b)), 0.0))
-                elif callable(inst.travel_time):
-                    return inst.travel_time(a, b)
-        except Exception:
-            pass
-        return 0.0
-
-    # ---- 1) Fix missing visits by best insertion into existing routes ----
+    # ---- 1) fix missing visits by best insertion ----
     planned = {v for r in repaired.routes for v in r}
     missing = set(inst.visits.keys()) - planned
     for vid in missing:
         best_F = float("inf")
         best_sol = None
-        # try insert into every route and every position
         for ridx, route in enumerate(repaired.routes):
             for pos in range(len(route) + 1):
                 cand = clone_solution(repaired)
@@ -278,137 +240,206 @@ def repair_missing_and_sync(inst, sol, verbose=False, snap_tol=1e-3):
                 ev = evaluate_solution(inst, cand)
                 if ev["F"] < best_F:
                     best_F, best_sol = ev["F"], cand
-        # also allow creating a new route if nothing found
-        if best_sol is None:
-            cand = clone_solution(repaired)
-            cand.routes.append([vid])
-            best_sol = cand
-        repaired = best_sol
-        if verbose:
-            print(f"[repair] reinserted missing visit {vid}")
+        # try new route
+        cand = clone_solution(repaired)
+        cand.routes.append([vid])
+        ev = evaluate_solution(inst, cand)
+        if ev["F"] < best_F:
+            best_F, best_sol = ev["F"], cand
+        if best_sol is not None:
+            repaired = best_sol
+            if verbose:
+                print(f"[repair] reinserted missing visit {vid}")
 
-    # ---- 2) Fix synchronization ----
+    # ---- 2) handle sync pairs ----
     eval_rep = evaluate_solution(inst, repaired)
     sync_pairs = getattr(inst, "sync_pairs", []) or []
-    for (i, j) in sync_pairs:
-        si = eval_rep.get("start_times", {}).get(i)
-        sj = eval_rep.get("start_times", {}).get(j)
-        if si is None or sj is None:
-            # missing visit(s) will be penalized as PenS; nothing to do here
+
+    for (a, b) in sync_pairs:
+        start_times = eval_rep.get("start_times", {})
+        sa = start_times.get(a)
+        sb = start_times.get(b)
+        if sa is None or sb is None:
+            # missing will be penalized by PenS: nothing to do
             if verbose:
-                print(f"[repair] pair ({i},{j}) has missing start(s) -> skipped")
+                print(f"[repair] pair ({a},{b}) missing start -> skipped")
             continue
 
-        if abs(si - sj) <= 1e-6:
-            # already aligned (within tiny tolerance)
+        diff = abs(sa - sb)
+        if diff <= sync_tol:
+            # already fine
             continue
 
-        # identify early, late and their current routes
-        if si < sj:
-            early, late = i, j
-        else:
-            early, late = j, i
+        # locate their routes
+        rai = rbi = None
+        for idx, r in enumerate(repaired.routes):
+            if a in r:
+                rai = idx
+            if b in r:
+                rbi = idx
 
-        ri = rj = None
-        for r_idx, r in enumerate(repaired.routes):
-            if early in r:
-                ri = r_idx
-            if late in r:
-                rj = r_idx
-        if ri is None or rj is None:
-            if verbose:
-                print(f"[repair] couldn't locate routes for ({early},{late}), skipping")
-            continue
+        # if both in same route -> must separate them (they should belong to different vehicles)
+        if rai is not None and rbi is not None and rai == rbi:
+            # attempt to move one of them to a different route (best move)
+            moved = False
+            best_candidate = None
+            best_val = float("inf")
+            for to_idx in range(len(repaired.routes)):
+                if to_idx == rai:
+                    continue
+                # try move a to route to_idx (every pos)
+                base = clone_solution(repaired)
+                # remove a (and b might still be there)
+                for rr in base.routes:
+                    if a in rr:
+                        rr.remove(a)
+                for pos in range(len(base.routes[to_idx]) + 1):
+                    cand = clone_solution(base)
+                    cand.routes[to_idx].insert(pos, a)
+                    ev = evaluate_solution(inst, cand)
+                    if ev["F"] < best_val:
+                        best_val = ev["F"]
+                        best_candidate = (cand, ev)
+                # try move b instead
+                base = clone_solution(repaired)
+                for rr in base.routes:
+                    if b in rr:
+                        rr.remove(b)
+                for pos in range(len(base.routes[to_idx]) + 1):
+                    cand = clone_solution(base)
+                    cand.routes[to_idx].insert(pos, b)
+                    ev = evaluate_solution(inst, cand)
+                    if ev["F"] < best_val:
+                        best_val = ev["F"]
+                        best_candidate = (cand, ev)
 
-        # candidate solution: place late right after early (merge or reorder)
-        cand = clone_solution(repaired)
-        if ri != rj:
-            # remove late from its route and put it after early
-            for r in cand.routes:
-                if late in r:
-                    r.remove(late)
-            pos = cand.routes[ri].index(early) + 1
-            cand.routes[ri].insert(pos, late)
-            # remove empty routes
-            cand.routes = [r for r in cand.routes if len(r) > 0]
-            if verbose:
-                print(f"[repair] merged routes for pair ({early},{late})")
-        else:
-            # same route: make consecutive if not already
-            r_e = cand.routes[ri]
-            idx_e = r_e.index(early)
-            idx_l = r_e.index(late)
-            if abs(idx_e - idx_l) > 1:
-                r_e.remove(late)
-                r_e.insert(idx_e + 1, late)
+            # also consider creating a new route for a or b
+            base = clone_solution(repaired)
+            for rr in base.routes:
+                if a in rr:
+                    rr.remove(a)
+            cand = clone_solution(base)
+            cand.routes.append([a])
+            ev = evaluate_solution(inst, cand)
+            if ev["F"] < best_val:
+                best_val = ev["F"]
+                best_candidate = (cand, ev)
+
+            base = clone_solution(repaired)
+            for rr in base.routes:
+                if b in rr:
+                    rr.remove(b)
+            cand = clone_solution(base)
+            cand.routes.append([b])
+            ev = evaluate_solution(inst, cand)
+            if ev["F"] < best_val:
+                best_val = ev["F"]
+                best_candidate = (cand, ev)
+
+            if best_candidate is not None:
+                cand, ev = best_candidate
+                # accept if decreases PenS or same PenS and decreases F
+                if ev["PenS"] < eval_rep["PenS"] or (ev["PenS"] == eval_rep["PenS"] and ev["F"] + 1e-9 < eval_rep["F"]):
+                    repaired, eval_rep = cand, ev
+                    if verbose:
+                        print(f"[repair] separated pair ({a},{b}) (same-route) -> PenS {ev['PenS']}, F {ev['F']:.3f}")
+                    # attempt quick repair for TW issues
+                    # repaired, eval_rep = quick_repair_greedy(inst, repaired, max_tries=200, verbose=verbose)
+                    moved = True
+
+            if not moved:
                 if verbose:
-                    print(f"[repair] reordered pair ({early},{late}) to be consecutive")
-
-        # evaluate candidate ordering to get up-to-date start times
-        ev_before = evaluate_solution(inst, cand)
-        si2 = ev_before["start_times"].get(early)
-        sj2 = ev_before["start_times"].get(late)
-        if si2 is None or sj2 is None:
-            if verbose:
-                print(f"[repair] candidate ordering for ({early},{late}) has missing times -> skip")
+                    print(f"[repair] couldn't separate pair ({a},{b}) without worsening F -> left as-is")
             continue
 
-        # Save TWs of involved visits so we can rollback if we reject
-        save_tw(early)
-        save_tw(late)
+        # if in different routes, attempt to align by moving the earlier visit later in its route
+        # pick early and late
+        if sa < sb:
+            early, late = a, b
+            r_early = rai
+        else:
+            early, late = b, a
+            r_early = rbi
 
-        # Liu-style: align earlier to the later start (use max)
-        target_time = max(si2, sj2)
-        # Delay the earlier visit to the target time (force early start == target)
-        inst.visits[early].tw_early = target_time
-        inst.visits[early].tw_late = target_time
-        # Make sure 'late' permits a start at target_time (expand if needed)
-        inst.visits[late].tw_early = min(getattr(inst.visits[late], "tw_early", 0.0), target_time)
-        inst.visits[late].tw_late = max(getattr(inst.visits[late], "tw_late", float("inf")), target_time)
-        if verbose:
-            print(f"[repair] aligned ({early},{late}) -> delayed earlier to {target_time:.3f}")
+        # try to move 'early' later inside its route (all possible insertion positions after current idx)
+        best_candidate = None
+        best_val = float("inf")
+        if r_early is not None:
+            route = repaired.routes[r_early]
+            idx_early = route.index(early)
+            # try moving early to later positions inside the same route
+            for new_pos in range(idx_early + 1, len(route)):
+                cand = clone_solution(repaired)
+                rr = cand.routes[r_early]
+                rr.remove(early)
+                rr.insert(new_pos, early)
+                ev = evaluate_solution(inst, cand)
+                # compute new sync penalty count
+                if ev["F"] < best_val:
+                    best_val = ev["F"]
+                    best_candidate = (cand, ev)
 
-        # Evaluate candidate after committing temporary TW changes
-        ev = evaluate_solution(inst, cand)
+            # also try moving 'early' to another route (or new route) to increase its start time via travel/wait
+            for to_idx in range(len(repaired.routes)):
+                if to_idx == r_early:
+                    continue
+                for pos in range(len(repaired.routes[to_idx]) + 1):
+                    cand = clone_solution(repaired)
+                    # remove early
+                    for rr in cand.routes:
+                        if early in rr:
+                            rr.remove(early)
+                    cand.routes[to_idx].insert(pos, early)
+                    ev = evaluate_solution(inst, cand)
+                    if ev["F"] < best_val:
+                        best_val = ev["F"]
+                        best_candidate = (cand, ev)
+            # try new route
+            cand = clone_solution(repaired)
+            for rr in cand.routes:
+                if early in rr:
+                    rr.remove(early)
+            cand.routes.append([early])
+            ev = evaluate_solution(inst, cand)
+            if ev["F"] < best_val:
+                best_val = ev["F"]
+                best_candidate = (cand, ev)
 
-        # Acceptance rule: prefer strictly smaller PenS, or same PenS and smaller F.
-        better_pen_s = ev["PenS"] < eval_rep["PenS"]
-        same_pen_better_f = (ev["PenS"] == eval_rep["PenS"]) and (ev["F"] + 1e-9 < eval_rep["F"])
-
-        # if better_pen_s or same_pen_better_f:
-            # accept candidate
-        repaired, eval_rep = cand, ev
-        if verbose:
-            print(f"[repair] accepted cand for pair ({early},{late}) -> PenS {ev['PenS']}, F {ev['F']:.3f}")
-        # try to heal new TW violations created by forcing the alignment
-        repaired, eval_rep = quick_repair_greedy(inst, repaired, max_tries=300, verbose=verbose)
-        # commit TW changes (we already modified inst in place), forget originals
-        clear_saved_tws_commit()
-        # else:
-        #     # reject: rollback TW changes
-        #     restore_saved_tws()
-        #     if verbose:
-        #         print(f"[repair] rejected cand for pair ({early},{late}) (no PenS/F improvement)")
+        # accept candidate if it reduces PenS or same PenS and reduces F
+        if best_candidate is not None:
+            cand, ev = best_candidate
+            if ev["PenS"] < eval_rep["PenS"] or (ev["PenS"] == eval_rep["PenS"] and ev["F"] + 1e-9 < eval_rep["F"]):
+                repaired, eval_rep = cand, ev
+                if verbose:
+                    print(f"[repair] realigned pair ({a},{b}) by moving {early} -> PenS {ev['PenS']}, F {ev['F']:.3f}")
+                # repaired, eval_rep = quick_repair_greedy(inst, repaired, max_tries=200, verbose=verbose)
+            else:
+                if verbose:
+                    print(f"[repair] tried reinsertions for ({a},{b}) but no improvement")
 
     final_eval = evaluate_solution(inst, repaired)
     if verbose:
         print(f"[repair] final PenS={final_eval['PenS']}, PenT={final_eval['PenT']}, f={final_eval['f']}")
     return repaired, final_eval
 
-def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
+def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None, sync_tol=1e-4):
     """
-    evaluate a solution and also return diagnostic timing info.
+    Pure evaluation: computes routing cost f, penalties, and reports synchronization violations.
+    Does NOT mutate inst (time windows, etc).
 
-    returns a dict with keys:
-      'f', 'PenT', 'PenH', 'PenS', 'sync_time_diff', 'sync_pair_mismatch_count', 'F',
-      plus diagnostics: 'visit_service_starts' (dict visit -> [start_times]),
-      'start_times' (visit -> first start), 'route_schedules' (list of per-route schedules).
-
-    this is compatible with previously-existing code that expects 'f' and 'F'.
+    Returns diagnostic dict including:
+      - 'f', 'PenT', 'PenH', 'PenS', 'F'
+      - 'visit_service_starts': dict vid -> [start_times] (list in chronological order)
+      - 'start_times': dict vid -> canonical start (chosen as the last recorded start if multiple)
+      - 'visit_route_pos': dict vid -> (route_idx, position_index, start_time)
+      - 'route_schedules': list of per-route schedule lists
+      - 'sync_time_diff': sum of |sa-sb| over violating pairs
+      - 'sync_violation_count'
     """
-    from .instance import Instance 
+    from .instance import Instance
     assert isinstance(inst, Instance)
 
+    # compute a large M if not provided
     try:
         if M is None:
             try:
@@ -424,11 +455,10 @@ def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
     total_lateness = 0.0
     horizon_violation = 0.0
 
-    # store start times per visit (list) and per-route schedules
-    visit_service_starts = {}
-    route_schedules = []
+    visit_service_starts = {}   # vid -> [start_times]
+    route_schedules = []        # per-route list of (vid, arrival, start, depart)
+    visit_route_pos = {}        # vid -> (route_idx, pos_idx, start)
 
-    # helper to read service time and time windows (works with both .service/.service_time and .tw_early/.tw_late)
     def _svc(v):
         return getattr(v, "service", getattr(v, "service_time", 0.0))
     def _tw_early(v):
@@ -436,92 +466,75 @@ def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
     def _tw_late(v):
         return getattr(v, "tw_late", float("inf"))
 
-    # helper to get travel time
     def _tt(i, j):
-        # support dict-style inst.travel_time[(i,j)] or method inst.travel_time(i,j)
+        # support dict-style inst.travel_time[(i,j)] or callable inst.travel_time(i,j)
         if hasattr(inst, "travel_time"):
             if isinstance(inst.travel_time, dict):
-                return inst.travel_time.get((getattr(i, 'id', i), j if isinstance(j, int) else getattr(j,'id',j)), 0.0)
+                key = (getattr(i, 'id', i), j if isinstance(j, int) else getattr(j, 'id', j))
+                return inst.travel_time.get(key, 0.0)
             elif callable(inst.travel_time):
                 return inst.travel_time(i, j)
-        # fallback: distance_matrix or euclidean
         if hasattr(inst, "distance_matrix"):
-            try:
-                return inst.distance_matrix[getattr(i,'id', i)][getattr(j,'id', j)]
-            except Exception:
-                pass
-        # last fallback: compute euclidean from attributes
+            return inst.distance_matrix[getattr(i,'id', i)][getattr(j,'id', j)]
+        # fallback euclidean if data present
         xi, yi = (inst.depot.x, inst.depot.y) if getattr(i, 'id', i) == getattr(inst.depot, 'id', 0) else (inst.visits[getattr(i,'id',i)].x, inst.visits[getattr(i,'id',i)].y)
         xj, yj = (inst.depot.x, inst.depot.y) if getattr(j, 'id', j) == getattr(inst.depot, 'id', 0) else (inst.visits[getattr(j,'id',j)].x, inst.visits[getattr(j,'id',j)].y)
         return ((xi-xj)**2 + (yi-yj)**2)**0.5
 
-    # evaluate route by route, building schedules
-    for route in sol.routes:
+    depot_node = inst.depot
+    for r_idx, route in enumerate(sol.routes):
         cur_time = 0.0
-        cur_node = inst.depot
+        cur_node = depot_node
         route_travel = 0.0
-        schedule = []  # list of (vid, arrival, start, depart)
-        for v_id in route:
+        schedule = []
+        for pos_idx, v_id in enumerate(route):
             travel = _tt(cur_node, v_id)
             arrival = cur_time + travel
             visit = inst.visits[v_id]
             start = max(arrival, _tw_early(visit))
-            # lateness
             if start > _tw_late(visit):
                 total_lateness += (start - _tw_late(visit))
             depart = start + _svc(visit)
-            # store start
+            # record
             visit_service_starts.setdefault(v_id, []).append(start)
             schedule.append((v_id, arrival, start, depart))
+            visit_route_pos[v_id] = (r_idx, pos_idx, start)
             cur_time = depart
             cur_node = visit
             route_travel += travel
 
-        # return to depot travel
-        route_travel += _tt(cur_node, inst.depot.id if hasattr(inst.depot, 'id') else inst.depot)
+        # return to depot
+        route_travel += _tt(cur_node, getattr(inst.depot, 'id', 0))
         f += route_travel
         route_schedules.append(schedule)
 
-        # compute route return time for horizon
-        # last depart time is cur_time; add travel back to depot:
-        return_time = cur_time + _tt(cur_node, inst.depot.id if hasattr(inst.depot, 'id') else inst.depot)
+        # horizon check
+        return_time = cur_time + _tt(cur_node, getattr(inst.depot, 'id', 0))
         horizon_val = inst.horizon if inst.horizon is not None else float("inf")
         if return_time > horizon_val:
             horizon_violation += (return_time - horizon_val)
 
-    # PenS: missing visits
+    # Pen: missing visits
     total_visits_expected = len(getattr(inst, "visits", {}))
     assigned_visits = sum(len(route) for route in sol.routes)
-    missing_penalty  = max(0, total_visits_expected - assigned_visits)
+    missing_penalty = max(0, total_visits_expected - assigned_visits)
 
-    # synchronization diagnostic
-    sync_violation_count = 0
-    tolerance = 1e-4
-    sync_time_diff = 0.0
+    # Build canonical start_times (if a visit appears multiple times we keep the last start)
     start_times = {vid: starts[-1] for vid, starts in visit_service_starts.items()}
 
+    # Synchronization diagnostics
+    sync_violation_count = 0
+    sync_time_diff = 0.0
     for (a, b) in getattr(inst, "sync_pairs", []):
-        sa, sb = start_times.get(a), start_times.get(b)
+        sa = start_times.get(a)
+        sb = start_times.get(b)
         if sa is None or sb is None:
             sync_violation_count += 1
             continue
-
         diff = abs(sa - sb)
-        if diff > tolerance:
+        if diff > sync_tol:
             sync_violation_count += 1
             sync_time_diff += diff
-
-            # avg_time = 0.5 * (sa + sb)
-            # start_times[a] = avg_time
-            # start_times[b] = avg_time
-            # # adjust time windows locally (light relaxation)
-            # if a in inst.visits and b in inst.visits:
-            #     va = inst.visits[a]
-            #     vb = inst.visits[b]
-            #     va.tw_early = min(va.tw_early, avg_time)
-            #     va.tw_late  = max(va.tw_late, avg_time)
-            #     vb.tw_early = min(vb.tw_early, avg_time)
-            #     vb.tw_late  = max(vb.tw_late, avg_time)
 
     PenT = total_lateness
     PenH = horizon_violation
@@ -537,10 +550,11 @@ def evaluate_solution(inst, sol: Solution, w1=0.5, w2=0.1, M=None):
         'PenS': PenS,
         'F': F,
         'sync_violation_count': sync_violation_count,
+        'sync_time_diff': sync_time_diff,
         'missing_penalty': missing_penalty,
         'sync_pairs_count': len(getattr(inst, "sync_pairs", [])),
-        # diagnostics:
         'visit_service_starts': visit_service_starts,
         'start_times': start_times,
+        'visit_route_pos': visit_route_pos,
         'route_schedules': route_schedules
     }

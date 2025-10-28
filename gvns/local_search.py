@@ -33,10 +33,6 @@ def b_vnd(inst: Instance,
         sample_limit = max(5000, len(inst.visits) * 75)
 
     sample_limit = int(sample_limit)
-
-    if max_total_iters is None:
-        max_total_iters = 10000
-
     max_total_iters = int(max_total_iters)
     
     current = clone_solution(sol)
@@ -131,7 +127,7 @@ def b_vnd(inst: Instance,
     return current, improved_flag, current_val, current_eval
 
 def update_penalties(w1, w2, PenT, PenH, alpha=0.1, w1_min=1e-6, w2_min=1e-6,
-                     w1_max=None, w2_max=None, iter_no=0, update_every=1, stagn_penT_iters=0):
+                     w1_max=None, w2_max=None, iter_no=0, update_every=1):
     """
     multiplicative update like the paper but:
       - alpha smaller by default (0.03),
@@ -173,7 +169,7 @@ def gvns(inst: Instance,
          w1_max=None, w2_max=None,
          update_every=1,
          seed=SEED,
-         num_vehicles_estimate=30,
+         num_vehicles_estimate=60,
          agent=None,
          verbose=False
         ):
@@ -182,21 +178,12 @@ def gvns(inst: Instance,
         max_tt = max(inst.travel_time.values()) if inst.travel_time else 1.0
         M = max_tt * max(1, len(inst.visits)) * 100.0
 
-    # current = random_insertion(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed)
-    # eval_current = evaluate_solution(inst, current, w1_init, w2_init, M)
-
     current, eval_current = paper_initial_fixed(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed, avoid_pair=True)
-    current, eval_current = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
-    if eval_current['PenS'] > 0:
-        current, eval_current = repair_missing_and_sync(inst, current, verbose=True)
+    # current, eval_current = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
+    # if eval_current['PenS'] > 0:
+    #     current, eval_current = repair_missing_and_sync(inst, current, verbose=True)
 
     print(f"[init] After repair_missing_and_sync: PenS={eval_current['PenS']}, sync_pairs={getattr(inst, 'sync_pairs', [])}")
-    missing = set(inst.visits.keys()) - {v for r in current.routes for v in r}
-    print(f"[init] Missing visits: {missing}")
-    for (i, j) in getattr(inst, "sync_pairs", []):
-        si = eval_current.get("start_times", {}).get(i)
-        sj = eval_current.get("start_times", {}).get(j)
-        print(f"   Pair ({i},{j}) start_times: {si}, {sj}")
 
     feasibility = is_feasible(inst, current, eval_current)
     
@@ -240,8 +227,12 @@ def gvns(inst: Instance,
 
         # 2) local search
         # b_max_iters = 20000 * (6 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
-        b_max_iters = 20000 * (3 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
-
+        # b_max_iters = 20000 * (3 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
+        if eval_current['PenS'] < 1e-9 and eval_current['PenT'] < 1e-9:
+            b_max_iters = 20000 * 8   # deeper exploration on feasible phase
+        else:
+            b_max_iters = 20000 * 3
+            
         # rl integration
         if agent is not None:
             # Build state vector like in BVNDEnv
@@ -328,7 +319,6 @@ def gvns(inst: Instance,
             w1, w2, eval_current['PenT'], eval_current['PenH'],
             alpha=alpha, w1_max=w1_max, w2_max=w2_max,
             iter_no=iter_no, update_every=update_every, 
-            stagn_penT_iters =stagn_penT_iters
         )
 
         # check PenT stagnation
@@ -340,29 +330,38 @@ def gvns(inst: Instance,
         last_penT = curPenT
 
         # if PenT persists and stagnated, try a quick_repair_greedy attempt to aggressively remove offending nodes
-        if stagn_penT_iters >= 8 or eval_current.get('PenS', 0.0) > 1e-9:
+        penS = eval_current.get('PenS', 0.0)
+        penT = eval_current.get('PenT', 0.0)
+        # case 1: persistent time-window penalty stagnation -> quick repair only
+        if iter_no > 8 and stagn_penT_iters >= 8 and penS <= 1e-9:
             if verbose:
-                print("[gvns] Repair triggered: stagnation or PenS>0 detected")
-
-            # 1try quick repair first (time-window / horizon / general structure)
+                print("[gvns] Quick repair triggered: PenT stagnation detected (PenS=0).")
             try_repair_sol, try_repair_eval = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
+            if try_repair_eval['F'] + 1e-9 < eval_current['F'] or \
+            try_repair_eval['PenT'] + try_repair_eval['PenH'] < eval_current['PenT'] + eval_current['PenH']:
+                current, eval_current = try_repair_sol, try_repair_eval
+                stagn_penT_iters = 0
 
-            # handle missing/sync issues explicitly
+        # case 2: missing or sync issues -> full sync repair
+        elif iter_no > 8 and penS > 1e-9:
+            if verbose:
+                print("[gvns] Full repair triggered: PenS>0 detected.")
+            try_repair_sol, try_repair_eval = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
             fix_sol, fix_eval = repair_missing_and_sync(inst, try_repair_sol, verbose=verbose)
-
-            # accept if improvement or better feasibility
             if (fix_eval['F'] + 1e-9 < eval_current['F'] or
                 (fix_eval['PenS'] + fix_eval['PenT'] + fix_eval['PenH']) <
                 (eval_current['PenS'] + eval_current['PenT'] + eval_current['PenH'])):
                 current, eval_current = fix_sol, fix_eval
-                stagn_penT_iters = 0  # reset stagnation counter
-                if verbose:
-                    print("[gvns] repair improved penalties or cost -> accepted")
+                stagn_penT_iters = 0
 
         # 6) Re-evaluate current with updated weights for logging/history
         eval_current_after = evaluate_solution(inst, current, w1, w2, M)
         raw_eval = evaluate_solution(inst, current, 0.0, 0.0, 0.0)
         raw_f = raw_eval['f']
+
+        # to make the search focus on travel minimization afetr feasibility
+        if eval_current['PenS'] < 1e-9 and eval_current['PenT'] < 1e-9:
+            M = max(M * 0.5, 1e4)
 
         history.append({
             'iter': iter_no, 'time': time.time() - t0,
