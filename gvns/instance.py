@@ -3,7 +3,7 @@ from typing import Tuple, Dict, List, Optional
 import math, random, os
 from .utils import set_vehicle_estimate
 
-SEED = 32
+SEED = 42
 
 @dataclass
 class Visit:

@@ -155,20 +155,18 @@ def benchmark_folder(folder='vrptws',
                             qdf.to_csv(qcsv, index=False)
                 except Exception as e:
                     print(f"[WARN] could not dump Q-table CSV: {e}")
- 
+
             # inspect convergence
             times = [h.get('time', None) for h in history]
             raw_f = [h.get('raw_f', None) for h in history]
             best_f = [h.get('f_best', None) for h in history]
-
-            print(f"    improvement trace (raw_f over time): {raw_f}")
 
             # plots
             if agent is not None:
                 try:
                     plt.figure()
                     plt.plot(times, raw_f, marker='.', label='raw_f')
-                    plt.plot(times, best_f, marker='.', label='best_f')
+                    plt.plot(times, best_f, linewidth=2.0, linestyle='-', marker=None, label='best_f')
                     plt.xlabel("time (s)")
                     plt.ylabel("f")
                     plt.title(f"Convergence – {instance_name} run {run_id} ({agent_name})")
@@ -183,7 +181,7 @@ def benchmark_folder(folder='vrptws',
                 try:
                     plt.figure()
                     plt.plot(times, raw_f, marker='.', label='raw_f')
-                    plt.plot(times, best_f, marker='.', label='best_f')
+                    plt.plot(times, best_f, linewidth=2.0, linestyle='-', marker=None, label='best_f')
                     plt.xlabel("time (s)")
                     plt.ylabel("f")
                     plt.title(f"Convergence – {instance_name} run {run_id}")
@@ -210,8 +208,8 @@ def benchmark_folder(folder='vrptws',
 
             if history:
                 try:
-                    min_F = min(h['F_best'] for h in history)
-                    best_time = min(h['time'] for h in history if abs(h['F_best']-min_F) < 1e-9)
+                    min_f = min(h['f_best'] for h in history)
+                    best_time = min(h['time'] for h in history if abs(h['f_best']-min_f) < 1e-9)
                 except Exception:
                     best_time = t_run
             else:
@@ -221,6 +219,7 @@ def benchmark_folder(folder='vrptws',
                                       gvns_kwargs.get('w1_init',0.5),
                                       gvns_kwargs.get('w2_init',0.1),
                                       gvns_kwargs.get('M',None))
+            
             per_instance_values.append({
                 'instance': instance_name,
                 'class': instance_class,

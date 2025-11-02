@@ -1,7 +1,7 @@
 from typing import Tuple
-from .solution import Solution
+from .solution import Solution, set_deterministic
 from .instance import Instance, paper_initial_fixed, SEED
-from .operators import (intra_route_insertion, inter_route_insertion,
+from .operators import (intra_route_insertion, inter_route_insertion, two_opt, or_opt, cross_exchange,
                         intra_route_swap, inter_route_swap, clone_solution, shake_solution)
 from .evaluate import evaluate_solution, quick_repair_greedy, is_feasible, repair_missing_and_sync
 from .viz import plot_side_by_side, which_nodes_changed
@@ -13,28 +13,28 @@ def b_vnd(inst: Instance,
           neighborhoods=['N1','N2','N3','N4'],
           eval_f=None,
           w1: float = 0.5,
-          w2: float = 0.1, 
+          w2: float = 0.1,
           M: float = None,
-          max_total_iters=10000,
+          max_total_iters= None,
           sample_limit: int = None,
           verbose: bool = False,
           debug_visual: bool = False) -> Tuple[Solution, bool, float, dict]:
-    """
-    deterministic B-VND: enumerates moves in each neighborhood
-    on first improvement, accept and restart from neighborhood 1
-    """
 
+    import math, heapq, random
     if eval_f is None:
         eval_f = lambda s: evaluate_solution(inst, s, w1, w2, M)['F']
 
     n_vis = max(1, len(getattr(inst, "visits", {})))
-    # sensible defaults when not provided
+
+    # defaults (scale with instance size)
     if sample_limit is None:
-        sample_limit = max(5000, len(inst.visits) * 75)
+        sample_limit = max(8000, int(len(inst.visits)**2 / 6))
+    if max_total_iters is None:
+        max_total_iters = sample_limit * 2
 
     sample_limit = int(sample_limit)
     max_total_iters = int(max_total_iters)
-    
+
     current = clone_solution(sol)
     current_eval = evaluate_solution(inst, current, w1, w2, M)
     current_val = eval_f(current)
@@ -45,68 +45,223 @@ def b_vnd(inst: Instance,
         plot_side_by_side(inst, current, current, title="b_vnd_start",
                           move_desc="B-VND start", show=True)
 
-    # neighborhood enumerators (same as your code)
-    def enum_N1(cur):
+    # --- helper heuristics -------------------------------------------------
+    def route_center(route):
+        # approximate centroid (x,y) of route endpoints -> cheap spatial heuristic
+        if not route:
+            return None
+        a = inst.visits[route[0]]
+        b = inst.visits[route[-1]]
+        return ((a.x + b.x) * 0.5, (a.y + b.y) * 0.5)
+
+    def euclid(a, b):
+        return math.hypot(a[0]-b[0], a[1]-b[1])
+
+    # precompute route centers for heuristics (refreshed before neighborhood scans)
+    def compute_centers(sol):
+        return [route_center(r) for r in sol.routes]
+
+    # sample a limited set of index pairs from two sequences (deterministic + random)
+    def sample_index_pairs(len_a, len_b, max_pairs):
+        pairs = []
+        # always include small deterministic samples (start/end/median)
+        cand_a = list({0, max(0, len_a-1), len_a//2} & set(range(len_a)))
+        cand_b = list({0, max(0, len_b-1), len_b//2} & set(range(len_b)))
+        for i in cand_a:
+            for j in cand_b:
+                pairs.append((i, j))
+        # add some random pairs
+        needed = max_pairs - len(pairs)
+        for _ in range(max(0, needed)):
+            pairs.append((random.randrange(len_a), random.randrange(len_b)))
+        return pairs[:max_pairs]
+
+    # --- neighborhood enumerators (heuristic-limited) ----------------------
+    def enum_N1(cur, centers):
+        # intra-route insertion + some 2-opt/or-opt local improvements
         for r_idx in range(len(cur.routes)):
             L = len(cur.routes[r_idx])
-            if L < 1: continue
-            for i in range(L):
+            if L < 1:
+                continue
+            # prioritize moves near route ends and median positions
+            important_pos = list({0, max(0, L-1), L//2} & set(range(L)))
+            # produce deterministic insertion candidates first
+            for i in important_pos:
                 for j in range(L):
                     if i == j: continue
                     yield intra_route_insertion(cur, r_idx, i, j)
-    def enum_N2(cur):
-        for r1 in range(len(cur.routes)):
-            for r2 in range(len(cur.routes)):
+            # then limited sample of other positions
+            max_pairs = max(6, min(30, L*2))
+            sampled_pairs = sample_index_pairs(L, L, max_pairs)
+            for i,j in sampled_pairs:
+                if i == j: continue
+                yield intra_route_insertion(cur, r_idx, i, j)
+            # small 2-opt locally (limit)
+            if L >= 4:
+                for i in range(0, min(4, L-2)):
+                    for k in range(i+1, min(L-1, i+4)):
+                        yield two_opt(cur, r_idx, i, k)
+            # short or-opt block moves
+            if L >= 2:
+                for block in (1,):
+                    for i in range(0, max(1, min(4, L - block + 1))):
+                        for inspos in range(0, max(1, min(4, L - block + 1))):
+                            if inspos == i: continue
+                            yield or_opt(cur, r_idx, i, block, r_idx, inspos)
+
+    def enum_N2(cur, centers):
+        # inter-route insertion with spatial prefiltering and sampled pairs
+        R = len(cur.routes)
+        if R < 2: return
+        # compute pair-wise center distances to favor near routes
+        order = []
+        for r1 in range(R):
+            for r2 in range(R):
                 if r1 == r2: continue
-                if len(cur.routes[r1]) == 0: continue
-                for p in range(len(cur.routes[r1])):
-                    for inspos in range(len(cur.routes[r2]) + 1):
-                        yield inter_route_insertion(cur, r1, p, r2, inspos)
-    def enum_N3(cur):
+                c1, c2 = centers[r1], centers[r2]
+                dist = euclid(c1, c2) if c1 and c2 else 0.0
+                order.append((dist, r1, r2))
+        # sort by increasing distance (prefer moving between close routes)
+        order.sort()
+        max_route_pairs = max(200, R * 4)
+        pairs_considered = 0
+        for _, r1, r2 in order:
+            if pairs_considered >= max_route_pairs:
+                break
+            L1 = len(cur.routes[r1])
+            L2 = len(cur.routes[r2])
+            if L1 == 0: 
+                continue
+            # sample a limited number of positions (deterministic + random)
+            max_pos_pairs = min(80, max(6, (L1 + L2)))
+            idx_pairs = sample_index_pairs(L1, L2 + 1, max_pos_pairs)
+            for p, inspos in idx_pairs:
+                pairs_considered += 1
+                yield inter_route_insertion(cur, r1, p, r2, inspos)
+            # also try moving 2-length block (or_opt) from r1->r2
+            for block in (1, 2):
+                if L1 < block: continue
+                for i in range(0, min(6, L1 - block + 1)):
+                    for inspos in range(0, min(6, L2 + 1)):
+                        yield or_opt(cur, r1, i, block, r2, inspos)
+
+    def enum_N3(cur, centers):
+        # intra-route swap + intra 2-opt (heuristic-limited)
         for r in range(len(cur.routes)):
             L = len(cur.routes[r])
             if L < 2: continue
-            for i in range(L):
-                for j in range(i+1, L):
-                    yield intra_route_swap(cur, r, i, j)
-    def enum_N4(cur):
-        for r1 in range(len(cur.routes)):
-            for r2 in range(r1+1, len(cur.routes)):
-                if len(cur.routes[r1])==0 or len(cur.routes[r2])==0: continue
-                for p1 in range(len(cur.routes[r1])):
-                    for p2 in range(len(cur.routes[r2])):
-                        yield inter_route_swap(cur, r1, p1, r2, p2)
+            # try adjacent swaps and some sampled distant swaps
+            for i in range(max(1, min(6, L-1))):
+                j = (i+1) % L
+                yield intra_route_swap(cur, r, i, j)
+            max_pairs = min(50, L*(L-1)//2)
+            sampled_pairs = sample_index_pairs(L, L, max_pairs)
+            seen = set()
+            for i,j in sampled_pairs:
+                if i==j: continue
+                key = (min(i,j), max(i,j))
+                if key in seen: continue
+                seen.add(key)
+                yield intra_route_swap(cur, r, i, j)
+            # occasional two-opt
+            if L >= 4:
+                for i in range(0, min(4, L-2)):
+                    for k in range(i+1, min(L-1, i+4)):
+                        yield two_opt(cur, r, i, k)
+
+    def enum_N4(cur, centers):
+        # inter-route swap + cross-exchange (powerful) with sampling and center-based order
+        R = len(cur.routes)
+        if R < 2: return
+        # create route-pair ordered by center proximity
+        route_pairs = []
+        for r1 in range(R):
+            for r2 in range(r1+1, R):
+                c1, c2 = centers[r1], centers[r2]
+                d = euclid(c1,c2) if c1 and c2 else 0.0
+                route_pairs.append((d, r1, r2))
+        route_pairs.sort()
+        pairs_considered = 0
+        for _, r1, r2 in route_pairs:
+            if pairs_considered > max(200, R*4):
+                break
+            L1, L2 = len(cur.routes[r1]), len(cur.routes[r2])
+            if L1 == 0 or L2 == 0: continue
+            # sampled point swaps
+            max_points = min(100, L1 * L2)
+            idx_pairs = sample_index_pairs(L1, L2, min(30, max_points))
+            for p1, p2 in idx_pairs:
+                pairs_considered += 1
+                yield inter_route_swap(cur, r1, p1, r2, p2)
+            # cross-exchange (swap tails) - limited sampling of cut points
+            if L1 >= 2 and L2 >= 2:
+                max_cross = min(12, (L1-1)*(L2-1))
+                cnt = 0
+                for p1 in range(0, min(6, L1-1)):
+                    for p2 in range(0, min(6, L2-1)):
+                        if cnt >= max_cross:
+                            break
+                        cnt += 1
+                        yield cross_exchange(cur, r1, p1, r2, p2)
 
     enum_map = {'N1': enum_N1, 'N2': enum_N2, 'N3': enum_N3, 'N4': enum_N4}
 
-    # if PenT persists, give more sample budget
+    # if PenT persists, increase budgets
     if current_eval.get('PenT', 0.0) > 1e-9:
         sample_limit *= 2
         max_total_iters *= 2
 
+    # best-improvement frequency (more often for inter-route neighborhoods)
+    base_best_every = max(3, int(max(1, len(inst.visits)//60)))
+
+    # track neighborhood success to adapt local ordering
+    neigh_success = {nb: 1e-6 for nb in neighborhoods}
+    neigh_attempts = {nb: 1e-6 for nb in neighborhoods}
+
+    nb_call_counter = 0
+
     # main loop
     while total_iters < max_total_iters:
         improved = False
-        for nb in neighborhoods:
-            gen = enum_map[nb](current)
-            for sampled, cand in enumerate(gen, start=1):
-                if sampled > sample_limit or total_iters >= max_total_iters:
+
+        # internal order: sort neighborhoods by recent success rate but keep global order indices stable
+        ordered_neighs = sorted(neighborhoods, key=lambda n: - (neigh_success.get(n,0)/neigh_attempts.get(n,1)))
+        # but keep external given order priority for fairness: move top if improvement recently
+        # we'll still iterate ordered_neighs (prioritize successful ones)
+        centers = compute_centers(current)
+
+        for nb in ordered_neighs:
+            nb_call_counter += 1
+            gen = enum_map[nb](current, centers)
+
+            # heuristically decide do_best: do best more often for inter-route (N2,N4)
+            do_best = ((nb in ('N2','N4')) and (nb_call_counter % max(2, base_best_every//2) == 0)) or \
+                      (nb_call_counter % base_best_every == 0)
+
+            neigh_sampled = 0
+            best_cand = None
+            best_cand_val = float('inf')
+
+            # iterate candidates (either until first improvement or to collect best)
+            for cand in gen:
+                neigh_sampled += 1
+                if neigh_sampled > sample_limit or total_iters >= max_total_iters:
                     break
                 total_iters += 1
 
-                # compute cand evals
                 cand_eval = evaluate_solution(inst, cand, w1, w2, M)
                 cand_val = cand_eval['F']
 
-                if cand_val + 1e-9 < current_val:
-                    # accepted improvement
+                # immediate acceptance (first-improvement) if not doing best scan
+                if (not do_best) and (cand_val + 1e-9 < current_val):
                     before = clone_solution(current)
-                    current, current_val, current_eval = cand, cand_val, cand_eval
+                    current, current_eval = cand, cand_eval
+                    current_val = cand_val
                     improved = improved_flag = True
-
-                    # print & visualize
+                    neigh_success[nb] += 1
+                    neigh_attempts[nb] += 1
                     if verbose:
-                        print(f"[B-VND] improvement found by {nb}: new F={current_val:.6g} (sampled={sampled})")
+                        print(f"[B-VND] improvement found by {nb}: new F={current_val:.6g} (sampled={neigh_sampled})")
                     if debug_visual:
                         diff = which_nodes_changed(before, current)
                         highlight = set(diff['added'] + diff['removed'] + [d[0] for d in diff['moved']])
@@ -115,45 +270,91 @@ def b_vnd(inst: Instance,
                                                      title=f"b_vnd_improve_{nb}",
                                                      highlight_nodes=highlight,
                                                      move_desc=desc, show=True)
+                        if verbose:
+                            print("Saved:", savepath)
+                    break
+
+                # otherwise collect best candidate
+                if cand_val + 1e-9 < best_cand_val:
+                    best_cand_val = cand_val
+                    best_cand = (cand, cand_eval)
+
+            # end candidate loop
+            neigh_attempts[nb] += max(1, neigh_sampled)
+
+            if (not improved) and do_best and best_cand is not None and best_cand_val + 1e-9 < current_val:
+                before = clone_solution(current)
+                current, current_eval = best_cand
+                current_val = best_cand_val
+                improved = improved_flag = True
+                neigh_success[nb] += 1
+                if verbose:
+                    print(f"[B-VND best] improvement found by {nb}: new F={current_val:.6g} (collected={neigh_sampled})")
+                if debug_visual:
+                    diff = which_nodes_changed(before, current)
+                    highlight = set(diff['added'] + diff['removed'] + [d[0] for d in diff['moved']])
+                    desc = f"B-VND best {nb} -> F={current_val:.3f} | changed={len(highlight)}"
+                    savepath = plot_side_by_side(inst, before, current,
+                                                 title=f"b_vnd_improve_best_{nb}",
+                                                 highlight_nodes=highlight,
+                                                 move_desc=desc, show=True)
+                    if verbose:
                         print("Saved:", savepath)
 
-                    # restart from first neighborhood
-                    break
             if improved:
+                # after improvement restart scanning neighborhoods (standard VND behavior)
                 break
+
         if not improved:
+            # no improvement in any neighborhood -> end local search
             break
+
+    # ensure we have current_eval consistent
+    if 'current_eval' not in locals() or current_eval is None:
+        current_eval = evaluate_solution(inst, current, w1, w2, M)
+        current_val = eval_f(current)
 
     return current, improved_flag, current_val, current_eval
 
-def update_penalties(w1, w2, PenT, PenH, alpha=0.1, w1_min=1e-6, w2_min=1e-6,
-                     w1_max=None, w2_max=None, iter_no=0, update_every=1):
-    """
-    multiplicative update like the paper but:
-      - alpha smaller by default (0.03),
-      - optional caps (w1_max, w2_max),
-      - optional update_every: only update weights every k iterations.
-    it returns the updated (w1,w2).
-    """
 
-    if update_every > 1:
-        if (iter_no % update_every) != 0:
-            return w1, w2
-    if PenT > 0:
-        w1 = w1 * (1.0 + alpha)
-    else:
-        w1 = max(w1 * (1.0 - alpha), w1_min)
-    if PenH > 0:
-        w2 = w2 * (1.0 + alpha)
-    else:
-        w2 = max(w2 * (1.0 - alpha), w2_min)
+def update_penalties(
+    w1, w2, PenT, PenH,
+    alpha=0.1,
+    w_min=1e-4,
+    w_max=0.9,
+    iter_no=0,
+    update_every=1,
+    normalize=True
+):
+    """
+    Adaptive penalty update for GVNS:
+    - Increases weight if corresponding penalty > 0,
+    - Decreases if no violation,
+    - Keeps (w1 + w2) ≈ 1 for stability.
+    """
+    if update_every > 1 and (iter_no % update_every) != 0:
+        return w1, w2
 
-    if w1_max is not None:
-        w1 = min(w1, w1_max)
-    if w2_max is not None:
-        w2 = min(w2, w2_max)
+    # proportional adjustment
+    if PenT > 1e-6:
+        w1 = min(w1 * (1 + alpha * (1 + PenT / (1 + PenH))), w_max)
+    else:
+        w1 = max(w1 * (1 - alpha * 0.5), w_min)
+
+    if PenH > 1e-6:
+        w2 = min(w2 * (1 + alpha * (1 + PenH / (1 + PenT))), w_max)
+    else:
+        w2 = max(w2 * (1 - alpha * 0.5), w_min)
+
+    # --- normalize so w1 + w2 = 1 ---
+    if normalize:
+        total = w1 + w2
+        if total > 0:
+            w1 /= total
+            w2 /= total
 
     return w1, w2
+
 
 def gvns(inst: Instance,
          Tmax_seconds=None,
@@ -173,10 +374,15 @@ def gvns(inst: Instance,
          agent=None,
          verbose=False
         ):
-    random.seed(seed)
+    
     if M is None:
-        max_tt = max(inst.travel_time.values()) if inst.travel_time else 1.0
-        M = max_tt * max(1, len(inst.visits)) * 100.0
+        try:
+            max_tt = max(inst.travel_time.values()) if inst.travel_time else 1.0
+        except Exception:
+            max_tt = 1.0
+        M = max_tt * max(1, len(inst.visits)) * 10.0
+
+    set_deterministic(seed)    
 
     current, eval_current = paper_initial_fixed(inst, num_vehicles_estimate=num_vehicles_estimate, seed=seed, avoid_pair=True)
     # current, eval_current = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
@@ -205,33 +411,41 @@ def gvns(inst: Instance,
     # adaptive counters
     stagn_penT_iters = 0
     last_penT = eval_current.get('PenT', 0.0)
+    no_improve_iters = 0
 
     neigh_attempts = [0.0] * len(NEIGHBORHOODS)
     neigh_success = [0.0] * len(NEIGHBORHOODS)
 
     while True:
         iter_no += 1
-        if Tmax_seconds is not None and time.time() - t0 > Tmax_seconds: break
+        if Tmax_seconds is not None and time.time() - t0 > Tmax_seconds: 
+            if verbose:
+                print("[gvns] Terminating: Tmax reached")
+            break
         if cont >= contmax:
             if verbose: print("Terminating: cont >= contmax")
             break
 
         # 1) shake
         strong_shake = False
-        if eval_current.get('PenT', 0.0) > 1e-9:
-            if stagn_penT_iters >= 5:
-                strong_shake = True
+        if eval_current.get('PenT', 0.0) > 1e-9 and stagn_penT_iters >= 5:
+            strong_shake = True
 
-        shaken, _ = shake_solution(inst, current, p=p, Dp=Dp,
+        if no_improve_iters > 8:
+            p = min(p * 2, p_max)  # double up to p_max
+        if strong_shake:
+            shake_p = max(p, min(p_max, int(p * 1.5)))
+            shake_Dp = min(0.8, Dp + 0.15)
+        else:
+            shake_p = p
+            shake_Dp = Dp
+
+        shaken, _ = shake_solution(inst, current, p=shake_p, Dp=shake_Dp,
                                    seed=random.randint(0, 1_000_000), verbose=verbose, debug_visual=False)
 
         # 2) local search
-        # b_max_iters = 20000 * (6 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
-        # b_max_iters = 20000 * (3 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
-        if eval_current['PenS'] < 1e-9 and eval_current['PenT'] < 1e-9:
-            b_max_iters = 20000 * 8   # deeper exploration on feasible phase
-        else:
-            b_max_iters = 20000 * 3
+        default_sample = max(10000, int(len(inst.visits)**2 / 4))
+        b_max_iters = (default_sample * 2) * (3 if strong_shake or eval_current.get('PenT',0.0)>1e-9 else 1)
             
         # rl integration
         if agent is not None:
@@ -251,6 +465,7 @@ def gvns(inst: Instance,
             eval_f=lambda s: evaluate_solution(inst, s, w1, w2, M)['F'],
             w1=w1, w2=w2, M=M,
             max_total_iters=b_max_iters,
+            sample_limit=default_sample,
             verbose=verbose,
             debug_visual=False
         )
@@ -293,8 +508,9 @@ def gvns(inst: Instance,
             current = local
             eval_current = eval_local
             cont = 0
-            p = p_init
+            p = max(p_init, 1)
             accepted = True
+            no_improve_iters = 0
 
             # update overall best 
             if eval_current['F'] < F_best:
@@ -313,12 +529,12 @@ def gvns(inst: Instance,
         if not accepted:
             cont += 1
             p = min(p + 1, p_max)
+            no_improve_iters += 1
 
         # 5) update penalties
         w1, w2 = update_penalties(
             w1, w2, eval_current['PenT'], eval_current['PenH'],
-            alpha=alpha, w1_max=w1_max, w2_max=w2_max,
-            iter_no=iter_no, update_every=update_every, 
+            alpha=alpha, iter_no=iter_no, update_every=update_every, 
         )
 
         # check PenT stagnation
@@ -329,23 +545,19 @@ def gvns(inst: Instance,
             stagn_penT_iters = 0
         last_penT = curPenT
 
-        # if PenT persists and stagnated, try a quick_repair_greedy attempt to aggressively remove offending nodes
         penS = eval_current.get('PenS', 0.0)
         penT = eval_current.get('PenT', 0.0)
-        # case 1: persistent time-window penalty stagnation -> quick repair only
-        if iter_no > 8 and stagn_penT_iters >= 8 and penS <= 1e-9:
-            if verbose:
-                print("[gvns] Quick repair triggered: PenT stagnation detected (PenS=0).")
-            try_repair_sol, try_repair_eval = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
+
+        if iter_no > 8 and stagn_penT_iters >= 8 and eval_current['PenT'] > 1e-9:
+            print("[gvns] Quick repair triggered: PenT stagnation detected (PenS=0).")
+            try_repair_sol, try_repair_eval = quick_repair_greedy(inst, current, max_tries=5000, verbose=verbose)
             if try_repair_eval['F'] + 1e-9 < eval_current['F'] or \
             try_repair_eval['PenT'] + try_repair_eval['PenH'] < eval_current['PenT'] + eval_current['PenH']:
                 current, eval_current = try_repair_sol, try_repair_eval
                 stagn_penT_iters = 0
 
-        # case 2: missing or sync issues -> full sync repair
         elif iter_no > 8 and penS > 1e-9:
-            if verbose:
-                print("[gvns] Full repair triggered: PenS>0 detected.")
+            print("[gvns] Full repair triggered: PenS>0 detected.")
             try_repair_sol, try_repair_eval = quick_repair_greedy(inst, current, max_tries=1000, verbose=verbose)
             fix_sol, fix_eval = repair_missing_and_sync(inst, try_repair_sol, verbose=verbose)
             if (fix_eval['F'] + 1e-9 < eval_current['F'] or
@@ -386,7 +598,7 @@ def gvns(inst: Instance,
                   f"  w1={w1:.4f} w2={w2:.4f}  p={p}  cont={cont}"
                   f"  PenT={eval_current_after['PenT']:.2f} PenH={eval_current_after['PenH']:.2f} PenS={eval_current_after['PenS']:.2f}")
         
-    # final selection 
+    #  final selection 
     if best_feasible is not None:
         if verbose:
             print(f"[gvns] Returning best feasible with f={f_best_feasible:.2f}")

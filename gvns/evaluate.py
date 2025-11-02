@@ -1,4 +1,6 @@
 from .solution import Solution
+import math
+import random
 
 def compute_route_schedule(inst, route, speed=1.0):
     """
@@ -116,99 +118,197 @@ def clone_solution(sol):
             setattr(new_sol, attr, getattr(sol, attr))
     return new_sol
 
-def quick_repair_greedy(inst, sol, max_tries=200, verbose=False):
+def quick_repair_greedy(inst, sol, max_tries=200, verbose=False, w1=0.5, w2=0.1, M=None):
     """
-    - its greedy and local so avoids expensive global search
-    - focuses only on visits that actually violate constraintss
-    - accept ny lower-f condidate even if still infeasible (we accept some violation as worst case) so it monotonically improves
+    Fast feasibility repair for VRPTW-S solutions.
+
+    Goals:
+      - Quickly reduce PenT / PenH / PenS to restore feasibility.
+      - Avoid expensive nested searches (no recursive b_vnd calls).
+      - Evaluate only the most promising insertions.
+      - Stop early if no improvement in penalty is observed.
+
+    Returns:
+      (best_sol, best_eval)
     """
+    import heapq, random, math, itertools
+    from .local_search import intra_route_swap, evaluate_solution, clone_solution, is_feasible
+
+    # --- helper: composite score combining raw f + weighted penalties ---
+    def score_from_eval(ev, w1_, w2_, M_):
+        if M_ is None:
+            M_ = max(1e6, getattr(inst, "horizon", 1e6))
+        return float(ev.get("f", 0.0)) + float(
+            w1_ * ev.get("PenT", 0.0) + w2_ * ev.get("PenH", 0.0) + M_ * ev.get("PenS", 0.0)
+        )
+
+    # --- fallback M ---
+    if M is None:
+        try:
+            max_tt = max(inst.travel_time.values()) if hasattr(inst, "travel_time") and inst.travel_time else 1.0
+            n_vis = max(1, len(getattr(inst, "visits", {})))
+            M = max(1e6, min(max_tt * n_vis * 100.0, 1e12))
+        except Exception:
+            M = 1e6
+
     best_sol = clone_solution(sol)
     best_eval = evaluate_solution(inst, best_sol)
+    best_score = score_from_eval(best_eval, w1, w2, M)
+    last_penT = best_eval.get("PenT", 0.0)
+
     if is_feasible(inst, best_sol, best_eval):
         return best_sol, best_eval
 
-    # 1) collect offending visits
-    # herer i try to find nodes that cause penalties or are missing
+    # --- identify offenders ---
     offending = set()
-    for r_idx, route in enumerate(sol.routes):
-        #find any customer whose start time is after its latest allowed time window
-        schedule, _ = compute_route_schedule(inst, route)
-        for (vid, _, start, _) in schedule:
-            if start > inst.visits[vid].tw_late + 1e-9:
-                offending.add(vid)
+    severity = {}
 
+    for r_idx, route in enumerate(best_sol.routes):
+        schedule, _ = compute_route_schedule(inst, route)
+        for idx, (vid, _, start, _) in enumerate(schedule):
+            visit = inst.visits[vid]
+            late = max(0.0, start - getattr(visit, "tw_late", float("inf")))
+            if late > 1e-9:
+                offending.add(vid)
+                severity[vid] = severity.get(vid, 0.0) + late
+                if idx > 0:
+                    pred = route[idx - 1]
+                    offending.add(pred)
+                    severity[pred] = severity.get(pred, 0.0) + late * 0.5
+                if idx + 1 < len(route):
+                    succ = route[idx + 1]
+                    offending.add(succ)
+                    severity[succ] = severity.get(succ, 0.0) + late * 0.2
+
+    # also handle missing & unsynced
     planned = {v for r in best_sol.routes for v in r}
     missing = set(inst.visits.keys()) - planned
-    offending.update(missing)
+    for vid in missing:
+        offending.add(vid)
+        severity[vid] = severity.get(vid, 0.0) + 1e6
 
-    # for each sync pair (i, j), if their start times differ or one is missing, mark both as offending
-    for (i, j) in getattr(inst, "sync_pairs", []):
-        si = best_eval.get("start_times", {}).get(i)
-        sj = best_eval.get("start_times", {}).get(j)
-        if si is None or sj is None or abs(si - sj) > 1e-6:
-            offending.add(i); offending.add(j)
+    for (a, b) in getattr(inst, "sync_pairs", []):
+        sa = best_eval.get("start_times", {}).get(a)
+        sb = best_eval.get("start_times", {}).get(b)
+        if sa is None or sb is None or abs(sa - sb) > 1e-6:
+            offending.add(a)
+            offending.add(b)
+            severity[a] = severity.get(a, 0.0) + 1e5
+            severity[b] = severity.get(b, 0.0) + 1e5
 
+    offenders = sorted(list(offending), key=lambda x: -severity.get(x, 0.0))
     if verbose:
-        print(f"[quick_repair] offending visits (count={len(offending)}):", sorted(offending))
+        print(f"[quick_repair] offenders={len(offenders)}, top={offenders[:10]}")
 
-    current_F = best_eval["F"]
+    # --- proximity helper ---
+    def is_near(visit, route_first, route_last, thresh_factor=0.25):
+        try:
+            if hasattr(inst, "travel_time") and inst.travel_time:
+                def tt(a, b):
+                    key = (getattr(a, 'id', a), getattr(b, 'id', b))
+                    return inst.travel_time.get(key, 0.0)
+                d1 = tt(visit, route_first)
+                d2 = tt(visit, route_last)
+                scale = max(1.0, max(inst.travel_time.values()))
+            else:
+                d1 = math.hypot(visit.x - route_first.x, visit.y - route_first.y)
+                d2 = math.hypot(visit.x - route_last.x, visit.y - route_last.y)
+                scale = 1.0
+            thr = max(1e-6, thresh_factor * scale * max(1.0, len(getattr(inst, "visits", {}))))
+            return min(d1, d2) <= thr
+        except Exception:
+            return True
 
+    # --- main repair loop ---
     tries = 0
-    for vid in list(offending):
-        if tries >= max_tries:
+    no_penT_improve = 0
+    counter = itertools.count()  # <--- tie-breaker for heapq
+
+    for vid in offenders:
+        if tries >= max_tries or no_penT_improve >= 5:
             break
         tries += 1
-        # create base by removing vid from any current route
+
         base = clone_solution(best_sol)
         for rr in base.routes:
-            if vid in rr:
+            while vid in rr:
                 rr.remove(vid)
-        # try all insertion positions
-        improved_for_vid = False
-        best_local_for_vid = None
-        best_local_val = float('inf')
 
-        for ridx in range(len(base.routes)):
-            route_len = len(base.routes[ridx])
-            for pos in range(route_len + 1):
+        visit = inst.visits[vid]
+        near_routes = []
+        for ridx, r in enumerate(base.routes):
+            if not r:
+                near_routes.append(ridx)
+                continue
+            first, last = inst.visits[r[0]], inst.visits[r[-1]]
+            if is_near(visit, first, last):
+                near_routes.append(ridx)
+        if not near_routes:
+            near_routes = list(range(len(base.routes)))
+
+        # --- try cheap insertions, keep top few ---
+        top_candidates = []
+        for ridx in near_routes:
+            rlen = len(base.routes[ridx])
+            positions = list(range(rlen + 1))
+            if len(positions) > 30:
+                random.shuffle(positions)
+                positions = positions[:30]
+            for pos in positions:
                 cand = clone_solution(base)
                 cand.routes[ridx].insert(pos, vid)
-                #evaluate F
-                ev_c = evaluate_solution(inst, cand)
-                if ev_c["F"] + 1e-9 < best_local_val:
-                    best_local_val = ev_c["F"]
-                    best_local_for_vid = (cand, ev_c)
-                    if ev_c["F"] + 1e-9 < current_F:
-                        # immediate accept improvement for this vid
-                        best_sol, best_eval = cand, ev_c
-                        current_F = ev_c["F"]
-                        improved_for_vid = True
-                        break
-            if improved_for_vid:
-                break
+                ev = evaluate_solution(inst, cand)
+                sc = score_from_eval(ev, w1, w2, M)
+                heapq.heappush(top_candidates, (sc, next(counter), cand, ev))
+                if len(top_candidates) > 5:
+                    heapq.heappop(top_candidates)
 
-        # try new route for vid
+        # --- optional: try new single route ---
         cand = clone_solution(base)
         cand.routes.append([vid])
-        ev_c = evaluate_solution(inst, cand)
-        # if it gives an improvement, update best_sol, and best_eval
-        if ev_c["F"] + 1e-9 < best_local_val:
-            best_local_val = ev_c["F"]
-            best_local_for_vid = (cand, ev_c)
-            if ev_c["F"] + 1e-9 < current_F:
-                best_sol, best_eval = cand, ev_c
-                current_F = ev_c["F"]
-                improved_for_vid = True
+        ev = evaluate_solution(inst, cand)
+        sc = score_from_eval(ev, w1, w2, M)
+        heapq.heappush(top_candidates, (sc, next(counter), cand, ev))
+        if len(top_candidates) > 5:
+            heapq.heappop(top_candidates)
 
-        # if we found some improvement at least keep the best local (even if not feasible yet)
-        if not improved_for_vid and best_local_for_vid is not None and best_local_val + 1e-9 < current_F:
-            best_sol, best_eval = best_local_for_vid
+        # --- refine only the best few candidates ---
+        best_local = None
+        best_local_score = float("inf")
+        for sc, _, cand, ev in top_candidates:
+            # quick intra-route improvement on the route containing vid
+            for ridx, r in enumerate(cand.routes):
+                if vid in r and len(r) > 2:
+                    for i in range(len(r) - 1):
+                        tmp = intra_route_swap(cand, ridx, i, i + 1)
+                        ev2 = evaluate_solution(inst, tmp)
+                        sc2 = score_from_eval(ev2, w1, w2, M)
+                        if sc2 < sc:
+                            cand, ev, sc = tmp, ev2, sc2
+            if sc < best_local_score:
+                best_local_score = sc
+                best_local = (cand, ev)
 
-        # quick exit if now feasible
+        # --- accept improvement if better score or PenT reduced ---
+        if best_local:
+            cand_sol, cand_ev = best_local
+            cand_penT = cand_ev.get("PenT", 0.0)
+            penT_reduced = cand_penT < best_eval.get("PenT", 0.0) - 1e-6
+            cand_score = score_from_eval(cand_ev, w1, w2, M)
+
+            if cand_score + 1e-9 < best_score or penT_reduced:
+                best_sol, best_eval, best_score = cand_sol, cand_ev, cand_score
+                no_penT_improve = 0
+                if verbose:
+                    print(f"[quick_repair] accepted vid={vid} PenT={cand_penT:.2f} score={cand_score:.2f}")
+            else:
+                no_penT_improve += 1
+
+        # --- early exit if feasible ---
         if is_feasible(inst, best_sol, best_eval):
             if verbose:
-                print("[quick_repair] feasible achieved after repairing vid", vid)
-            return best_sol, best_eval
+                print(f"[quick_repair] feasible after vid={vid}, tries={tries}")
+            break
 
     return best_sol, best_eval
 
