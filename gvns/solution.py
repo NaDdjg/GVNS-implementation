@@ -6,7 +6,6 @@ import math
 
 BIG_M = 1_000_000.0
 
-
 def safe_tt(TT, i, j):
     """Safe access to travel-time matrix supporting list or dict form."""
     try:
@@ -239,7 +238,7 @@ class Solution:
 
     def self_adjust_penalties(self):
         """
-        Dynamically adjust penalty weights (Masoudi et al. adaptation).
+        dynamically adjust penalty weights 
         """
         if self.penT > 0:
             self.w1 *= (1.0 + self.alpha)
@@ -250,7 +249,7 @@ class Solution:
         else:
             self.w2 *= (1.0 - self.alpha)
 
-        self.w1 = max(1e-6, min(self.w1, 1e3))
-        self.w2 = max(1e-6, min(self.w2, 1e3))
+        # self.w1 = max(1e-6, min(self.w1, 1e6))
+        # self.w2 = max(1e-6, min(self.w2, 1e6))
         self.eval()
         return self.w1, self.w2

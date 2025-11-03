@@ -1,11 +1,12 @@
+# gvns/benchmark.py  (replace your current file with this)
 import os
 import time
-import pandas as pd
-import matplotlib.pyplot as plt
+import pandas as pd  # type: ignore
+import matplotlib.pyplot as plt # type: ignore
 from gvns.instance import Instance
 from gvns.gvns import run_gvns
 import random
-import numpy as np
+import numpy as np # type: ignore
 
 # --------------------------------------------------------------
 # Run GVNS on one instance
@@ -15,8 +16,10 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
     name = os.path.basename(path).split(".")[0]
     print(f"\n=== Running instance {name} ===")
 
-    random.seed(params.get("seed", 42))
-    np.random.seed(params.get("seed", 42))
+    # ensure seeds are set if params provided
+    seed = params.get("seed", 42) if params else 42
+    random.seed(seed)
+    np.random.seed(seed)
 
     inst = Instance().load_liu_format(path)
     best_overall = None
@@ -34,17 +37,53 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
         best = run_gvns(inst, params=params, verbose=True, trace_list=trace)
         elapsed = time.time() - start
 
+        # -------------------------------
+        # Normalize trace rows (handle variable-length rows)
+        # -------------------------------
+        # If trace is empty, produce an empty DataFrame with canonical columns
+        if not trace:
+            cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
+            df = pd.DataFrame(columns=cols)
+        else:
+            # determine max row length
+            max_len = max(len(r) for r in trace)
+            # pad shorter rows with None
+            normalized = [list(r) + [None] * (max_len - len(r)) for r in trace]
+
+            # choose column names depending on width
+            # common expected widths:
+            # 7 -> ["iter","F","f","PenT","PenH","PenS","elapsed"]
+            # 8 -> add "best_feasible_f"
+            # if other width, create generic names col0..colN and try to map known names
+            if max_len == 7:
+                cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
+            elif max_len == 8:
+                cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed", "best_feasible_f"]
+            else:
+                # fallback generic column names
+                cols = [f"col{i}" for i in range(max_len)]
+            df = pd.DataFrame(normalized, columns=cols)
+
         # Save trace as CSV
-        df = pd.DataFrame(trace, columns=["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"])
+        os.makedirs(results_dir, exist_ok=True)
         csv_path = os.path.join(results_dir, f"{name}_run{run_id}.csv")
         df.to_csv(csv_path, index=False)
 
-        # Record final stats
+        # attempt to extract best_feasible_f from trace if present
+        best_f_feasible = None
+        if "best_feasible_f" in df.columns:
+            # take the last non-null value
+            series = df["best_feasible_f"].dropna()
+            if not series.empty:
+                best_f_feasible = float(series.iloc[-1])
+
+        # Record final stats (best returned object still used)
         results.append({
             "instance": name,
             "run": run_id,
             "best_F": best.Fval,
             "best_f": best.travel_time,
+            "best_feasible_f": (best_f_feasible if best_f_feasible is not None else None),
             "PenT": best.penT,
             "PenH": best.penH,
             "PenS": best.penS,
@@ -55,14 +94,38 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
             best_overall = best.copy()
 
         # ----------------------------------------------------------
-        # Plot evolution of f (travel cost)
+        # Plot evolution of f (travel cost) and best feasible f line
         # ----------------------------------------------------------
         plt.figure(figsize=(8, 5))
         plt.title(f"GVNS evolution for {name} (run {run_id})")
         plt.xlabel("Iteration")
         plt.ylabel("Objective f (travel distance)")
-        plt.scatter(df["iter"], df["f"], s=20, label="raw f", color="blue", alpha=0.6)
-        plt.plot(df["iter"], df["f"].cummin(), label="best f", color="orange", linewidth=2)
+
+        # raw f points
+        if "iter" in df.columns and "f" in df.columns and not df.empty:
+            plt.scatter(df["iter"], df["f"], s=20, label="raw f (per iter)", alpha=0.6)
+
+            # compute feasible-best series: only consider iterations where penalties are zero (if those columns exist)
+            best_series = []
+            best_val = float("inf")
+            for _, row in df.iterrows():
+                f = row.get("f", None)
+                PenT = row.get("PenT", None)
+                PenH = row.get("PenH", None)
+                PenS = row.get("PenS", None)
+                # update best only when fully feasible (all penalties zero) and f is positive
+                if (PenT in (0.0, 0, None) and PenH in (0.0, 0, None) and PenS in (0.0, 0, None)):
+                    # if penalties columns are None, we cannot rely on them; treat as unknown -> do not update best
+                    if (PenT is None) or (PenH is None) or (PenS is None):
+                        best_series.append(best_val if best_val < float("inf") else float("nan"))
+                        continue
+                    if f is not None and f > 0:
+                        if f < best_val:
+                            best_val = f
+                best_series.append(best_val if best_val < float("inf") else float("nan"))
+
+            plt.plot(df["iter"], best_series, label="best feasible f (so far)", linewidth=2)
+
         plt.legend()
         plt.grid(True, linestyle="--", alpha=0.5)
         plt.tight_layout()
@@ -71,7 +134,7 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
         plt.savefig(plot_path, dpi=150)
         plt.close()
 
-        print(f"[RUN {run_id}] Done. Best f={best.travel_time:.3f}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
+        print(f"[RUN {run_id}] Done. Best f={best.travel_time:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
 
     # ----------------------------------------------------------
     # Summary over all runs
@@ -81,7 +144,9 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
     df_res.to_csv(summary_path, index=False)
 
     print(f"\n=== Summary for {name} ===")
-    print(df_res[["run", "best_f", "PenS", "time"]])
+    # safe prints even if some keys missing
+    cols_to_show = [c for c in ["run", "best_f", "best_feasible_f", "PenS", "time"] if c in df_res.columns]
+    print(df_res[cols_to_show])
     print(f"→ mean f={df_res['best_f'].mean():.3f}, best f={df_res['best_f'].min():.3f}")
 
     return df_res
@@ -110,32 +175,6 @@ def run_folder(folder, n_runs=1, params=None, results_dir="results"):
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
 
-# --------------------------------------------------------------
-# Callable main for run_benchmark.py
-# --------------------------------------------------------------
 def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS=1):
-    """Main callable for the root run_benchmark.py."""
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
     run_folder(folder=INST_FOLDER, n_runs=N_RUNS, params=PARAMS, results_dir=RESULTS_FOLDER)
-
-
-# --------------------------------------------------------------
-# Local run (for standalone testing)
-# --------------------------------------------------------------
-# if __name__ == "__main__":
-#     INST_FOLDER = "instances"
-#     RESULTS_FOLDER = "results"
-#     PARAMS = {
-#         "contmax": 100,
-#         "p_init": 1,
-#         "p_max": 10,
-#         "Dp": 0.3,
-#         "w1_init": 0.5,
-#         "w2_init": 0.1,
-#         "alpha": 0.1,
-#         "M": 1e6,
-#         "seed": 42,
-#         "Tmax": 600
-#     }
-#     N_RUNS = 1
-#     benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS)
