@@ -1,4 +1,3 @@
-# gvns/benchmark.py  (replace your current file with this)
 import os
 import time
 import pandas as pd  # type: ignore
@@ -8,15 +7,12 @@ from gvns.gvns import run_gvns
 import random
 import numpy as np # type: ignore
 
-# --------------------------------------------------------------
-# Run GVNS on one instance
-# --------------------------------------------------------------
+# run GVNS on one instance
 def run_instance(path, n_runs=1, params=None, results_dir="results"):
     """Run GVNS multiple times on one instance, save traces and plots."""
     name = os.path.basename(path).split(".")[0]
     print(f"\n=== Running instance {name} ===")
 
-    # ensure seeds are set if params provided
     seed = params.get("seed", 42) if params else 42
     random.seed(seed)
     np.random.seed(seed)
@@ -31,16 +27,12 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
         start = time.time()
         trace = []
 
-        # ----------------------------------------------------------
-        # Run GVNS with trace logging
-        # ----------------------------------------------------------
+        # run GVNS with trace logging
         best = run_gvns(inst, params=params, verbose=True, trace_list=trace)
         elapsed = time.time() - start
 
-        # -------------------------------
-        # Normalize trace rows (handle variable-length rows)
-        # -------------------------------
-        # If trace is empty, produce an empty DataFrame with canonical columns
+        # normalize trace rows (handle variable-length rows)
+        # if trace is empty, produce an empty DataFrame with canonical columns
         if not trace:
             cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
             df = pd.DataFrame(columns=cols)
@@ -50,11 +42,6 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
             # pad shorter rows with None
             normalized = [list(r) + [None] * (max_len - len(r)) for r in trace]
 
-            # choose column names depending on width
-            # common expected widths:
-            # 7 -> ["iter","F","f","PenT","PenH","PenS","elapsed"]
-            # 8 -> add "best_feasible_f"
-            # if other width, create generic names col0..colN and try to map known names
             if max_len == 7:
                 cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
             elif max_len == 8:
@@ -64,7 +51,7 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
                 cols = [f"col{i}" for i in range(max_len)]
             df = pd.DataFrame(normalized, columns=cols)
 
-        # Save trace as CSV
+        # save trace as CSV
         os.makedirs(results_dir, exist_ok=True)
         csv_path = os.path.join(results_dir, f"{name}_run{run_id}.csv")
         df.to_csv(csv_path, index=False)
@@ -77,7 +64,7 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
             if not series.empty:
                 best_f_feasible = float(series.iloc[-1])
 
-        # Record final stats (best returned object still used)
+        # record final stats (best returned object still used)
         results.append({
             "instance": name,
             "run": run_id,
@@ -93,9 +80,7 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
         if best_overall is None or best.travel_time < best_overall.travel_time:
             best_overall = best.copy()
 
-        # ----------------------------------------------------------
-        # Plot evolution of f (travel cost) and best feasible f line
-        # ----------------------------------------------------------
+        # plot evolution of f (travel cost) and best feasible f line
         plt.figure(figsize=(8, 5))
         plt.title(f"GVNS evolution for {name} (run {run_id})")
         plt.xlabel("Iteration")
@@ -136,9 +121,7 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
 
         print(f"[RUN {run_id}] Done. Best f={best.travel_time:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
 
-    # ----------------------------------------------------------
-    # Summary over all runs
-    # ----------------------------------------------------------
+    # summary over all runs
     df_res = pd.DataFrame(results)
     summary_path = os.path.join(results_dir, f"{name}_summary.csv")
     df_res.to_csv(summary_path, index=False)
@@ -152,9 +135,7 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
     return df_res
 
 
-# --------------------------------------------------------------
-# Run GVNS on all .txt instances in a folder
-# --------------------------------------------------------------
+# run GVNS on all .txt instances in a folder
 def run_folder(folder, n_runs=1, params=None, results_dir="results"):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])

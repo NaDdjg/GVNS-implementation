@@ -1,17 +1,18 @@
-# gvns/operators.py
 from typing import List, Tuple, Optional
 import random
 from collections import Counter
 
 from gvns.solution import Solution
 
-# Toggle debug prints for operator diagnostics
+# debug prints for operator diagnostics
 DEBUG_OPERATORS = False
 
-# ---------------------------------------------------------------------
-# Helpers: multiset checks + diagnostics
-# ---------------------------------------------------------------------
+# helpers: multiset checks + diagnostics
 def multiset_of_tours(tours: List[List[int]]) -> Counter:
+    """
+    returns a counter of totsl occurences of each customer across all tours
+    used to check that moves preserve the multiset of visits (no lost/duplicated visits)
+    """
     c = Counter()
     for rt in tours:
         for v in rt:
@@ -27,7 +28,7 @@ def diagnostic_print(op_name: str, before, after, details=""):
     print("[OPERATORS][DIAG]", op_name)
     print("  before total_visits:", sum(before.values()), "distinct:", len(before))
     print("  after  total_visits:", sum(after.values()), "distinct:", len(after))
-    # show small samples
+    # small samples for debug
     print("  before sample:", {k:v for k,v in list(before.items())[:10]})
     print("  after  sample:", {k:v for k,v in list(after.items())[:10]})
     if details:
@@ -35,8 +36,10 @@ def diagnostic_print(op_name: str, before, after, details=""):
 
 def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info: str="") -> Optional[Solution]:
     """
-    Validate that the move preserved the multiset of visits.
-    If invalid => print diagnostics and return None (move rejected).
+    validate that the move preserved the multiset of visits
+    if invalid => print diagnostics and return None (move rejected)
+    using this to make sure moves never change the global counts (so occurrences remain correct)
+    so every operator returns a new_sol only if the global multiset of visits is unchanged ! (occurences of synch visits wont be in the same vehicle since the number of vehicle required wont drop)
     """
     before = multiset_of_tours(sol.tours)
     after = multiset_of_tours(new_sol.tours)
@@ -45,11 +48,12 @@ def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info
         return None
     return new_sol
 
-# ---------------------------------------------------------------------
-# Elementary operators (validated)
-# ---------------------------------------------------------------------
-
+#  operators : they are are allowed to move occurrences between routes but will refuse any move that would put all required occurrences for a synced customer on the same vehicle
 def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -> Optional[Solution]:
+    """
+    move an item inside the same route from from_pos to to_pos
+    returns None if invalid indices or positions equal 
+    """
     if from_pos == to_pos:
         return None
     if route_idx < 0 or route_idx >= len(sol.tours):
@@ -74,6 +78,13 @@ def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -
     return safe_move_wrapper(sol, new, "intra_insertion", f"r{route_idx} {from_pos}->{to_pos}")
 
 def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_idx: int, to_pos: int) -> Optional[Solution]:
+    """
+    remove an element from route A and insert it into route B
+    added a check for synchronized elements: 
+        - if the customer is synchronized, it checks occs = [rt.count(cust) for rt in new.tours] and total_occ
+        - If after the move all required occurrences end up on a single vehicle (route) it rejects the move
+    it will prevents putting both occurrences on the same vehicle
+    """
     if from_route_idx == to_route_idx:
         return None
     if from_route_idx < 0 or to_route_idx < 0 or from_route_idx >= len(sol.tours) or to_route_idx >= len(sol.tours):
@@ -91,15 +102,15 @@ def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_
             print("[OPERATORS] inter_insertion exception:", e)
         return None
 
-    # Additional sync-safety check:
+    # synch part 
     inst = sol.instance
     cust = val
     if cust in getattr(inst, "sync_customers", set()):
         occs = [rt.count(cust) for rt in new.tours]
         total_occ = sum(occs)
         req = inst.sync_requirements.get(cust, 2)
-        # If a single route now contains all occurrences (i.e., all required occurrences ended up on a single route),
-        # then the synchronization requirement would be violated (we need them on different vehicles).
+        # if a single route now contains all occurrences (so all required occurrences ended up on a single route),
+        # then the synchronization requirement would be violated (we need them on different vehicles) so the move is changed
         for cnt in occs:
             if cnt >= req and cnt == total_occ and total_occ >= req:
                 # diagnostic
@@ -111,6 +122,10 @@ def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_
     return safe_move_wrapper(sol, new, "inter_insertion", f"{from_route_idx}:{from_pos} -> {to_route_idx}:{to_pos}")
 
 def intra_swap(sol: Solution, route_idx: int, pos_a: int, pos_b: int) -> Optional[Solution]:
+    """
+    swap two positions inside a route
+    returns None if invalid indices
+    """
     if route_idx < 0 or route_idx >= len(sol.tours):
         return None
     rt = sol.tours[route_idx]
@@ -128,6 +143,11 @@ def intra_swap(sol: Solution, route_idx: int, pos_a: int, pos_b: int) -> Optiona
     return safe_move_wrapper(sol, new, "intra_swap", f"r{route_idx} p{pos_a}<->{pos_b}")
 
 def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[Solution]:
+    """
+    swap an item from route r1 with an item from r2
+    added safety for synchronized ones: for both swapped customers it recomputes occurrences per route 
+        and rejects if the swap concentrates all required occs on a single route
+    """
     if r1 == r2:
         return None
     if r1 < 0 or r2 < 0 or r1 >= len(sol.tours) or r2 >= len(sol.tours):
@@ -143,7 +163,7 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
             print("[OPERATORS] inter_swap exception:", e)
         return None
 
-    # sync-safety: ensure we didn't end up with all required occurrences in the same route
+    # synch part 
     inst = sol.instance
     c1 = new.tours[r1][p1]
     c2 = new.tours[r2][p2]
@@ -161,9 +181,7 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
 
     return safe_move_wrapper(sol, new, "inter_swap", f"r{r1}p{p1}<->{r2}p{p2}")
 
-# ---------------------------------------------------------------------
-# Randomized/shaking utilities (use validated operators)
-# ---------------------------------------------------------------------
+# shaking utilities 
 def random_shake(sol: Solution, k: int, insert_prob: float = 0.5) -> Solution:
     new = sol.copy()
     m = len(new.tours)

@@ -1,19 +1,18 @@
-# gvns/local_search.py
-from typing import List, Callable, Tuple, Optional
+from typing import List, Optional
 import random
 import time
 
 from gvns.solution import Solution
 import gvns.operators as ops
 
-# A simple B-VND (Block Variable Neighborhood Descent)
-# neighborhoods = list of neighborhood functions or names ["N1","N2","N3","N4"]
-# We implement neighborhood exploration as first-improvement with optional sampling.
-# This keeps runtime reasonable and matches randomized GVNS practices.
-
+"""
+the logic of first improvement will make thigs faster since it stops on the frist useful move, 
+it will keep a diversification with more small improvements 
+"""
 def explore_N1_first_improvement(sol: Solution, max_tries: int = 500, sample: bool = True) -> Optional[Solution]:
-    """Search intra-insertion moves (N1) trying to find a solution with strictly better Fval.
-    Returns the improved solution or None.
+    """
+    search intra-insertion moves (N1) trying to find a solution with strictly better Fval.
+    returns the improved solution or None.
     """
     m = len(sol.tours)
     base_val = sol.Fval
@@ -47,7 +46,7 @@ def explore_N1_first_improvement(sol: Solution, max_tries: int = 500, sample: bo
     return None
 
 def explore_N2_first_improvement(sol: Solution, max_tries: int = 2000, sample: bool = True) -> Optional[Solution]:
-    """Inter-insertion"""
+    """inter-insertion"""
     m = len(sol.tours)
     base_val = sol.Fval
     tries = 0
@@ -132,7 +131,7 @@ def explore_N4_first_improvement(sol: Solution, max_tries: int = 2000, sample: b
                     return new
     return None
 
-# Mapping neighborhood names to explorer functions
+# neighbors 
 NEIGH_EXPLORERS = {
     "N1": explore_N1_first_improvement,
     "N2": explore_N2_first_improvement,
@@ -145,10 +144,10 @@ def b_vnd(sol: Solution,
           max_no_improve_iters: int = 10,
           time_limit: Optional[float] = None) -> Solution:
     """
-    Block Variable Neighborhood Descent (B-VND).
+    B-VND logic 
     - neighborhoods: ordered list (N1..N4)
-    - We iterate neighborhoods sequentially. When an improvement is found we restart from first neighborhood.
-    - Stop after max_no_improve_iters consecutive outer loops without improvement or time_limit seconds.
+    - iterate neighborhoods sequentially, when an improvement is found we restart from first neighborhood
+    - stop after max_no_improve_iters consecutive outer loops without improvement or time_limit seconds
     """
     best = sol
     best.eval()

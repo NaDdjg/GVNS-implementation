@@ -1,4 +1,3 @@
-# gvns/solution.py
 from dataclasses import dataclass, field
 from typing import List, Dict
 import random
@@ -7,7 +6,7 @@ import math
 BIG_M = 1_000_000.0
 
 def safe_tt(TT, i, j):
-    """Safe access to travel-time matrix supporting list or dict form."""
+    """safe access to travel-time matrix supporting list or dict form"""
     try:
         if isinstance(TT, dict):
             return TT.get(i, {}).get(j, 0.0)
@@ -15,7 +14,6 @@ def safe_tt(TT, i, j):
             return TT[i][j]
     except Exception:
         return 0.0
-
 
 @dataclass
 class Solution:
@@ -33,9 +31,7 @@ class Solution:
     Fval: float = 0.0
     PV: int = 0
 
-    # ------------------------------------------------------------------
-    # Utility
-    # ------------------------------------------------------------------
+    # utility
     def copy(self):
         return Solution(
             instance=self.instance,
@@ -46,18 +42,16 @@ class Solution:
             M=self.M,
         )
 
-    # ------------------------------------------------------------------
-    # Core Evaluation
-    # ------------------------------------------------------------------
+    # core Evaluation
     def eval(self):
         """
-        Evaluate total cost including:
-        - travel distance
+        evaluate total cost including:
+        - travel distance (f)
         - lateness (PenT)
         - horizon (PenH)
         - synchronization (PenS)
         """
-        self.repair()  # Ensure feasibility first
+        self.repair()  # ensure feasibility first
 
         inst = self.instance
         TT = inst.travel_time
@@ -80,11 +74,11 @@ class Solution:
         travel_total = 0.0
         penT = penH = penS = 0.0
 
-        # Synchronization tracking
+        # synchronization tracking
         sync_arrivals: Dict[int, List[int]] = {cid: [] for cid in sync_customers}
         sync_served = set()
 
-        # Initialize first arrivals
+        # initialize first arrivals
         for k in range(m):
             if k < len(self.tours) and len(self.tours[k]) > 0:
                 first = self.tours[k][0]
@@ -92,7 +86,7 @@ class Solution:
             else:
                 vehicle_done[k] = True
 
-        # Simulation loop
+        # simulation loop
         progress = True
         iter_guard = 0
         max_iter = sum(len(t) for t in self.tours) * 10 + 200
@@ -113,11 +107,11 @@ class Solution:
                 due = nodes[i]["due"]
                 service = nodes[i]["service"]
 
-                # Wait for ready time
+                # wait for ready time
                 if vehicle_time[k] < ready:
                     vehicle_time[k] = ready
 
-                # --- SYNCHRONIZED CUSTOMER ---
+                # synch costomers
                 if i in sync_customers:
                     arrivals = sync_arrivals[i]
                     if k not in arrivals:
@@ -127,19 +121,21 @@ class Solution:
                     if len(arrivals) < req:
                         continue  # wait for others
 
-                    # Check arrival alignment
+                    # check arrival alignment
                     arrival_times = [vehicle_time[v] for v in arrivals]
                     if max(arrival_times) - min(arrival_times) > 1e-3:
-                        # Not synchronized properly → penalize
+                        # not synchronized properly → penalize
                         penS += 1.0
                         sync_arrivals[i] = []
                         continue
 
-                    # Synchronize start
+                    # synchronize start
                     start_time = max(arrival_times)
                     if start_time > due:
                         penT += (start_time - due)
 
+                    # so here the actual start time used for service of that customer is the maximum of the arrival times of the vehicles 
+                    # (whcih means everyone waits until all required vehicles are there) whcih is the "served at the same time” part
                     for v in arrivals:
                         visited[i] += 1
                         prev = depot_id if vehicle_pos[v] == 0 else self.tours[v][vehicle_pos[v] - 1]
@@ -157,7 +153,7 @@ class Solution:
 
                     progress = True
 
-                # --- NON-SYNCHRONIZED CUSTOMER ---
+                # non-synch customers
                 else:
                     if vehicle_time[k] > due:
                         penT += (vehicle_time[k] - due)
@@ -173,17 +169,17 @@ class Solution:
                         vehicle_time[k] += safe_tt(TT, i, depot_id)
                     progress = True
 
-        # Horizon penalties
+        # horizon penalties
         for k in range(m):
             if vehicle_time[k] > horizon:
                 penH += (vehicle_time[k] - horizon)
 
-        # Synchronization penalty
+        # synchronization penalty
         for cid in sync_customers:
             if cid not in sync_served:
                 penS += 1.0
 
-        # Final objective
+        # final objective
         self.travel_time = travel_total
         self.penT = penT
         self.penH = penH
@@ -192,14 +188,12 @@ class Solution:
         self.Fval = travel_total + self.w1 * penT + self.w2 * penH + self.M * penS
         return self.Fval
 
-    # ------------------------------------------------------------------
-    # Repair and penalty adaptation
-    # ------------------------------------------------------------------
+    # repair and penalty adaptation
     def repair(self):
         """
-        Ensures each customer appears the correct number of times:
+        ensures each customer appears the correct number of times:
         - normal customers: 1 occurrence
-        - synchronized customers: required # occurrences (usually 2)
+        - synchronized customers: required # occurrences (will be 2 in our case)
         - removes extras, reinserts missing ones randomly
         """
         inst = self.instance
@@ -214,7 +208,7 @@ class Solution:
             for v in rt:
                 counter[v] += 1
 
-        # Remove duplicates beyond allowed count
+        # remove duplicates beyond allowed count
         for node, count in list(counter.items()):
             allowed = sync_req.get(node, 2 if node in sync_customers else 1)
             if count > allowed:
@@ -224,7 +218,7 @@ class Solution:
                         rt.remove(node)
                         excess -= 1
 
-        # Insert missing customers
+        # insert missing customers
         for node in non_depot_nodes:
             allowed = sync_req.get(node, 2 if node in sync_customers else 1)
             current = sum(rt.count(node) for rt in self.tours)

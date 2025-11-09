@@ -1,10 +1,8 @@
-# gvns/instance.py
-from typing import List, Dict
 import math
 
 class Instance:
     """
-    Data container for a VRPTW-S (multi-vehicle synchronization) instance.
+    data container for a VRPTW-S 
     """
 
     def __init__(self):
@@ -25,8 +23,8 @@ class Instance:
 
     def load_liu_format(self, path: str):
         """
-        Parser for Liu benchmark format used by Masmoudi et al.
-        Example header:
+        parser for Liu benchmark format instances
+        the header looks like:
             30
             100
             3390
@@ -55,7 +53,7 @@ class Instance:
         self.horizon = float(header[2])
         s = header[3]  # number of synchronized customers
 
-        # next line(s): synchronized customer IDs
+        # synchronized customer IDs
         sync_ids = []
         while len(sync_ids) < s and idx < len(lines):
             nums = self._try_parse_ints(lines[idx])
@@ -83,7 +81,7 @@ class Instance:
                 "service": float(serv),
             }
 
-        # build travel time matrix (Euclidean)
+        # build travel time matrix (euclidean)
         max_id = max(self.nodes.keys())
         size = max_id + 1
         self.travel_time = [[0.0]*size for _ in range(size)]

@@ -1,4 +1,3 @@
-# gvns/initializer.py
 import random
 import math
 from typing import List
@@ -8,9 +7,9 @@ from gvns.solution import Solution
 
 def earliest_insertion(instance, tours, cust, vehicle_idx):
     """
-    Try to insert cust into tours[vehicle_idx] at a position that minimizes
+    try to insert cust into tours[vehicle_idx] at a position that minimizes
     increase in travel time while trying to respect time windows.
-    Returns True if inserted, False otherwise.
+    returns True if inserted, False otherwise.
     """
     TT = instance.travel_time
     depot = min(instance.nodes.keys())
@@ -33,17 +32,18 @@ def earliest_insertion(instance, tours, cust, vehicle_idx):
 
 def random_insertion(instance, seed: int = 0):
     """
-    Build an initial solution:
-      - ensure each synchronized customer appears exactly sync_requirements[c] times
+    im usiing this function to build an initial solution, it:
+      - ensures each synchronized customer appears exactly sync_requirements[c] times
         and each occurrence is on a different vehicle
-      - place remaining customers once each
-    Strategy:
-      1. Create empty tours for m vehicles
-      2. For each sync customer, assign its two occurrences to two different vehicles:
+      - places remaining customers once each
+    
+    the strategy followed mainly is:
+      1. create empty tours for m vehicles
+      2. for each sync customer, assign its two occurrences to two different vehicles:
          choose the two vehicles that currently have smallest number of nodes (balance)
          and try earliest insertion (greedy); if fails, force insert.
-      3. For remaining customers, insert greedily into the vehicle/position with minimal cost
-    Returns a Solution object (not evaluated).
+      3. for remaining customers, insert greedily into the vehicle/position with minimal cost
+    returns a Solution object (this solution is not evaluated yet, it will be after the call in gvns).
     """
     random.seed(seed)
     m = instance.m
@@ -105,7 +105,7 @@ def random_insertion(instance, seed: int = 0):
                 v = min(range(m), key=lambda x: len(tours[x]))
                 tours[v].append(sc)
         else:
-            # ensure occurrences are on different vehicles
+            # ensure occurrences are on different vehicles (to move duplicates to other vehicles)
             vehicles = [idx for idx, _ in occurrences]
             if len(set(vehicles)) < len(vehicles):
                 # move duplicates to other vehicles

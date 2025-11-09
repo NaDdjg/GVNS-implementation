@@ -1,8 +1,5 @@
-# gvns/gvns.py
 import time
 import random
-from typing import Optional, Dict, Any
-
 from gvns.solution import Solution
 from gvns.initializer import random_insertion
 import gvns.operators as ops
@@ -45,7 +42,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
                 cnt[v] += 1
         return cnt
 
-    # --- Initialization ---
+    # initialization 
     current = random_insertion(instance, seed=cfg["seed"])
     current.w1 = cfg["w1"]; current.w2 = cfg["w2"]; current.alpha = cfg["alpha"]; current.M = cfg["M"]
 
@@ -92,7 +89,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         t = max(min_time, min(t, max_time))
         return float(t)
 
-    # --- Main GVNS loop ---
+    # main loop
     while True:
         iteration_num += 1
         elapsed = time.time() - start_time
@@ -103,12 +100,12 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             if verbose: print("[GVNS] cont limit reached.")
             break
 
-        # Shake
+        # shake
         k = max(1, int(p))
         shaken = ops.random_shake(current, k=k, insert_prob=Dp)
         shaken.w1 = current.w1; shaken.w2 = current.w2; shaken.alpha = current.alpha; shaken.M = current.M
 
-        # Local search (B-VND)
+        # local search (B-VND)
         n_customers = len([nid for nid in instance.nodes if nid != depot_id])
         sync_pairs = len(getattr(instance, "sync_customers", []))
         m = instance.m
@@ -123,7 +120,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         improved.eval()
         new = improved
 
-        # Defensive checks
+        # defensive checks
         tv_new = total_visits(new)
         if tv_new != expected_total or (new.Fval == 0.0 and (new.penT + new.penH + new.penS) > 0):
             cont += 1
@@ -135,7 +132,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
                 ])
             continue
 
-        # Acceptance (Move-or-Not)
+        # acceptance (Move-or-Not)
         threshold = (1.0 + delta) * current.Fval
         accept = (new.Fval <= threshold)
         if accept:
@@ -146,7 +143,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             cont += 1
             accepted_str = "REJECTED"
 
-        # --- Update augmented best (penalized objective) ---
+        # update augmented best (penalized objective) 
         if new.Fval < best_aug.Fval and new.Fval > 1e-6:
             best_aug = new.copy()
             print(f"[GVNS][iteration {iteration_num}] NEW BEST (augmented): "
@@ -154,24 +151,24 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
                   f"PenT={best_aug.penT:.4f} PenH={best_aug.penH:.4f} PenS={best_aug.penS:.1f} "
                   f"elapsed={elapsed:.2f}s")
 
-        # --- Update feasible best (pure f) ---
+        # update feasible best (pure f) 
         if new.penT == 0.0 and new.penH == 0.0 and new.penS == 0.0 and new.travel_time < best_feasible_f:
             best_feasible = new.copy()
             best_feasible_f = new.travel_time
             print(f"[GVNS][iteration {iteration_num}] NEW BEST (feasible f): "
                   f"f={best_feasible_f:.4f} elapsed={elapsed:.2f}s")
 
-        # Penalty adaptation
+        # penalty adaptation
         current.eval()
         current.self_adjust_penalties()
 
-        # Update p
+        # update p
         if cont > 0 and cont % 10 == 0:
             p = min(p + 1, p_max)
         if accept:
             p = max(p_min, p - 1)
 
-        # Iteration summary
+        # iteration summary
         print(f"[GVNS][iteration {iteration_num}] {accepted_str} | "
               f"F={new.Fval:.4f} f={new.travel_time:.4f} PenT={new.penT:.4f} "
               f"PenH={new.penH:.4f} PenS={new.penS} | "

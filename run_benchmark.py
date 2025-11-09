@@ -1,14 +1,12 @@
 import os
 from gvns import benchmark
 
-# --------------------------------------------------------------
-# Configurable parameters
-# --------------------------------------------------------------
+# parameters
 N_RUNS = 1  
 INST_FOLDER = "instances"      
 RESULTS_FOLDER = "results"
 
-# GVNS hyperparameters (Masoudi et al.)
+# GVNS hyperparameters 
 params = {
     "Contmax": 100,
     "p_init": 1,
@@ -23,14 +21,10 @@ params = {
     "Tmax": 1000  
 }
 
-# --------------------------------------------------------------
-# Utility: ensure results folder exists
-# --------------------------------------------------------------
+# this is just a utility to ensure results folder exists
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-# --------------------------------------------------------------
-# Run benchmark
-# --------------------------------------------------------------
+# run benchmark
 if __name__ == "__main__":
     benchmark.benchmark_main(
         INST_FOLDER=INST_FOLDER,
