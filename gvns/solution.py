@@ -170,6 +170,7 @@ class Solution:
                             "start": float(start_time),
                             "service": float(service),
                             "depart": float(start_time + service),
+                            "ready": float(ready),
                             "due": float(due)
                         })
                         # advance vehicle state
@@ -202,6 +203,7 @@ class Solution:
                         "start": float(start),
                         "service": float(service),
                         "depart": float(depart),
+                        "ready": float(ready),
                         "due": float(due)
                     })
 
@@ -243,10 +245,6 @@ class Solution:
                     penH += (end_time - horizon)
 
         # synchronization penalty for any sync customers that never got served
-        # penS = 0.0
-        # for cid in sync_customers:
-        #     if cid not in sync_served:
-        #         penS += 1.0
         n = 0
         for cid in nodes.keys():
             if cid == depot_id:
@@ -349,87 +347,8 @@ class Solution:
 
         # self.eval()
         return self.w1, self.w2
-    
-    def compute_timeline(self):
-        """
-        Simulate the solution and return detailed per-vehicle timeline WITHOUT
-        changing Solution state. This mirrors eval() simulation but collects
-        per-node arrival/start/depart times for inspection.
 
-        Returns a list of dicts, one per vehicle:
-        {
-          "route": [node ids],
-          "visits": [
-             {"node": id, "prev": prev, "travel": t_prev_node, "arrival": a, "ready": r,
-              "wait": w, "start": s, "service": svc, "depart": d, "lateness": late}
-          ],
-          "travel": travel_sum_for_vehicle (including return),
-          "end_time": end_time (depart_last + return_to_depot)
-        }
-        """
-        inst = self.instance
-        nodes = inst.nodes
-        TT = inst.travel_time
-        depot = min(nodes.keys())
-
-        m = inst.m
-        # initialize structure
-        timelines = []
-
-        # We'll mirror eval simulation but only to compute and report times
-        for k in range(m):
-            route = []
-            if k < len(self.tours):
-                route = list(self.tours[k])
-            visits = []
-            if not route:
-                timelines.append({"route": [], "visits": [], "travel": 0.0, "end_time": 0.0})
-                continue
-
-            # simulate vehicle k
-            travel_sum = 0.0
-            prev = depot
-            # arrival at first node = travel from depot to first
-            arrival = safe_tt(TT, prev, route[0])
-            time_cursor = arrival  # raw arrival (before waiting)
-            for idx, node in enumerate(route):
-                prev = depot if idx == 0 else route[idx - 1]
-                travel_leg = safe_tt(TT, prev, node)
-                if idx != 0:
-                    time_cursor = depart + travel_leg
-                arrival = time_cursor
-                ready = nodes[node]["ready"]
-                wait = max(0.0, ready - arrival)
-                start = arrival + wait
-                # lateness is computed relative to due using start
-                due = nodes[node]["due"]
-                lateness = max(0.0, start - due)
-                service = nodes[node]["service"]
-                depart = start + service
-                visits.append({
-                    "node": node,
-                    "prev": prev,
-                    "travel": float(travel_leg),
-                    "arrival": float(arrival),
-                    "ready": float(ready),
-                    "wait": float(wait),
-                    "start": float(start),
-                    "service": float(service),
-                    "depart": float(depart),
-                    "lateness": float(lateness)
-                })
-                travel_sum += float(travel_leg)
-
-            # add return to depot travel
-            last = route[-1]
-            ret = safe_tt(TT, last, depot)
-            end_time = depart + ret
-            travel_sum += float(ret)
-            timelines.append({"route": route, "visits": visits, "travel": float(travel_sum), "end_time": float(end_time)})
-
-        return timelines
-
-    def compute_timeline_postsync(self, eps_sync: float = 1e-3):
+    def compute_timeline_postsync(self):
         """
         Return the per-vehicle timeline produced by the canonical eval() run.
         If eval() wasn't called, run the canonical simulation once.

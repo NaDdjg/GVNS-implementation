@@ -1,18 +1,24 @@
 """
-this file will use the json file traces created by gvns/logger.py to analyze and print statistics
-it will focus on the accepted moves (so the final step in gvns)
+This analyzer loads the JSONL trace produced by gvns/logger.py
+and extracts all accepted solutions, formatting the vehicle timelines
+into a human-readable representation.
+
+The results are written into a file: OUTPUT_FILE
 """
 
 import json
 
 INPUT_FILE = "gvns_trace.jsonl"
+OUTPUT_FILE = "analysis_output.txt"
+
 
 def format_visit(rec):
     node = rec["node"]
     start = rec["start"]
-    ready = rec["arrival"]
-    wait = rec["wait"] if "wait" in rec else max(0, start - ready)
-    return f"{node}(start={start:.1f}, [arr={ready:.1f}, wait={wait:.1f}])"
+    ready = rec["ready"]
+    due = rec["due"]
+    depart  = rec["depart"]
+    return f"{node}(start={start:.2f}, [ready={ready:.2f}, due={due:.2f}], depart={depart:.2f})"
 
 
 def process_vehicle(vtimeline):
@@ -23,10 +29,10 @@ def process_vehicle(vtimeline):
 
     lines = []
 
-    # Start at depot
-    # We don't know depot id inside timeline so we put 0 (common Liu format)
-    depot = 0
-    prev = f"{depot}(start=0.0)"
+    # assume depot=0 (Liu format)
+    depot = "DEPOT(start=0.0)"
+    prev = depot
+
     for rec in visits:
         travel = rec["travel"]
         curr = format_visit(rec)
@@ -34,10 +40,6 @@ def process_vehicle(vtimeline):
         prev = curr
 
     # Return to depot
-    last_node = visits[-1]["node"]
-    # travel back is timeline["travel"] - sum(visits[i].travel)
-    # but it's already inside end_time, so better recompute:
-    # We attach travel-back only as meta (we do not know exact travel field)
     travel_back = vtimeline["end_time"] - visits[-1]["depart"]
     lines.append(f"{prev} --{travel_back:.2f}--> DEPOT")
 
@@ -45,6 +47,8 @@ def process_vehicle(vtimeline):
 
 
 def main():
+    out_lines = []
+
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         for line in f:
             try:
@@ -55,20 +59,30 @@ def main():
             if obj.get("event") != "accepted":
                 continue
 
-            print("\n" + "=" * 80)
-            print(f"ACCEPTED STEP {obj['step']} | F={obj['Fval']:.3f}")
-            print("=" * 80)
+            # Header
+            out_lines.append("\n" + "=" * 80)
+            out_lines.append(
+                f"ACCEPTED STEP {obj['step']} | F={obj['Fval']:.3f} | travel={obj['travel_time']:.3f} | penS={obj['penS']}"
+            )
+            out_lines.append("=" * 80)
 
-            timeline = obj.get("timeline", None)
+            timeline = obj.get("timeline")
             if not timeline:
                 continue
 
-            # For each vehicle
+            # Each vehicle timeline
             for k, veh in enumerate(timeline):
-                print(f"\nVehicle {k}:")
-                print(process_vehicle(veh))
+                out_lines.append(f"\nVehicle {k}:")
+                out_lines.append(process_vehicle(veh))
+                out_lines.append("-" * 40)
 
-            print("-" * 80)
+            out_lines.append("\n")
+
+    # Write to file
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as fw:
+        fw.write("\n".join(out_lines))
+
+    print(f"Analysis saved to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":

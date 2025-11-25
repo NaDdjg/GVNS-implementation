@@ -130,7 +130,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             shaken,
             neighborhoods=["N1", "N2", "N3", "N4"],
             max_no_improve_iters=max_no_improve_iters,
-            time_limit=bvnd_time,
+            time_limit=20,
             rl_p_pass=5,                     
             rl_i_pass=int(max(500, expected_total)),  
             l=6,                             

@@ -1,9 +1,6 @@
-# gvns/logger.py
 import json
 import time
 from typing import Optional, TextIO
-
-# Simple JSON-lines logger + pretty console printer
 
 class GVNSLogger:
     def __init__(self, path: Optional[str] = "gvns_trace.jsonl", console: bool = True):
