@@ -36,17 +36,48 @@ def diagnostic_print(op_name: str, before, after, details=""):
 
 def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info: str="") -> Optional[Solution]:
     """
-    validate that the move preserved the multiset of visits
-    if invalid => print diagnostics and return None (move rejected)
-    using this to make sure moves never change the global counts (so occurrences remain correct)
-    so every operator returns a new_sol only if the global multiset of visits is unchanged ! (occurences of synch visits wont be in the same vehicle since the number of vehicle required wont drop)
+    Validate that the move preserved the multiset of visits.
+    IMPORTANT:
+      - Do NOT mutate sol.tours in this function.
+      - Work on padded copies for comparison, but ensure new_sol.tours is padded
+        before returning (so downstream code sees exactly m routes).
     """
-    before = multiset_of_tours(sol.tours)
-    after = multiset_of_tours(new_sol.tours)
+    inst = sol.instance
+    m = inst.m
+
+    # padded copies for comparison (do not modify original sol.tours)
+    def _pad_copy(tours, m):
+        t = [list(r) for r in tours]
+        if len(t) < m:
+            t.extend([[] for _ in range(m - len(t))])
+        elif len(t) > m:
+            t = t[:m]
+        return t
+
+    before_tours = _pad_copy(sol.tours, m)
+    after_tours = _pad_copy(new_sol.tours, m)
+
+    before = multiset_of_tours(before_tours)
+    after = multiset_of_tours(after_tours)
     if not is_multiset_equal(before, after):
         diagnostic_print(op_name, before, after, details=extra_info)
         return None
+
+    # ensure new_sol.tours is padded/truncated in-place for downstream usage
+    if len(new_sol.tours) < m:
+        new_sol.tours.extend([[] for _ in range(m - len(new_sol.tours))])
+    elif len(new_sol.tours) > m:
+        new_sol.tours = new_sol.tours[:m]
+
     return new_sol
+
+def _ensure_m_tours(tours: List[List[int]], m: int):
+    # modify list in-place to have exactly m inner-lists
+    if len(tours) < m:
+        tours.extend([[] for _ in range(m - len(tours))])
+    elif len(tours) > m:
+        # do not shrink unless necessary; when called, shrink to m explicitly
+        del tours[m:]
 
 #  operators : they are are allowed to move occurrences between routes but will refuse any move that would put all required occurrences for a synced customer on the same vehicle
 def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -> Optional[Solution]:
@@ -56,9 +87,12 @@ def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -
     """
     if from_pos == to_pos:
         return None
-    if route_idx < 0 or route_idx >= len(sol.tours):
+
+    m = sol.instance.m
+    if route_idx < 0 or route_idx >= m:
         return None
-    route = sol.tours[route_idx]
+    
+    route = sol.tours[route_idx] if route_idx < len(sol.tours) else []
     if from_pos < 0 or from_pos >= len(route):
         return None
     if to_pos < 0 or to_pos > len(route):
@@ -87,12 +121,17 @@ def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_
     """
     if from_route_idx == to_route_idx:
         return None
-    if from_route_idx < 0 or to_route_idx < 0 or from_route_idx >= len(sol.tours) or to_route_idx >= len(sol.tours):
+    
+    m = sol.instance.m
+    if from_route_idx < 0 or to_route_idx < 0 or from_route_idx >= m or to_route_idx >= m:
         return None
-    if from_pos < 0 or from_pos >= len(sol.tours[from_route_idx]):
+    # ensure source route exists
+    if from_route_idx >= len(sol.tours) or from_pos < 0 or from_pos >= len(sol.tours[from_route_idx]):
         return None
 
+
     new = sol.copy()
+    _ensure_m_tours(new.tours, m)
     try:
         val = new.tours[from_route_idx].pop(from_pos)
         insert_pos = to_pos if to_pos <= len(new.tours[to_route_idx]) else len(new.tours[to_route_idx])
@@ -126,14 +165,16 @@ def intra_swap(sol: Solution, route_idx: int, pos_a: int, pos_b: int) -> Optiona
     swap two positions inside a route
     returns None if invalid indices
     """
-    if route_idx < 0 or route_idx >= len(sol.tours):
+    m = sol.instance.m
+    if route_idx < 0 or route_idx >= m:
         return None
-    rt = sol.tours[route_idx]
+    rt = sol.tours[route_idx] if route_idx < len(sol.tours) else []
     if pos_a == pos_b:
         return None
     if pos_a < 0 or pos_b < 0 or pos_a >= len(rt) or pos_b >= len(rt):
         return None
     new = sol.copy()
+    _ensure_m_tours(new.tours, m)
     try:
         new.tours[route_idx][pos_a], new.tours[route_idx][pos_b] = new.tours[route_idx][pos_b], new.tours[route_idx][pos_a]
     except Exception as e:
@@ -148,14 +189,18 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
     added safety for synchronized ones: for both swapped customers it recomputes occurrences per route 
         and rejects if the swap concentrates all required occs on a single route
     """
+    m = sol.instance.m
     if r1 == r2:
         return None
-    if r1 < 0 or r2 < 0 or r1 >= len(sol.tours) or r2 >= len(sol.tours):
+    if r1 < 0 or r2 < 0 or r1 >= m or r2 >= m:
+        return None
+    if r1 >= len(sol.tours) or r2 >= len(sol.tours):
         return None
     if p1 < 0 or p2 < 0 or p1 >= len(sol.tours[r1]) or p2 >= len(sol.tours[r2]):
         return None
 
     new = sol.copy()
+    _ensure_m_tours(new.tours, m)
     try:
         new.tours[r1][p1], new.tours[r2][p2] = new.tours[r2][p2], new.tours[r1][p1]
     except Exception as e:
@@ -184,7 +229,8 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
 # shaking utilities 
 def random_shake(sol: Solution, k: int, insert_prob: float = 0.5) -> Solution:
     new = sol.copy()
-    m = len(new.tours)
+    m = sol.instance.m
+    _ensure_m_tours(new.tours, m)
     attempts = 0
     for _ in range(k):
         attempts += 1
@@ -193,6 +239,10 @@ def random_shake(sol: Solution, k: int, insert_prob: float = 0.5) -> Solution:
         r = random.random()
         if r < insert_prob:
             # insertion moves
+            while len(new.tours) < m:
+                new.tours.append([])
+            if len(new.tours) > m:
+                new.tours = new.tours[:m]
             non_empty = [i for i in range(m) if len(new.tours[i]) > 0]
             if not non_empty:
                 continue
@@ -215,6 +265,10 @@ def random_shake(sol: Solution, k: int, insert_prob: float = 0.5) -> Solution:
                 if candidate:
                     new = candidate
         else:
+            while len(new.tours) < m:
+                new.tours.append([])
+            if len(new.tours) > m:
+                new.tours = new.tours[:m]
             # swap type
             if random.random() < 0.5:
                 idxs = [i for i in range(m) if len(new.tours[i]) > 1]

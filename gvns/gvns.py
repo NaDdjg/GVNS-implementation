@@ -4,6 +4,7 @@ from gvns.solution import Solution
 from gvns.initializer import random_insertion
 import gvns.operators as ops
 import gvns.local_search as ls
+from gvns.logger import GVNSLogger
 
 DEFAULT_PARAMS = {
     "Contmax": 100,
@@ -41,6 +42,11 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             for v in rt:
                 cnt[v] += 1
         return cnt
+    
+    # open logger
+    log_path = cfg.get("log_path", "gvns_trace.jsonl")
+    logger = GVNSLogger(path=log_path, console=True)  
+    step_counter = 0
 
     # initialization 
     current = random_insertion(instance, seed=cfg["seed"])
@@ -52,6 +58,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         print(" occurrences sample:", dict(list(occ_distribution(current).items())[:20]))
 
     current.eval()
+    logger.log("init", step_counter, current, note="initial_solution")
 
     best_aug = current.copy()
     best_aug.eval()
@@ -105,19 +112,34 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         shaken = ops.random_shake(current, k=k, insert_prob=Dp)
         shaken.w1 = current.w1; shaken.w2 = current.w2; shaken.alpha = current.alpha; shaken.M = current.M
 
+        # log shaken solution
+        step_counter += 1
+        shaken.eval()
+        logger.log("shaken", step_counter, shaken, note=f"shake_k={k}")
+
         # local search (B-VND)
         n_customers = len([nid for nid in instance.nodes if nid != depot_id])
         sync_pairs = len(getattr(instance, "sync_customers", []))
         m = instance.m
         bvnd_time = compute_bvnd_time(n=n_customers, sync_pairs=sync_pairs, m=m, Tmax=time_limit)
 
+        sample_limit = max(8000, int(expected_total**2 / 6))
+        max_no_improve_iters = int(max(5, min(200, sample_limit // 500)))
+
         improved = ls.b_vnd(
             shaken,
             neighborhoods=["N1", "N2", "N3", "N4"],
-            max_no_improve_iters=10,
-            time_limit=bvnd_time
+            max_no_improve_iters=max_no_improve_iters,
+            time_limit=bvnd_time,
+            rl_p_pass=5,                     
+            rl_i_pass=int(max(500, expected_total)),  
+            l=6,                             
+            k_shake_small=1               
         )
         improved.eval()
+
+        step_counter += 1
+        logger.log("after_ls", step_counter, improved, note="after_local_search")
         new = improved
 
         # defensive checks
@@ -139,9 +161,13 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             current = new
             cont = 0
             accepted_str = "ACCEPTED"
+            step_counter += 1
+            logger.log("accepted", step_counter, current, note=f"iter_{iteration_num}")
         else:
             cont += 1
             accepted_str = "REJECTED"
+            step_counter += 1
+            logger.log("rejected", step_counter, new, note=f"iter_{iteration_num}")
 
         # update augmented best (penalized objective) 
         if new.Fval < best_aug.Fval and new.Fval > 1e-6:
@@ -187,4 +213,6 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             ])
 
     best_aug.eval()
+    logger.log("finished", step_counter, best_aug, note="final_best_aug")
+    logger.close()
     return best_aug

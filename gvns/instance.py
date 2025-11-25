@@ -14,6 +14,9 @@ class Instance:
         self.sync_requirements = {}      # customer_id -> required_vehicles (usually 2)
         self.travel_time = None          # matrix of distances
 
+        self.speed = 1.0
+        self.fixed_cost = 0.0
+
     @staticmethod
     def _try_parse_ints(line: str):
         try:
@@ -90,7 +93,12 @@ class Instance:
             for j in self.nodes:
                 if i == j: continue
                 xj, yj = self.nodes[j]['x'], self.nodes[j]['y']
-                self.travel_time[i][j] = math.hypot(xi - xj, yi - yj)
+                dist = math.hypot(xi - xj, yi - yj)
+                try:
+                    tt = dist / float(self.speed) if float(self.speed) > 0 else dist
+                except Exception:
+                    tt = dist
+                self.travel_time[i][j] = tt
 
         return self
 
