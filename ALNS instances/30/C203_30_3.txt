@@ -1,13 +1,8 @@
-C203_30_3						
-									
-Number of caregivers: 10			
-
-The synchronized service customers are 5th, 14th and 20th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+10			
+30
+3390
+3
+5 14 20	
 0	40	50	0	3390	0
 1	52	75	0	3272	90
 2	45	70	0	3279	90

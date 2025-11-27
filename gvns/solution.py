@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List
 import random
-import math
 
 BIG_M = 1_000_000.0
 
@@ -133,11 +132,14 @@ class Solution:
                 # vehicle waits for ready if necessary
                 if vehicle_time[k] < ready:
                     vehicle_time[k] = ready
+                    progress = True
 
                 # SYNC customer
                 if i in sync_customers:
                     if k not in sync_arrivals[i]:
                         sync_arrivals[i].append(k)
+                        progress = True
+
                     req = sync_requirements.get(i, 2)
 
                     # not enough vehicles yet, wait
@@ -146,13 +148,12 @@ class Solution:
 
                     # we have required vehicles -> check alignment
                     arrival_times = [vehicle_time[v] for v in sync_arrivals[i]]
-                    if max(arrival_times) - min(arrival_times) > eps_sync:
-                        # desynchronization -> penalize and drop buffered arrivals (per paper)
-                        # note we only increment penS after timeline creation (see below),
-                        # but for bookkeeping we may mark an attempted sync failure here:
-                        # reset arrival buffer (they will try again later)
-                        sync_arrivals[i] = []
-                        continue
+                    # if max(arrival_times) - min(arrival_times) > eps_sync:
+                    #     latest_v = max(sync_arrivals[i], key=lambda v: vehicle_time[v])
+                    #     sync_arrivals[i] = [latest_v]
+                    #     vehicle_time[latest_v] = vehicle_time[latest_v] + eps_sync * 0.5
+                    #     progress = True
+                    #     continue
 
                     # synchronized -> start at latest arrival
                     start_time = max(arrival_times)
@@ -161,7 +162,6 @@ class Solution:
                     for v in list(sync_arrivals[i]):
                         prev = depot_id if vehicle_pos[v] == 0 else tours[v][vehicle_pos[v] - 1]
                         travel_leg = safe_tt(TT, prev, i)
-                        # record same fields as compute_timeline_postsync
                         vehicle_visits[v].append({
                             "node": i,
                             "prev": prev,
@@ -289,6 +289,11 @@ class Solution:
         depot_id = min(inst.nodes.keys())
         non_depot_nodes = [nid for nid in inst.nodes.keys() if nid != depot_id]
 
+        m = getattr(inst, "m", len(self.tours))
+        if len(self.tours) < m:
+            for _ in range(m - len(self.tours)):
+                self.tours.append([])
+
         from collections import Counter
         counter = Counter()
         for rt in self.tours:
@@ -324,7 +329,7 @@ class Solution:
                             if delta < best_cost:
                                 best_cost = delta; best_v = v; best_pos = pos
                     if best_v is None:
-                        chosen_route = random.randint(0, len(self.tours) - 1)
+                        chosen_route = random.randrange(len(self.tours))
                         pos = random.randint(0, len(self.tours[chosen_route]))
                         self.tours[chosen_route].insert(pos, node)
                     else:
@@ -345,7 +350,6 @@ class Solution:
         else:
             self.w2 *= (1.0 - self.alpha)
 
-        # self.eval()
         return self.w1, self.w2
 
     def compute_timeline_postsync(self):

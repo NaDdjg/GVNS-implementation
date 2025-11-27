@@ -18,7 +18,7 @@ params = {
     "delta": 0.4,
     "M": 1e6,
     "seed": 42,
-    "Tmax": 5000  
+    "Tmax": 3000  
 }
 
 # this is just a utility to ensure results folder exists

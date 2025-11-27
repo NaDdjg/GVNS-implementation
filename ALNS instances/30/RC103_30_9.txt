@@ -1,13 +1,8 @@
-RC103_30_9						
-									
-Number of caregivers: 10			
-
-The synchronized service customers are 5th, 8th, 11th, 14th, 19th, 20th, 22th, 25th and 29th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+10
+30
+240
+9
+5 8 11 14 19 20 22 25 29					
 0	40	50	0	240	0
 1	25	85	0	191	10
 2	22	75	0	199	10

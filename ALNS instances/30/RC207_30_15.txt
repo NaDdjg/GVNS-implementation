@@ -1,13 +1,8 @@
-RC207_30_15					
-									
-Number of caregivers: 10			
-
-The synchronized service customers are 1th, 4th, 5th, 8th, 9th, 11th, 14th, 15th, 19th, 20th, 22th, 25th, 26th, 29th and 30th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+10
+30
+960
+15
+1 4 5 8 9 11 14 15 19 20 22 25 26 29 30	
 0	40	50	0	960	0
 1	25	85	591	874	10
 2	22	75	73	350	10
