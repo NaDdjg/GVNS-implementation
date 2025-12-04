@@ -12,13 +12,13 @@ params = {
     "p_init": 1,
     "p_max": 10,
     "Dp": 0.3,
-    "w1": 0.5,
+    "w1": 0.8,
     "w2": 0.1,
-    "alpha": 0.1,
+    "alpha": 0.3,
     "delta": 0.4,
     "M": 1e6,
     "seed": 42,
-    "Tmax": 3000  
+    "Tmax": 13000  
 }
 
 # this is just a utility to ensure results folder exists

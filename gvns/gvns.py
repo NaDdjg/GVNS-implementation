@@ -52,6 +52,9 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
 
     best_aug = current.copy()
     best_aug.eval()
+    print(best_aug.Fval, best_aug.penS, best_aug.penT, best_aug.penH, best_aug.travel_time)
+    for i, r in enumerate(best_aug.tours):
+        print(i, len(r))
 
     best_feasible = None
     best_feasible_f = float("inf")
@@ -81,6 +84,22 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         elapsed = time.time() - start
         remaining = time_limit - elapsed
         return max(0.01, 0.7 * remaining)
+
+    def compute_bvnd_time(n, sync_pairs, m, Tmax=None,
+                      base=5.0,
+                      per_customer=2.2,
+                      per_sync=15.0,
+                      per_vehicle=0.6,
+                      min_time=30.0,
+                      max_time=3600.0,
+                      frac_of_Tmax=0.85):
+        # aggressive scaling for large instances
+        t = base + per_customer * n + per_sync * sync_pairs + per_vehicle * m
+        if Tmax is not None:
+            t = min(t, frac_of_Tmax * Tmax)
+        t = max(min_time, min(t, max_time))
+        return float(t)
+
     # def compute_bvnd_time(n, sync_pairs, m,
     #                     base=2.5,
     #                     per_customer=0.8,
@@ -139,8 +158,8 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         n_customers = len([nid for nid in instance.nodes if nid != depot_id])
         sync_pairs = len(getattr(instance, "sync_customers", []))
         m = instance.m
-        # bvnd_time = compute_bvnd_time(n=n_customers, sync_pairs=sync_pairs, m=m, Tmax=time_limit)
-        bvnd_time = compute_bvnd_time()
+        bvnd_time = compute_bvnd_time(n=n_customers, sync_pairs=sync_pairs, m=m, Tmax=time_limit)
+        # bvnd_time = compute_bvnd_time()
 
         improved = ls.b_vnd(
             shaken,

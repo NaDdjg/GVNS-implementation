@@ -1,11 +1,9 @@
-# local_search.py  --- Clean, strong BVND for synchronized VRPTW
 import random
 import time
 from typing import List, Optional
 
 from gvns.solution import Solution
 import gvns.operators as ops
-
 
 # ============================================================
 #  Lexicographic comparator used everywhere in VND + GVNS
@@ -31,9 +29,8 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 
 
 # ============================================================
-# Neighborhood Explorers (BEST IMPROVEMENT)
+# Neighborhood Explorers (best improvement)
 # ============================================================
-
 def explore_intra_insertion(sol: Solution, max_checks=2000) -> Optional[Solution]:
     """N1 - Best improvement using intra-route insertion."""
     best = sol

@@ -43,7 +43,6 @@ def _ensure_m_tours(tours: List[List[int]], m: int):
     if len(tours) < m:
         tours.extend([[] for _ in range(m - len(tours))])
     elif len(tours) > m:
-        # do not shrink unless necessary; when called, shrink to m explicitly
         del tours[m:]
 
 def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info: str="") -> Optional[Solution]:
@@ -130,23 +129,6 @@ def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_
             print("[OPERATORS] inter_insertion exception:", e)
         return None
 
-    # synch part 
-    # inst = sol.instance
-    # cust = val
-    # if cust in getattr(inst, "sync_customers", set()):
-    #     occs = [rt.count(cust) for rt in new.tours]
-    #     total_occ = sum(occs)
-    #     req = inst.sync_requirements.get(cust, 2)
-    #     # if a single route now contains all occurrences (so all required occurrences ended up on a single route),
-    #     # then the synchronization requirement would be violated (we need them on different vehicles) so the move is changed
-    #     for cnt in occs:
-    #         if cnt >= req and cnt == total_occ and total_occ >= req:
-    #             # diagnostic
-    #             diagnostic_print("inter_insertion_sync_violation",
-    #                              multiset_of_tours(sol.tours), multiset_of_tours(new.tours),
-    #                              details=f"cust {cust} occs_by_route={occs}")
-    #             return None
-
     return safe_move_wrapper(sol, new, "inter_insertion", f"{from_route_idx}:{from_pos} -> {to_route_idx}:{to_pos}")
 
 def intra_swap(sol: Solution, route_idx: int, pos_a: int, pos_b: int) -> Optional[Solution]:
@@ -198,79 +180,7 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
             print("[OPERATORS] inter_swap exception:", e)
         return None
 
-    # synch part 
-    # inst = sol.instance
-    # c1 = new.tours[r1][p1]
-    # c2 = new.tours[r2][p2]
-    # for cust in (c1, c2):
-    #     if cust in getattr(inst, "sync_customers", set()):
-    #         occs = [rt.count(cust) for rt in new.tours]
-    #         total_occ = sum(occs)
-    #         req = inst.sync_requirements.get(cust, 2)
-    #         for cnt in occs:
-    #             if cnt >= req and cnt == total_occ and total_occ >= req:
-    #                 diagnostic_print("inter_swap_sync_violation",
-    #                                  multiset_of_tours(sol.tours), multiset_of_tours(new.tours),
-    #                                  details=f"cust {cust} occs_by_route={occs}")
-    #                 return None
-
     return safe_move_wrapper(sol, new, "inter_swap", f"r{r1}p{p1}<->{r2}p{p2}")
-
-# def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, pos: int):
-#     """
-#     Move a segment of length `length` from route r_from[start:start+length]
-#     into route r_to at position pos.
-#     Preserves multiset exactly.
-#     Sync constraints enforced: no segment may create both sync occurrences
-#     on same vehicle.
-#     """
-#     m = sol.instance.m
-#     if r_from < 0 or r_to < 0 or r_from >= m or r_to >= m:
-#         return None
-#     if r_from >= len(sol.tours) or r_to >= len(sol.tours):
-#         return None
-    
-#     route_from = sol.tours[r_from]
-#     route_to = sol.tours[r_to]
-
-#     if start < 0 or start >= len(route_from):
-#         return None
-#     if start + length > len(route_from):
-#         return None
-#     if pos < 0 or pos > len(route_to):
-#         return None
-    
-#     segment = route_from[start:start+length]
-
-#     # sync constraint: segment cannot contain the only copy of a sync
-#     inst = sol.instance
-#     sync_custs = inst.sync_customers
-
-#     for cust in segment:
-#         if cust in sync_custs:
-#             # check occurrences after move
-#             occs_before = [rt.count(cust) for rt in sol.tours]
-#             # simulate move
-#             occs_after = occs_before[:]
-#             occs_after[r_from] -= 1
-#             occs_after[r_to] += 1
-#             req = inst.sync_requirements.get(cust, 2)
-#             # if all req copies end up on r_to → reject
-#             if occs_after[r_to] >= req and sum(occs_after) == occs_after[r_to]:
-#                 return None
-    
-#     new = sol.copy()
-#     _ensure_m_tours(new.tours, m)
-
-#     seg = new.tours[r_from][start:start+length]
-#     del new.tours[r_from][start:start+length]
-#     # adjust pos if same route and the removed block is before pos
-#     if r_from == r_to and pos > start:
-#         pos -= length
-#     new.tours[r_to][pos:pos] = seg
-
-#     return safe_move_wrapper(sol, new, "k_relocate",
-#                              f"{r_from}[{start}:{start+length}] -> {r_to} at {pos}")
 
 def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, pos: int) -> Optional[Solution]:
     """
@@ -300,7 +210,6 @@ def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, p
     new.tours[r_to][pos:pos] = segment
 
     return safe_move_wrapper(sol, new, "k_relocate", f"{r_from}[{start}:{start+length}] -> {r_to}@{pos}")
-
 
 def two_opt(sol: Solution, r: int, i: int, j: int):
     """
@@ -349,14 +258,6 @@ def two_opt_star(sol: Solution, r1: int, i: int, r2: int, j: int):
     new.tours[r1] = newA
     new.tours[r2] = newB
 
-    # check sync constraints → reject if violated
-    # inst = sol.instance
-    # for cust in inst.sync_customers:
-    #     req = inst.sync_requirements.get(cust, 2)
-    #     occs = [rt.count(cust) for rt in new.tours]
-    #     if any(cnt >= req and cnt == sum(occs) for cnt in occs):
-    #         return None
-
     return safe_move_wrapper(sol, new, "2-opt*", f"{r1}:{i} <-> {r2}:{j}")
 
 def cross_exchange(sol: Solution, r1: int, a1: int, b1: int, r2: int, a2: int, b2: int) -> Optional[Solution]:
@@ -382,51 +283,6 @@ def cross_exchange(sol: Solution, r1: int, a1: int, b1: int, r2: int, a2: int, b
 
     return safe_move_wrapper(sol, new, "cross_exchange", f"r{r1}[{a1}:{b1}] <-> r{r2}[{a2}:{b2}]")
 
-# def relocate_sync_pair(sol: Solution, cust: int):
-#     """
-#     Move both occurrences of a sync customer to new vehicles/positions
-#     keeping them on different vehicles.
-#     """
-#     inst = sol.instance
-#     if cust not in inst.sync_customers:
-#         return None
-    
-#     # find occurrences
-#     occ = [(r,pos) for r,rt in enumerate(sol.tours) 
-#                     for pos,v in enumerate(rt) if v == cust]
-#     if len(occ) != 2:
-#         return None
-    
-#     (r1,p1), (r2,p2) = occ
-
-#     # pick two new vehicles (not equal)
-#     m = inst.m
-#     all_veh = list(range(m))
-#     random.shuffle(all_veh)
-
-#     for v1 in all_veh:
-#         for v2 in all_veh:
-#             if v1 == v2:
-#                 continue
-#             new = sol.copy()
-#             _ensure_m_tours(new.tours, m)
-#             # remove original occurrences
-#             new.tours[r1].pop(p1)
-#             # adjust second position depending on removal order
-#             if r1 == r2 and p2 > p1:
-#                 p2 -= 1
-#             new.tours[r2].pop(p2)
-#             # insert in new positions
-#             pos1 = random.randrange(len(new.tours[v1])+1)
-#             pos2 = random.randrange(len(new.tours[v2])+1)
-#             new.tours[v1].insert(pos1, cust)
-#             new.tours[v2].insert(pos2, cust)
-
-#             # check ok
-#             return safe_move_wrapper(sol, new, "relocate_sync_pair",
-#                                      f"{cust} {r1},{p1} & {r2},{p2} -> {v1},{pos1} & {v2},{pos2}")
-
-#     return None
 def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional[Solution]:
     """
     Remove both occurrences of a synchronized customer and reinsert them randomly
@@ -483,204 +339,205 @@ def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional
 
     return None
 
-# shaking utilities 
-# def random_shake(sol: Solution, k: int, insert_prob: float = 0.5) -> Solution:
-#     new = sol.copy()
-#     m = sol.instance.m
-#     _ensure_m_tours(new.tours, m)
-#     attempts = 0
-#     for _ in range(k):
-#         attempts += 1
-#         if attempts > max(1000, k*10):
-#             break
-#         r = random.random()
-#         if r < insert_prob:
-#             # insertion moves
-#             while len(new.tours) < m:
-#                 new.tours.append([])
-#             if len(new.tours) > m:
-#                 new.tours = new.tours[:m]
-#             non_empty = [i for i in range(m) if len(new.tours[i]) > 0]
-#             if not non_empty:
-#                 continue
-#             a = random.choice(non_empty)
-#             # 50% intra if route length>1 else inter
-#             if len(new.tours[a]) > 1 and random.random() < 0.5:
-#                 from_pos = random.randrange(len(new.tours[a]))
-#                 to_pos = random.randrange(len(new.tours[a]) + 1)
-#                 candidate = intra_insertion(new, a, from_pos, to_pos)
-#                 if candidate:
-#                     new = candidate
-#             else:
-#                 # inter-insertion
-#                 b = random.randrange(m)
-#                 if b == a or len(new.tours[a]) == 0:
-#                     continue
-#                 from_pos = random.randrange(len(new.tours[a]))
-#                 to_pos = random.randrange(len(new.tours[b]) + 1)
-#                 candidate = inter_insertion(new, a, from_pos, b, to_pos)
-#                 if candidate:
-#                     new = candidate
-#         else:
-#             while len(new.tours) < m:
-#                 new.tours.append([])
-#             if len(new.tours) > m:
-#                 new.tours = new.tours[:m]
-#             # swap type
-#             if random.random() < 0.5:
-#                 idxs = [i for i in range(m) if len(new.tours[i]) > 1]
-#                 if not idxs:
-#                     continue
-#                 r_idx = random.choice(idxs)
-#                 p1 = random.randrange(len(new.tours[r_idx]))
-#                 p2 = random.randrange(len(new.tours[r_idx]))
-#                 candidate = intra_swap(new, r_idx, p1, p2)
-#                 if candidate:
-#                     new = candidate
-#             else:
-#                 non_empty = [i for i in range(m) if len(new.tours[i]) > 0]
-#                 if len(non_empty) < 2:
-#                     continue
-#                 a, b = random.sample(non_empty, 2)
-#                 p1 = random.randrange(len(new.tours[a]))
-#                 p2 = random.randrange(len(new.tours[b]))
-#                 candidate = inter_swap(new, a, p1, b, p2)
-#                 if candidate:
-#                     new = candidate
-
-#     return new
 def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True) -> Solution:
     """
-    Strong shaking that performs k randomized powerful moves.
-    Moves may temporarily break multiplicities (Option A).
-    - segment relocates (k_relocate)
-    - 2-opt intra
-    - 2-opt* cross
-    - cross_exchange
-    - relocate_sync_pair (if sync exists)
-    - simple inter/intra insertions/swaps as fallback
+    - Performs up to `k` *accepted* random moves (tries many times).
+    - Move mix:
+        20% light intra moves (insertion/swap),
+        20% inter-insertion (move single customer between routes),
+        15% k_relocate (small segments, length<=3),
+        15% intra 2-opt (safe),
+        10% two-opt* (very small suffixes),
+        10% cross-exchange (small segments),
+        10% relocate_sync_pair (try to realign sync customers)
+    - After candidate creation we check soft sync-safety:
+        reject candidate if any synchronized customer ends up with all its occurrences
+        placed on a single vehicle (concentrates all occurrences on one route).
+    - Returns a new Solution after applied accepted moves.
     """
     new = sol.copy()
     inst = sol.instance
     m = inst.m
     _ensure_m_tours(new.tours, m)
 
-    for _ in range(max(1, k)):
+    # helper: check whether a candidate breaks sync "soft" protection:
+    def breaks_sync_soft(tours: List[List[int]]) -> bool:
+        syncs = getattr(inst, "sync_customers", set())
+        if not syncs:
+            return False
+        # compute occurrences per customer
+        from collections import Counter, defaultdict
+        total = Counter()
+        per_route = defaultdict(lambda: Counter())
+        for r_idx, rt in enumerate(tours):
+            for v in rt:
+                total[v] += 1
+                per_route[r_idx][v] += 1
+        for cust in syncs:
+            req = inst.sync_requirements.get(cust, 1)
+            tot = total.get(cust, 0)
+            if tot < req:
+                # missing occurrences — allow (initializer/repair may add later) but prefer not to create missing
+                continue
+            # if all occurrences are concentrated into one route and that route has >= req, reject
+            for r_idx in range(len(tours)):
+                if per_route[r_idx].get(cust, 0) >= req and per_route[r_idx].get(cust, 0) == tot and tot >= req:
+                    return True
+        return False
+
+    attempts = 0
+    accepted = 0
+    max_attempts = max(200, k * 30)
+
+    # helper to accept candidate if it passes sync check
+    def try_accept(candidate: Optional[Solution]) -> Optional[Solution]:
+        nonlocal attempts, accepted
+        if candidate is None:
+            return None
+        # ensure candidate.tours padded
+        _ensure_m_tours(candidate.tours, m)
+        # quick sync safety check
+        if breaks_sync_soft(candidate.tours):
+            return None
+        accepted += 1
+        return candidate
+
+    while accepted < max(1, k) and attempts < max_attempts:
+        attempts += 1
         r = random.random()
 
-        # 20% big segment relocate
+        # 20% light intra moves (insertion or swap)
         if r < 0.20:
-            # pick non-empty source
-            non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 2]
+            choice = random.random()
+            if choice < 0.6:
+                # intra insertion: pick a non-empty route and move one element elsewhere in same route
+                non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+                if not non_empty:
+                    continue
+                r_idx = random.choice(non_empty)
+                L = len(new.tours[r_idx])
+                from_pos = random.randrange(L)
+                to_pos = random.randrange(L + 1)
+                if from_pos == to_pos:
+                    continue
+                cand = intra_insertion(new, r_idx, from_pos, to_pos)
+                cand = try_accept(cand)
+                if cand:
+                    new = cand
+                    continue
+            else:
+                # intra swap
+                non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+                if not non_empty:
+                    continue
+                r_idx = random.choice(non_empty)
+                L = len(new.tours[r_idx])
+                p1 = random.randrange(L)
+                p2 = random.randrange(L)
+                if p1 == p2:
+                    continue
+                cand = intra_swap(new, r_idx, p1, p2)
+                cand = try_accept(cand)
+                if cand:
+                    new = cand
+                    continue
+
+        # 20% inter insertion (single customer move across routes)
+        elif r < 0.40:
+            non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 0]
+            if not non_empty:
+                continue
+            a = random.choice(non_empty)
+            b = random.randrange(m)
+            if a == b:
+                continue
+            from_pos = random.randrange(len(new.tours[a]))
+            to_pos = random.randrange(len(new.tours[b]) + 1)
+            cand = inter_insertion(new, a, from_pos, b, to_pos)
+            cand = try_accept(cand)
+            if cand:
+                new = cand
+                continue
+
+        # 15% k_relocate (small segments only)
+        elif r < 0.55:
+            non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 1]
             if not non_empty:
                 continue
             r_from = random.choice(non_empty)
-            max_len = min(4, max(1, len(new.tours[r_from])//2))
+            max_len = min(3, max(1, len(new.tours[r_from]) // 4))
             length = random.randint(1, max_len)
             start = random.randint(0, len(new.tours[r_from]) - length)
             r_to = random.randrange(m)
             pos = random.randrange(len(new.tours[r_to]) + 1)
             cand = k_relocate(new, r_from, start, length, r_to, pos)
+            cand = try_accept(cand)
             if cand:
                 new = cand
+                continue
 
-        # 20% intra 2-opt
-        elif r < 0.40:
+        # 15% intra 2-opt (safe, small)
+        elif r < 0.70:
             candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 4]
             if not candidates:
                 continue
             r_idx = random.choice(candidates)
             L = len(new.tours[r_idx])
-            i = random.randint(0, L-3)
-            j = random.randint(i+2, L-1)
+            i = random.randint(0, max(0, L - 3))
+            j = random.randint(i + 2, L - 1)
             cand = two_opt(new, r_idx, i, j)
+            cand = try_accept(cand)
             if cand:
                 new = cand
+                continue
 
-        # 20% cross 2-opt*
-        elif r < 0.60:
+        # 10% two-opt* (very small suffixes)
+        elif r < 0.80:
             candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 2]
             if len(candidates) < 2:
                 continue
             r1, r2 = random.sample(candidates, 2)
-            i = random.randint(1, len(new.tours[r1]) - 1) if len(new.tours[r1])>1 else 1
-            j = random.randint(1, len(new.tours[r2]) - 1) if len(new.tours[r2])>1 else 1
+            # choose small cut positions near route ends
+            i = random.randint(1, max(1, min(3, len(new.tours[r1]) - 1)))
+            j = random.randint(1, max(1, min(3, len(new.tours[r2]) - 1)))
             cand = two_opt_star(new, r1, i, r2, j)
+            cand = try_accept(cand)
             if cand:
                 new = cand
+                continue
 
-        # 15% cross-exchange
-        elif r < 0.75:
-            idxs = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 2]
+        # 10% cross-exchange (small segments)
+        elif r < 0.90:
+            idxs = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 1]
             if len(idxs) < 2:
                 continue
             r1, r2 = random.sample(idxs, 2)
             A = new.tours[r1]
             B = new.tours[r2]
+            # small segments
             a1 = random.randint(0, len(A)-1)
-            a2 = random.randint(a1+1, len(A))
+            a2 = min(len(A), a1 + random.randint(1, min(3, len(A)-a1)))
             b1 = random.randint(0, len(B)-1)
-            b2 = random.randint(b1+1, len(B))
-            # limit segment sizes to small values
-            if a2 - a1 > 4:
-                a2 = a1 + random.randint(1,4)
-                if a2 > len(A): a2 = len(A)
-            if b2 - b1 > 4:
-                b2 = b1 + random.randint(1,4)
-                if b2 > len(B): b2 = len(B)
+            b2 = min(len(B), b1 + random.randint(1, min(3, len(B)-b1)))
             if a1 < a2 and b1 < b2:
                 cand = cross_exchange(new, r1, a1, a2, r2, b1, b2)
+                cand = try_accept(cand)
                 if cand:
                     new = cand
-
-        # 10% relocate sync pair
-        elif r < 0.85:
-            syncs = list(getattr(inst, "sync_customers", []))
-            if syncs:
-                cust = random.choice(syncs)
-                cand = relocate_sync_pair(new, cust)
-                if cand:
-                    new = cand
-
-        # fallback: random small inter/intra insertion/swap
-        else:
-            choice = random.random()
-            if choice < 0.5:
-                # insertion moves
-                non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 0]
-                if not non_empty:
                     continue
-                a = random.choice(non_empty)
-                if len(new.tours[a]) > 1 and random.random() < 0.5:
-                    from_pos = random.randrange(len(new.tours[a]))
-                    to_pos = random.randrange(len(new.tours[a]) + 1)
-                    cand = intra_insertion(new, a, from_pos, to_pos)
-                    if cand: new = cand
-                else:
-                    b = random.randrange(m)
-                    if b == a or len(new.tours[a]) == 0:
-                        continue
-                    from_pos = random.randrange(len(new.tours[a]))
-                    to_pos = random.randrange(len(new.tours[b]) + 1)
-                    cand = inter_insertion(new, a, from_pos, b, to_pos)
-                    if cand: new = cand
-            else:
-                # swap moves
-                idxs = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
-                if idxs and random.random() < 0.5:
-                    r_idx = random.choice(idxs)
-                    p1 = random.randrange(len(new.tours[r_idx]))
-                    p2 = random.randrange(len(new.tours[r_idx]))
-                    cand = intra_swap(new, r_idx, p1, p2)
-                    if cand: new = cand
-                else:
-                    non_empty = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 0]
-                    if len(non_empty) < 2:
-                        continue
-                    a, b = random.sample(non_empty, 2)
-                    p1 = random.randrange(len(new.tours[a]))
-                    p2 = random.randrange(len(new.tours[b]))
-                    cand = inter_swap(new, a, p1, b, p2)
-                    if cand: new = cand
 
+        # 10% relocate_sync_pair (try to realign)
+        else:
+            syncs = list(getattr(inst, "sync_customers", []))
+            if not syncs:
+                continue
+            cust = random.choice(syncs)
+            cand = relocate_sync_pair(new, cust)
+            cand = try_accept(cand)
+            if cand:
+                new = cand
+                continue
+
+    # final pad/truncate and return
+    _ensure_m_tours(new.tours, m)
     return new

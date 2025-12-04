@@ -1,2 +1,2 @@
-instance,run,best_F,best_f,best_feasible_f,PenT,PenH,PenS,time
-C102_30_9,1,373.0055018794661,373.0055018794661,,0.0,0.0,0,200.4641935825348
+instance,run,best_F,best_f,PenT,PenH,PenS,time
+C102_30_9,1,373.0055018794661,373.0055018794661,0.0,0.0,0,152.54397296905518

@@ -148,12 +148,6 @@ class Solution:
 
                     # we have required vehicles -> check alignment
                     arrival_times = [vehicle_time[v] for v in sync_arrivals[i]]
-                    # if max(arrival_times) - min(arrival_times) > eps_sync:
-                    #     latest_v = max(sync_arrivals[i], key=lambda v: vehicle_time[v])
-                    #     sync_arrivals[i] = [latest_v]
-                    #     vehicle_time[latest_v] = vehicle_time[latest_v] + eps_sync * 0.5
-                    #     progress = True
-                    #     continue
 
                     # synchronized -> start at latest arrival
                     start_time = max(arrival_times)

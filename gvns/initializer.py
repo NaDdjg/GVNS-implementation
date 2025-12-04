@@ -1,48 +1,10 @@
 import random
-import math
-from typing import List
-from copy import deepcopy
-
+from typing import List, Optional, Tuple
 from gvns.solution import Solution
 
-def route_prefix_time_estimate(instance, route, pos):
-    """
-    Approximate the vehicle arrival time at position `pos` in route (before visiting node at pos).
-    We simulate up to pos (not including service at pos), using node ready/service and travel times.
-    Returns estimated arrival time at the node that will be at index pos (i.e. time when vehicle reaches that node).
-    If pos == len(route) it returns the arrival time at returning to depot after last node.
-    """
-    nodes = instance.nodes
-    TT = instance.travel_time
-    depot = min(nodes.keys())
-
-    if not route:
-        # arriving at first node: travel from depot
-        return 0.0
-
-    t = 0.0
-    prev = depot
-    for idx in range(min(pos, len(route))):
-        cur = route[idx]
-        # travel
-        t += safe_tt(TT, prev, cur)
-        # wait for ready if needed
-        ready = nodes[cur]["ready"]
-        if t < ready:
-            t = ready
-        # service
-        t += nodes[cur]["service"]
-        prev = cur
-
-    # now t is depart time from prev; arrival at position 'pos' node is depart + travel(prev,posnode)
-    if pos < len(route):
-        nxt = route[pos]
-        t += safe_tt(TT, prev, nxt)
-    else:
-        # arrival to depot if pos == len(route)
-        t += safe_tt(TT, prev, depot)
-    return t
-
+# -------------------------
+# Utilities
+# -------------------------
 def safe_tt(TT, i, j):
     try:
         if isinstance(TT, dict):
@@ -52,187 +14,249 @@ def safe_tt(TT, i, j):
     except Exception:
         return 0.0
 
-def earliest_insertion_time_aware(instance, tours, cust, vehicle_idx, lateness_weight=50.0, horizon_weight=50.0):
+def compute_route_prefixes(instance, route):
     """
-    Insert cust into tours[vehicle_idx] at a position minimizing combined cost:
-      travel_delta + lateness_weight * predicted_lateness + horizon_weight * predicted_horizon_over
-    Returns True if inserted, False otherwise.
+    Compute arrival/start/depart arrays for a route (depart depot at time 0).
+    Returns (arrivals, starts, departs, return_to_depot_time).
     """
-    TT = instance.travel_time
     nodes = instance.nodes
+    TT = instance.travel_time
     depot = min(nodes.keys())
-    route = tours[vehicle_idx]
-    best_pos = None
-    best_cost = float('inf')
 
-    for pos in range(len(route)+1):
-        prev = depot if pos == 0 else route[pos-1]
-        nxt = depot if pos == len(route) else route[pos]
+    L = len(route)
+    arrivals = [0.0] * L
+    starts = [0.0] * L
+    departs = [0.0] * L
 
-        # travel delta
-        delta_travel = safe_tt(TT, prev, cust) + safe_tt(TT, cust, nxt) - safe_tt(TT, prev, nxt)
+    t = 0.0
+    prev = depot
+    for idx in range(L):
+        cur = route[idx]
+        t += safe_tt(TT, prev, cur)
+        arrivals[idx] = t
+        start = max(t, nodes[cur]["ready"])
+        starts[idx] = start
+        depart = start + nodes[cur]["service"]
+        departs[idx] = depart
+        t = depart
+        prev = cur
 
-        # estimate arrival/start at cust if inserted at pos
-        # compute depart time from prev by simulating prefix
-        if pos == 0:
-            depart_prev = 0.0  # assume leaving depot at time 0
-            # arrival at cust
-            arr = depart_prev + safe_tt(TT, prev, cust)
-        else:
-            # simulate prefix up to prev
-            arr_prev = route_prefix_time_estimate(instance, route, pos-1)
-            # arr_prev is arrival at prev; depart_prev = max(arr_prev, ready_prev) + service_prev
-            prev_ready = nodes[prev]["ready"]
-            prev_service = nodes[prev]["service"]
-            start_prev = max(arr_prev, prev_ready)
-            depart_prev = start_prev + prev_service
-            arr = depart_prev + safe_tt(TT, prev, cust)
+    if L == 0:
+        return arrivals, starts, departs, 0.0
+    last = route[-1]
+    return_to_depot = t + safe_tt(TT, last, depot)
+    return arrivals, starts, departs, return_to_depot
 
-        start = max(arr, nodes[cust]["ready"])
-        lateness = max(0.0, start - nodes[cust]["due"])
+def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
+                            lateness_weight=50.0, horizon_weight=50.0):
+    """
+    Quick cost estimate for inserting cust at position pos in route.
+    Returns (cost, start_at_cust, lateness, est_end_time).
+    """
+    nodes = instance.nodes
+    TT = instance.travel_time
+    depot = min(nodes.keys())
 
-        # approximate horizon overflow: estimate end_time if we insert here and then finish route
-        # simple heuristic: assume the rest of route keeps same travel/service pattern,
-        # compute depart at cust and then estimate time to return to depot after finishing route
-        depart_after = start + nodes[cust]["service"]
-        # compute time to finish the rest of route from position pos (we'll approximate by travel along remaining nodes)
-        # quick approximate: add travel from cust->next + remaining travel of route (estimate by summing TT along current suffix)
-        suffix_travel = 0.0
-        prev_node = cust
-        if pos < len(route):
-            # travel cust -> route[pos], then add travel along suffix
-            suffix_travel += safe_tt(TT, cust, route[pos])
-            for a, b in zip(route[pos:], route[pos+1:]):
-                suffix_travel += safe_tt(TT, a, b)
-            # add travel last->depot
-            last = route[-1]
-            suffix_travel += safe_tt(TT, last, depot)
-        else:
-            # directly cust->depot
-            suffix_travel += safe_tt(TT, cust, depot)
+    arrivals, starts, departs, return_to_depot = prefixes
+    L = len(route)
 
-        est_end = depart_after + suffix_travel
-        horizon_over = max(0.0, est_end - instance.horizon)
+    prev = depot if pos == 0 else route[pos-1]
+    nxt = depot if pos == L else route[pos]
 
-        cost = delta_travel + lateness_weight * lateness + horizon_weight * horizon_over
+    delta_travel = safe_tt(TT, prev, cust) + safe_tt(TT, cust, nxt) - safe_tt(TT, prev, nxt)
 
-        if cost < best_cost:
-            best_cost = cost
-            best_pos = pos
+    if pos == 0:
+        depart_prev = 0.0
+        arr = depart_prev + safe_tt(TT, prev, cust)
+    else:
+        arr = departs[pos-1] + safe_tt(TT, prev, cust)
 
-    if best_pos is None:
-        return False
-    tours[vehicle_idx].insert(best_pos, cust)
-    return True
+    start = max(arr, nodes[cust]["ready"])
+    lateness = max(0.0, start - nodes[cust]["due"])
 
-def random_insertion(instance, seed: int = 0):
+    # quick suffix travel estimate
+    suffix_travel = 0.0
+    if pos < L:
+        suffix_travel += safe_tt(TT, cust, route[pos])
+        for a, b in zip(route[pos:], route[pos+1:]):
+            suffix_travel += safe_tt(TT, a, b)
+        suffix_travel += safe_tt(TT, route[-1], depot)
+    else:
+        suffix_travel += safe_tt(TT, cust, depot)
+
+    depart_after = start + nodes[cust]["service"]
+    est_end = depart_after + suffix_travel
+    horizon_over = max(0.0, est_end - instance.horizon)
+
+    cost = delta_travel + lateness_weight * lateness + horizon_weight * horizon_over
+    return cost, start, lateness, est_end
+
+def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
+                               sample_pos_limit=12, lateness_weight=50.0, horizon_weight=50.0):
+    """
+    Return best insertion info (pos, cost, start, lateness, est_end) for customer cust on vehicle v.
+    For long routes we sample candidate positions to keep runtime bounded.
+    """
+    route = tours[v]
+    L = len(route)
+    if prefixes is None:
+        prefixes = compute_route_prefixes(instance, route)
+
+    # decide positions to evaluate
+    if L <= sample_pos_limit:
+        positions = list(range(L+1))
+    else:
+        positions = set()
+        # start area
+        positions.update(range(min(3, L+1)))
+        # end area
+        positions.update(range(max(0, L-2), L+1))
+        # middle evenly spaced
+        mid_slots = max(0, sample_pos_limit - len(positions))
+        if mid_slots > 0:
+            step = max(1, L // (mid_slots + 1))
+            for i in range(step, L, step):
+                positions.add(i)
+        positions = sorted([p for p in positions if 0 <= p <= L])
+
+    best = None
+    best_info = None
+    for pos in positions:
+        cost, start, lateness, est_end = evaluate_insertion_cost(
+            instance, route, prefixes, pos, cust,
+            lateness_weight=lateness_weight, horizon_weight=horizon_weight
+        )
+        if best is None or cost < best:
+            best = cost
+            best_info = (pos, cost, start, lateness, est_end)
+    return best_info
+
+# -------------------------
+# Main initializer
+# -------------------------
+def random_insertion(instance, seed: int = 0,
+                     lateness_weight: float = 50.0,
+                     horizon_weight: float = 50.0,
+                     sample_pos_limit: int = 14,
+                     top_k_vehicles_for_sync: int = 6):
+    """
+    Build an initial solution:
+      - Balanced assignment across vehicles (avoids dumping all customers on few vehicles)
+      - Time-aware insertion using prefix estimates
+      - Sync customers placed on distinct, least-loaded vehicles
+    Returns a Solution(instance, tours)
+    """
     random.seed(seed)
     m = instance.m
-    tours = [[] for _ in range(m)]
+    nodes = instance.nodes
+    depot = min(nodes.keys())
 
-    # 1) improved place synchronized customers (try to place the pair jointly)
+    # Prepare empty tours
+    tours: List[List[int]] = [[] for _ in range(m)]
+
+    total_customers = len([nid for nid in nodes.keys() if nid != depot])
+    # target balancing parameters
+    target_load = max(1, total_customers // m)
+    max_load = max(2, target_load + 2)  # allow small slack
+
+    # helper: candidate vehicles ordered by current load (least loaded first)
+    def candidate_vehicles(limit: Optional[int] = None):
+        order = sorted(range(m), key=lambda x: (len(tours[x]), x))
+        return order if limit is None else order[:limit]
+
     sync_list = list(instance.sync_customers)
+
+    # 1) Place synchronized customers (one-by-one but ensure distinct vehicles & balance)
     for sc in sync_list:
         req = instance.sync_requirements.get(sc, 2)
-        # if req != 2 we fallback to greedy single inserts
-        if req == 2:
-            # try candidate vehicle+pos combos (limit combinatorics)
-            candidates = []
-            for v in range(m):
-                for pos in range(len(tours[v]) + 1):
-                    est_arr = route_prefix_time_estimate(instance, tours[v], pos)
-                    # arrival time at sc when inserted at pos on v
-                    arr = est_arr
-                    start = max(arr + safe_tt(instance.travel_time, min(instance.nodes.keys()) if pos==0 else (tours[v][pos-1]), sc), instance.nodes[sc]["ready"])
-                    candidates.append((v, pos, start))
-            # sort candidates by start time to find pairs that align
-            candidates.sort(key=lambda x: x[2])
-            placed = 0
-            used = set()
-            # try to find two distinct vehicles with close start times
-            best_pair = None
-            best_pair_cost = float('inf')
-            # scan windows of candidate list to find close pairs on different vehicles
-            for i in range(len(candidates)):
-                for j in range(i+1, min(i+15, len(candidates))):  # look ahead a bit
-                    v1, pos1, s1 = candidates[i]
-                    v2, pos2, s2 = candidates[j]
-                    if v1 == v2:
-                        continue
-                    # cost = abs(start diff) + travel deltas at those positions
-                    prev1 = min(instance.nodes.keys()) if pos1 == 0 else tours[v1][pos1-1]
-                    nxt1 = min(instance.nodes.keys()) if pos1 == len(tours[v1]) else tours[v1][pos1]
-                    delta1 = safe_tt(instance.travel_time, prev1, sc) + safe_tt(instance.travel_time, sc, nxt1) - safe_tt(instance.travel_time, prev1, nxt1)
+        if req <= 0:
+            continue
 
-                    prev2 = min(instance.nodes.keys()) if pos2 == 0 else tours[v2][pos2-1]
-                    nxt2 = min(instance.nodes.keys()) if pos2 == len(tours[v2]) else tours[v2][pos2]
-                    delta2 = safe_tt(instance.travel_time, prev2, sc) + safe_tt(instance.travel_time, sc, nxt2) - safe_tt(instance.travel_time, prev2, nxt2)
-
-                    pair_cost = abs(s1 - s2) + 0.5 * (delta1 + delta2)
-                    if pair_cost < best_pair_cost:
-                        best_pair_cost = pair_cost
-                        best_pair = (v1, pos1, v2, pos2)
-            if best_pair:
-                v1, pos1, v2, pos2 = best_pair
-                tours[v1].insert(pos1, sc)
-                # adjust second pos if same vehicle index <-> insertion order issues
-                if v2 == v1 and pos2 >= pos1:
-                    pos2 += 1
-                tours[v2].insert(pos2, sc)
+        # Choose vehicles greedily among least-loaded ones
+        chosen = []
+        for _ in range(req):
+            # consider only vehicles under max_load, otherwise consider full list
+            cand_vs = [v for v in candidate_vehicles(limit=m) if len(tours[v]) < max_load and v not in chosen]
+            if not cand_vs:
+                cand_vs = [v for v in candidate_vehicles(limit=m) if v not in chosen]
+            # evaluate best insertion among top candidates (limit to small number for speed)
+            cand_vs = cand_vs[:max(6, top_k_vehicles_for_sync)]
+            best_choice = None
+            best_score = None
+            for v in cand_vs:
+                prefixes = compute_route_prefixes(instance, tours[v])
+                info = best_insertion_for_vehicle(instance, tours, sc, v, prefixes=prefixes,
+                                                  sample_pos_limit=sample_pos_limit,
+                                                  lateness_weight=lateness_weight, horizon_weight=horizon_weight)
+                if info is None:
+                    continue
+                pos, cost, start, lateness, est_end = info
+                # score: prefer balanced (few nodes) and low lateness/align
+                score = cost + 0.01 * len(tours[v])
+                if best_score is None or score < best_score:
+                    best_score = score
+                    best_choice = (v, pos)
+            if best_choice is None:
+                # fallback: smallest route append
+                v = min(range(m), key=lambda x: len(tours[x]))
+                tours[v].append(sc)
+                chosen.append(v)
             else:
-                # fallback: simple balanced insertion using time-aware single insertion
-                vehicle_indices = sorted(range(m), key=lambda x: len(tours[x]))
-                for v in vehicle_indices[:req]:
-                    earliest_insertion_time_aware(instance, tours, sc, v)
-        else:
-            # general approach for req != 2: do repeated single time-aware insertions on distinct vehicles
-            vehicle_indices = sorted(range(m), key=lambda x: len(tours[x]))
-            for v in vehicle_indices[:req]:
-                earliest_insertion_time_aware(instance, tours, sc, v)
+                v, pos = best_choice
+                tours[v].insert(pos, sc)
+                chosen.append(v)
 
-    # 2) place non-synchronized customers once (time-aware greedy)
-    all_customers = [cid for cid in instance.nodes.keys() if cid != min(instance.nodes.keys())]
+    # 2) Place remaining customers (time-aware, balanced, sample positions)
+    all_customers = [cid for cid in nodes.keys() if cid != depot]
     remaining = [c for c in all_customers if c not in instance.sync_customers]
     random.shuffle(remaining)
+
+    # maintain prefixes cache per vehicle to avoid repeated recompute
+    prefixes_cache = [compute_route_prefixes(instance, tours[v]) for v in range(m)]
+
     for cust in remaining:
-        best_v = None
-        best_pos = None
-        best_cost = float('inf')
-        for v in range(m):
-            if tours[v].count(cust) > 0:
+        # consider a small set of candidate vehicles (least loaded)
+        cand_vs = candidate_vehicles(limit=min(m, max(6, m // 4)))
+        best_global = None  # (score, v, pos, start, lateness, est_end)
+        for v in cand_vs:
+            prefixes = prefixes_cache[v]
+            info = best_insertion_for_vehicle(instance, tours, cust, v, prefixes=prefixes,
+                                              sample_pos_limit=sample_pos_limit,
+                                              lateness_weight=lateness_weight, horizon_weight=horizon_weight)
+            if info is None:
                 continue
-            for pos in range(len(tours[v]) + 1):
-                prev = min(instance.nodes.keys()) if pos == 0 else tours[v][pos-1]
-                nxt = min(instance.nodes.keys()) if pos == len(tours[v]) else tours[v][pos]
-                delta = safe_tt(instance.travel_time, prev, cust) + safe_tt(instance.travel_time, cust, nxt) - safe_tt(instance.travel_time, prev, nxt)
-                # estimate lateness at this insertion (quick)
-                est_arr = route_prefix_time_estimate(instance, tours[v], pos)
-                # arrival at cust = depart_prev + travel(prev,cust) (we approximated depart_prev in route_prefix_time_estimate)
-                start = max(est_arr, instance.nodes[cust]["ready"])
-                lateness = max(0.0, start - instance.nodes[cust]["due"])
-                cost = delta + 50.0 * lateness
-                if cost < best_cost:
-                    best_cost = cost
-                    best_v = v
-                    best_pos = pos
-        if best_v is None:
+            pos, cost, start, lateness, est_end = info
+            # small tie-break: prefer less loaded vehicles
+            score = cost + 0.01 * len(tours[v])
+            if best_global is None or score < best_global[0]:
+                best_global = (score, v, pos, start, lateness, est_end)
+
+        if best_global is None:
+            # append on least loaded
             v = min(range(m), key=lambda x: len(tours[x]))
             tours[v].append(cust)
+            prefixes_cache[v] = compute_route_prefixes(instance, tours[v])
         else:
-            tours[best_v].insert(best_pos, cust)
+            _, v, pos, _, _, _ = best_global
+            tours[v].insert(pos, cust)
+            prefixes_cache[v] = compute_route_prefixes(instance, tours[v])
 
-    # final safety: ensure sync occurrences on distinct vehicles (if duplicates remain, move them)
+        # small rebalancing: if any route grows too large compared to others, prefer other vehicles next
+        # (implicitly handled by candidate_vehicles ordering)
+
+    # 3) Final safety & balancing pass
+    # Ensure each sync customer occurrences are on distinct vehicles and required count met
     for sc in sync_list:
         occurrences = [(idx, pos) for idx, rt in enumerate(tours) for pos, val in enumerate(rt) if val == sc]
-        if len(occurrences) < instance.sync_requirements.get(sc,2):
-            needed = instance.sync_requirements.get(sc,2) - len(occurrences)
-            for _ in range(needed):
+        needed = instance.sync_requirements.get(sc, 2)
+        if len(occurrences) < needed:
+            for _ in range(needed - len(occurrences)):
                 v = min(range(m), key=lambda x: len(tours[x]))
                 tours[v].append(sc)
         else:
-            # move duplicates so each occurrence resides on a different vehicle
             vehicles = [idx for idx, _ in occurrences]
             if len(set(vehicles)) < len(vehicles):
+                # move duplicates to least-loaded vehicles without sc
                 for idx, pos in occurrences:
                     if vehicles.count(idx) > 1:
                         candidates = [v for v in range(m) if sc not in tours[v]]
@@ -243,6 +267,34 @@ def random_insertion(instance, seed: int = 0):
                             except ValueError:
                                 continue
                             tours[newv].append(sc)
+
+    # Final balancing fix: ensure no route is enormously larger than average
+    avg = max(1, total_customers // max(1, m))
+    max_allowed = max(avg + 3, max_load)
+    for v in range(m):
+        while len(tours[v]) > max_allowed:
+            # move one customer from heavy route to lightest route
+            light_v = min(range(m), key=lambda x: len(tours[x]))
+            if light_v == v:
+                break
+            # pick a customer that is not a sync placed duplicated or that won't break sync requirement
+            moved = None
+            for pos, cust in enumerate(tours[v]):
+                # avoid moving a sync occurrence if it would cause duplicates on same vehicle (try to keep them distinct)
+                if cust in instance.sync_customers:
+                    # ensure there is another occurrence elsewhere to keep requirement
+                    occs = sum(rt.count(cust) for rt in tours)
+                    if occs <= instance.sync_requirements.get(cust, 1):
+                        continue
+                moved = cust
+                break
+            if moved is None:
+                break
+            try:
+                tours[v].remove(moved)
+                tours[light_v].append(moved)
+            except ValueError:
+                break
 
     sol = Solution(instance=instance, tours=tours)
     return sol
