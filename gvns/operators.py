@@ -7,7 +7,9 @@ from gvns.solution import Solution
 # debug prints for operator diagnostics
 DEBUG_OPERATORS = False
 
-# helpers: multiset checks + diagnostics
+# ============================================================
+# HELPERS: multiset checks + diagnostics
+# ============================================================
 def multiset_of_tours(tours: List[List[int]]) -> Counter:
     """
     returns a counter of totsl occurences of each customer across all tours
@@ -68,7 +70,10 @@ def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info
 
     return new_sol
 
-#  operators : they are are allowed to move occurrences between routes but will refuse any move that would put all required occurrences for a synced customer on the same vehicle
+# ============================================================
+#  OPERATORS 
+# they are are allowed to move occurrences between routes but will refuse any move that would put all required occurrences for a synced customer on the same vehicle
+# ============================================================
 def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -> Optional[Solution]:
     """
     move an item inside the same route from from_pos to to_pos
@@ -339,6 +344,9 @@ def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional
 
     return None
 
+# ============================================================
+# SHAKING 
+# ============================================================
 def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True) -> Solution:
     """
     - Performs up to `k` *accepted* random moves (tries many times).

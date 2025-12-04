@@ -6,7 +6,7 @@ from gvns.solution import Solution
 import gvns.operators as ops
 
 # ============================================================
-#  Lexicographic comparator used everywhere in VND + GVNS
+#  Lexicographic comparator 
 # ============================================================
 def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
     """
@@ -260,7 +260,7 @@ def explore_k_relocate(sol: Solution, max_checks=2000) -> Optional[Solution]:
 
 
 # ===================================================================
-#  BVND (best improvement VND) — clean and compliant with the paper
+#  BVND 
 # ===================================================================
 NEIGHBORHOODS = [
     explore_intra_insertion,

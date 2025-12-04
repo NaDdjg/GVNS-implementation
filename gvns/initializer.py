@@ -2,9 +2,9 @@ import random
 from typing import List, Optional, Tuple
 from gvns.solution import Solution
 
-# -------------------------
+# ============================================================
 # Utilities
-# -------------------------
+# ============================================================
 def safe_tt(TT, i, j):
     try:
         if isinstance(TT, dict):
@@ -131,9 +131,9 @@ def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
             best_info = (pos, cost, start, lateness, est_end)
     return best_info
 
-# -------------------------
+# ============================================================
 # Main initializer
-# -------------------------
+# ============================================================
 def random_insertion(instance, seed: int = 0,
                      lateness_weight: float = 50.0,
                      horizon_weight: float = 50.0,
@@ -240,9 +240,6 @@ def random_insertion(instance, seed: int = 0,
             _, v, pos, _, _, _ = best_global
             tours[v].insert(pos, cust)
             prefixes_cache[v] = compute_route_prefixes(instance, tours[v])
-
-        # small rebalancing: if any route grows too large compared to others, prefer other vehicles next
-        # (implicitly handled by candidate_vehicles ordering)
 
     # 3) Final safety & balancing pass
     # Ensure each sync customer occurrences are on distinct vehicles and required count met
