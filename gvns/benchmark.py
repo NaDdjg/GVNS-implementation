@@ -68,13 +68,11 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
         results.append({
             "instance": name,
             "run": run_id,
-            "best_F": best.Fval,
             "best_f": best.travel_time,
-            "best_feasible_f": (best_f_feasible if best_f_feasible is not None else None),
             "PenT": best.penT,
             "PenH": best.penH,
             "PenS": best.penS,
-            "time": elapsed
+            "time": best.best_time
         })
 
         if best_overall is None or best.travel_time < best_overall.travel_time:
@@ -88,7 +86,10 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
 
         # raw f points
         if "iter" in df.columns and "f" in df.columns and not df.empty:
-            plt.scatter(df["iter"], df["f"], s=20, label="raw f (per iter)", alpha=0.6)
+            feasible_df = df[(df["PenT"] == 0) & (df["PenH"] == 0) & (df["PenS"] == 0)]
+            if not feasible_df.empty:
+                plt.scatter(feasible_df["iter"], feasible_df["f"], s=20,
+                            label="feasible f (raw accepted)", alpha=0.7)
 
             # compute feasible-best series: only consider iterations where penalties are zero (if those columns exist)
             best_series = []

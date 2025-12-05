@@ -12,13 +12,13 @@ params = {
     "p_init": 1,
     "p_max": 10,
     "Dp": 0.3,
-    "w1": 0.8,
+    "w1": 0.8,    # kan 0.5, mais to have less time in the start to solve penalties
     "w2": 0.1,
-    "alpha": 0.3,
-    "delta": 0.4,
+    "alpha": 0.3, # kan 0.1 mais to make penalties solved in a stronger way
+    "delta": 0.1, # kan 0.4 mais to keep accpetance tae worse f meshi kbira 
     "M": 1e6,
     "seed": 42,
-    "Tmax": 13000  
+    "Tmax": 200  
 }
 
 # this is just a utility to ensure results folder exists

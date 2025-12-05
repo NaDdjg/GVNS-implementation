@@ -58,6 +58,8 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
 
     best_feasible = None
     best_feasible_f = float("inf")
+    best_feasible_time = None
+
     if current.penS == 0 and current.penT == 0 and current.penH == 0:
         best_feasible = current.copy()
         best_feasible_f = current.travel_time
@@ -172,14 +174,12 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         # ============================================================
         if improved.Fval < best_aug.Fval:
             best_aug = improved.copy()
-            print(f"[GVNS][iter {iteration}] New best augmented: "
-                  f"F={best_aug.Fval:.3f}, f={best_aug.travel_time:.3f}, "
-                  f"PenS={best_aug.penS}")
 
         if improved.penS == 0 and improved.penT == 0 and improved.penH == 0:
             if improved.travel_time < best_feasible_f:
                 best_feasible_f = improved.travel_time
                 best_feasible = improved.copy()
+                best_feasible_time = elapsed
                 print(f"[GVNS][iter {iteration}] New best feasible: "
                       f"f={best_feasible_f:.3f}")
 
@@ -202,6 +202,12 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
                 current.penT, current.penH, current.penS, elapsed
             ])
 
+    if best_feasible is not None:
+        best_feasible.eval()
+        best_feasible.best_time = best_feasible_time
+        return best_feasible
+
     best_aug.eval()
+    best_aug.best_time = None
     logger.close()
     return best_aug
