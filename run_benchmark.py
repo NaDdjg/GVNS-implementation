@@ -18,7 +18,7 @@ params = {
     "delta": 0.1, # kan 0.4 mais to keep accpetance tae worse f meshi kbira 
     "M": 1e6,
     "seed": 42,
-    "Tmax": 200  
+    "Tmax": 13000  
 }
 
 # this is just a utility to ensure results folder exists

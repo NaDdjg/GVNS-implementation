@@ -142,7 +142,8 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         improved = ls.b_vnd(
             shaken,
             time_limit=bvnd_time,
-            max_no_improve=1
+            max_no_improve=1,
+            first_improvement=True
         )
         improved.eval()
         # logger.log("after_ls", step_counter := step_counter + 1, improved, note="after_LS")

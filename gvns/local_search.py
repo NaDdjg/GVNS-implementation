@@ -31,7 +31,7 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 # ============================================================
 # Neighborhood Explorers (best improvement)
 # ============================================================
-def explore_intra_insertion(sol: Solution, max_checks=2000) -> Optional[Solution]:
+def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
     """N1 - Best improvement using intra-route insertion."""
     best = sol
     m = sol.instance.m
@@ -54,13 +54,20 @@ def explore_intra_insertion(sol: Solution, max_checks=2000) -> Optional[Solution
                 if not cand: continue
                 cand.eval()
 
-                if improved is None or is_better(cand, improved):
-                    improved = cand
+                if first_improve:
+                    if is_better(cand, sol):
+                        return cand
+                else:
+                    if best_cand is None or is_better(cand, best_cand):
+                        best_cand = cand
+
+                # if improved is None or is_better(cand, improved):
+                #     improved = cand
 
     return improved
 
 
-def explore_inter_insertion(sol: Solution, max_checks=4000) -> Optional[Solution]:
+def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool = False) -> Optional[Solution]:
     """N2 - Best improvement using inter-route insertion."""
     best = sol
     m = sol.instance.m
@@ -86,13 +93,19 @@ def explore_inter_insertion(sol: Solution, max_checks=4000) -> Optional[Solution
                     if not cand: continue
                     cand.eval()
 
-                    if improved is None or is_better(cand, improved):
-                        improved = cand
+                    if first_improve:
+                        if is_better(cand, sol):
+                            return cand
+                    else:
+                        if best_cand is None or is_better(cand, best_cand):
+                            best_cand = cand
+
+                    # if improved is None or is_better(cand, improved):
+                    #     improved = cand
 
     return improved
 
-
-def explore_intra_swap(sol: Solution, max_checks=2000) -> Optional[Solution]:
+def explore_intra_swap(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
     """N3 - Best improvement using intra-route swap."""
     m = sol.instance.m
     improved = None
@@ -111,13 +124,20 @@ def explore_intra_swap(sol: Solution, max_checks=2000) -> Optional[Solution]:
                 if not cand: continue
                 cand.eval()
 
-                if improved is None or is_better(cand, improved):
-                    improved = cand
+                if first_improve:
+                    if is_better(cand, sol):
+                        return cand
+                else:
+                    if best_cand is None or is_better(cand, best_cand):
+                        best_cand = cand
+
+                # if improved is None or is_better(cand, improved):
+                #     improved = cand
 
     return improved
 
 
-def explore_inter_swap(sol: Solution, max_checks=4000) -> Optional[Solution]:
+def explore_inter_swap(sol: Solution, max_checks=4000, first_improve: bool = False) -> Optional[Solution]:
     """N4 - Best improvement using inter-route swap."""
     m = sol.instance.m
     improved = None
@@ -137,14 +157,21 @@ def explore_inter_swap(sol: Solution, max_checks=4000) -> Optional[Solution]:
                     cand = ops.inter_swap(sol, r1, i, r2, j)
                     if not cand: continue
                     cand.eval()
+                    
+                    if first_improve:
+                        if is_better(cand, sol):
+                            return cand
+                    else:
+                        if best_cand is None or is_better(cand, best_cand):
+                            best_cand = cand
 
-                    if improved is None or is_better(cand, improved):
-                        improved = cand
+                    # if improved is None or is_better(cand, improved):
+                    #     improved = cand
 
     return improved
 
 
-def explore_two_opt(sol: Solution, max_checks=3000) -> Optional[Solution]:
+def explore_two_opt(sol: Solution, max_checks=3000, first_improve: bool = False) -> Optional[Solution]:
     """N5 - intra-route 2-opt (best improvement)."""
     m = sol.instance.m
     improved = None
@@ -163,13 +190,20 @@ def explore_two_opt(sol: Solution, max_checks=3000) -> Optional[Solution]:
                 if not cand: continue
                 cand.eval()
 
-                if improved is None or is_better(cand, improved):
-                    improved = cand
+                if first_improve:
+                    if is_better(cand, sol):
+                        return cand
+                else:
+                    if best_cand is None or is_better(cand, best_cand):
+                        best_cand = cand
+
+                # if improved is None or is_better(cand, improved):
+                #     improved = cand
 
     return improved
 
 
-def explore_two_opt_star(sol: Solution, max_checks=3000) -> Optional[Solution]:
+def explore_two_opt_star(sol: Solution, max_checks=3000, first_improve: bool = False) -> Optional[Solution]:
     """N6 - cross 2-opt* (route disconnect-reconnect)."""
     m = sol.instance.m
     improved = None
@@ -190,13 +224,20 @@ def explore_two_opt_star(sol: Solution, max_checks=3000) -> Optional[Solution]:
                     if not cand: continue
                     cand.eval()
 
-                    if improved is None or is_better(cand, improved):
-                        improved = cand
+                    if first_improve:
+                        if is_better(cand, sol):
+                            return cand
+                    else:
+                        if best_cand is None or is_better(cand, best_cand):
+                            best_cand = cand
+
+                    # if improved is None or is_better(cand, improved):
+                    #     improved = cand
 
     return improved
 
 
-def explore_cross_exchange(sol: Solution, max_checks=3000) -> Optional[Solution]:
+def explore_cross_exchange(sol: Solution, max_checks=3000, first_improve: bool = False) -> Optional[Solution]:
     """N7 - swap segments of limited size between routes."""
     m = sol.instance.m
     improved = None
@@ -220,13 +261,19 @@ def explore_cross_exchange(sol: Solution, max_checks=3000) -> Optional[Solution]
                             if not cand: continue
                             cand.eval()
 
-                            if improved is None or is_better(cand, improved):
-                                improved = cand
+                            if first_improve:
+                                if is_better(cand, sol):
+                                    return cand
+                            else:
+                                if best_cand is None or is_better(cand, best_cand):
+                                    best_cand = cand
+
+                            # if improved is None or is_better(cand, improved):
+                            #     improved = cand
 
     return improved
 
-
-def explore_k_relocate(sol: Solution, max_checks=2000) -> Optional[Solution]:
+def explore_k_relocate(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
     """N8 - move small segments between routes."""
     m = sol.instance.m
     improved = None
@@ -253,8 +300,15 @@ def explore_k_relocate(sol: Solution, max_checks=2000) -> Optional[Solution]:
                         if not cand: continue
                         cand.eval()
 
-                        if improved is None or is_better(cand, improved):
-                            improved = cand
+                        if first_improve:
+                            if is_better(cand, sol):
+                                return cand
+                        else:
+                            if best_cand is None or is_better(cand, best_cand):
+                                best_cand = cand
+
+                        # if improved is None or is_better(cand, improved):
+                        #     improved = cand
 
     return improved
 
@@ -276,7 +330,8 @@ NEIGHBORHOODS = [
 
 def b_vnd(sol: Solution,
           time_limit: Optional[float] = None,
-          max_no_improve=1) -> Solution:
+          max_no_improve=1,
+          first_improvement: bool = False) -> Solution:
 
     best = sol
     best.eval()
@@ -297,7 +352,7 @@ def b_vnd(sol: Solution,
             if time_limit and (time.time() - start) > time_limit:
                 return best
 
-            cand = explorer(best)
+            cand = explorer(best, first_improve=first_improvement)
 
             if cand and is_better(cand, best):
                 best = cand
