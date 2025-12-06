@@ -9,31 +9,41 @@ from .base_agent import BaseAgent
 
 class QTableAgent(BaseAgent):
     def __init__(self,
-                 n_actions: int = 4,
+                 n_actions: int ,
                  alpha: float = 0.1,
                  gamma: float = 0.99,
                  eps_start: float = 0.2,
                  eps_min: float = 0.01,
-                 eps_decay: float = 1e-5,
-                 discretizer_config: Dict = None,
+                 eps_decay: float = 5e-4,
+                 use_ucb: bool = False,
+                 ucb_start_step: int = 0,
                  seed: int = 0):
         random.seed(seed)
         np.random.seed(seed)
+
         self.n_actions = n_actions
         self.alpha = alpha
         self.gamma = gamma
+
+        # exploration
         self.eps = eps_start
         self.eps_min = eps_min
         self.eps_decay = eps_decay
+
+        # usb controls
+        self.use_ucb = use_ucb
+        self.ucb_start_step = ucb_start_step
+        self.total_steps = 0
+        self.ucb_c = 1.0
+
+        # Q-table
         self.Q = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.float32))
 
-        # counts needed for ucb 
+        # visit counts (needed for ucb)
         self.counts = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.int32))   # N(s,a)
         self.state_counts = defaultdict(int)                                          # N(s)
         self.ucb_c = 1.0 # exploration coeff 
 
-        # discretizer_config can hold thresholds/bins; we'll use defaults if None
-        self.disc_cfg = discretizer_config or {}
 
     # discretization helper
     def discretize_obs(self, obs: np.ndarray) -> Tuple:
@@ -49,36 +59,42 @@ class QTableAgent(BaseAgent):
           5 -> PenT
           6 -> PenH
           7 -> PenS
-          8 -> iter / step_count
+          8 -> stagnation
           9 -> elapsed_time
           10-13 -> neigh success rates
 
         returns tuple of ints to index the Q-table.
         """
         # unpack
-        n = int(obs[0])
+        penS_flag = 1 if obs[7] > 1e-9 else 0
         penT_flag = 1 if obs[5] > 1e-9 else 0
         penH_flag = 1 if obs[6] > 1e-9 else 0
 
         # cont bucket : 0 => fresh, 1=> small, 2=> large
-        iter_val = int(obs[8])
-        if iter_val == 0:
-            cont_bucket = 0
-        elif iter_val <= 3:
-            cont_bucket = 1
+        stagn  = int(obs[8])
+        if stagn  == 0:
+            stag_bucket  = 0 # just improved
+        elif stagn <= 2:
+            stag_bucket = 1      # short stagnation
+        elif stagn <= 6:
+            stag_bucket = 2      # medium
         else:
-            cont_bucket = 2
+            stag_bucket = 3      # long stagnation
 
+        # --- neighborhood effectiveness proxy ---
         # last improvement magnitude - here we use neigh success: if any success > 0.5 -> good
-        last_impr = max(obs[10:14])  # best success rate among neighbors as proxy
-        if last_impr > 0.5:
-            delta_bucket = 0  # good
-        elif last_impr > 0.0:
-            delta_bucket = 1  # small
+        best_succ = max(obs[-self.n_actions:])  # best success rate among neighbors as proxy
+        if best_succ > 0.6:
+            eff_bucket = 0   # strong
+        elif best_succ > 0.2:
+            eff_bucket = 1   # moderate
+        elif best_succ > 0.0:
+            eff_bucket = 2   # weak
         else:
-            delta_bucket = 2  # none
+            eff_bucket = 3   # dead
 
-        # size bucket
+        # --- instance size ---
+        n = int(obs[0])
         if n < 25:
             size_bucket = 0
         elif n < 50:
@@ -86,53 +102,50 @@ class QTableAgent(BaseAgent):
         else:
             size_bucket = 2
 
-        # state key tuple
-        key = (penT_flag, penH_flag, cont_bucket, delta_bucket, size_bucket)
-        return key
+        # return state key tuple 
+        return (
+            penS_flag,
+            penT_flag,
+            penH_flag,
+            stag_bucket,
+            eff_bucket,
+            size_bucket
+        )
 
     # BaseAgent API
-    # epsilon greedy selection
+    # ------------------------------------------------------------------
+    # Action selection
+    # ------------------------------------------------------------------
     def select_action(self, obs: np.ndarray) -> int:
         """
         given an observation (raw vector), discretize and pick action via epsilon-greedy.
         """
-        key = self.discretize_obs(obs)
+        s = self.discretize_obs(obs)
+        self.total_steps += 1
+
+        # --- UCB (after warm-up) ---
+        if self.use_ucb and self.total_steps >= self.ucb_start_step:
+            # ensure each action is tried at least once
+            untried = np.where(self.counts[s] == 0)[0]
+            if len(untried) > 0:
+                return int(np.random.choice(untried))
+
+            qvals = self.Q[s]
+            n_s = self.state_counts[s]
+            n_sa = self.counts[s] + 1e-9
+
+            bonus = self.ucb_c * np.sqrt(np.log(n_s) / n_sa)
+            return int(np.argmax(qvals + bonus))
+        
+        # --- epsilon-greedy ---
         if random.random() < self.eps:
-            a = random.randrange(self.n_actions)
-        else:
-            a = int(np.argmax(self.Q[key]))
-        return a
+            return random.randrange(self.n_actions)
 
-    # ucb selection
-    # def select_action(self, obs: np.ndarray) -> int:
-    #     """
-    #     Given an observation (raw vector), discretize and pick action via UCB1 with a small random fallback.
-    #     """
-    #     key = self.discretize_obs(obs)
+        return int(np.argmax(self.Q[s]))
 
-    #     # if state is unseen, pick a random action to initialize counts (encourages coverage)
-    #     if self.state_counts[key] == 0:
-    #         a = random.randrange(self.n_actions)
-    #         return a
-
-    #     # compute UCB scores: Q(s,a) + ucb_c * sqrt( 2 * log(N(s)) / N(s,a) )
-    #     qvals = self.Q[key].astype(np.float64)  
-    #     n_s = max(1, self.state_counts[key])
-    #     # small epsilon to denominators to avoid div-by-zero
-    #     denom = self.counts[key].astype(np.float64) + 1e-9
-
-    #     bonus = np.sqrt(2.0 * np.log(float(n_s)) / denom)
-    #     scores = qvals + (self.ucb_c * bonus)
-
-    #     # choose argmax score
-    #     a = int(np.argmax(scores))
-
-    #     # tiny random fallback to keep some exploration/noise (prevents pathological determinism)
-    #     if random.random() < self.eps_min:
-    #         a = random.randrange(self.n_actions)
-
-    #     return a
-
+    # ------------------------------------------------------------------
+    # Q update
+    # ------------------------------------------------------------------
     def update(self,
                obs: np.ndarray,
                action: int,
@@ -144,23 +157,27 @@ class QTableAgent(BaseAgent):
         """
         s = self.discretize_obs(obs)
         s_next = self.discretize_obs(next_obs)
+
         q_sa = self.Q[s][action]
-        q_next_max = 0.0 if done else float(np.max(self.Q[s_next]))
-        target = reward + self.gamma * q_next_max
+        q_next  = 0.0 if done else float(np.max(self.Q[s_next]))
+
+        target = reward + self.gamma * q_next 
         self.Q[s][action] = q_sa + self.alpha * (target - q_sa)
         
         # increment visit counts for UCB bookkeeping
         self.counts[s][action] += 1
         self.state_counts[s] += 1
 
-        # decay epsilon a bit
-        if self.eps > self.eps_min:
+        # decay epsilon a bit (only when not using ucb yet)
+        if not self.use_ucb and self.eps > self.eps_min:
             self.eps = max(self.eps_min, self.eps - self.eps_decay)
 
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
     def save(self, path: str):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
-            # convert defaultdict to normal dict for pickle
             pickle.dump(dict(self.Q), f)
 
     def load(self, path: str):

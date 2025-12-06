@@ -33,7 +33,6 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 # ============================================================
 def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
     """N1 - Best improvement using intra-route insertion."""
-    best = sol
     m = sol.instance.m
 
     checks = 0
@@ -58,8 +57,8 @@ def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool 
                     if is_better(cand, sol):
                         return cand
                 else:
-                    if best_cand is None or is_better(cand, best_cand):
-                        best_cand = cand
+                    if improved is None or is_better(cand, improved):
+                        improved = cand
 
                 # if improved is None or is_better(cand, improved):
                 #     improved = cand
@@ -69,9 +68,7 @@ def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool 
 
 def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool = False) -> Optional[Solution]:
     """N2 - Best improvement using inter-route insertion."""
-    best = sol
     m = sol.instance.m
-
     checks = 0
     improved = None
 
@@ -97,8 +94,8 @@ def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool 
                         if is_better(cand, sol):
                             return cand
                     else:
-                        if best_cand is None or is_better(cand, best_cand):
-                            best_cand = cand
+                        if improved is None or is_better(cand, improved):
+                            improved = cand
 
                     # if improved is None or is_better(cand, improved):
                     #     improved = cand
@@ -128,8 +125,8 @@ def explore_intra_swap(sol: Solution, max_checks=2000, first_improve: bool = Fal
                     if is_better(cand, sol):
                         return cand
                 else:
-                    if best_cand is None or is_better(cand, best_cand):
-                        best_cand = cand
+                    if improved is None or is_better(cand, improved):
+                        improved = cand
 
                 # if improved is None or is_better(cand, improved):
                 #     improved = cand
@@ -162,8 +159,8 @@ def explore_inter_swap(sol: Solution, max_checks=4000, first_improve: bool = Fal
                         if is_better(cand, sol):
                             return cand
                     else:
-                        if best_cand is None or is_better(cand, best_cand):
-                            best_cand = cand
+                        if improved is None or is_better(cand, improved):
+                            improved = cand
 
                     # if improved is None or is_better(cand, improved):
                     #     improved = cand
@@ -194,8 +191,8 @@ def explore_two_opt(sol: Solution, max_checks=3000, first_improve: bool = False)
                     if is_better(cand, sol):
                         return cand
                 else:
-                    if best_cand is None or is_better(cand, best_cand):
-                        best_cand = cand
+                    if improved is None or is_better(cand, improved):
+                        improved = cand
 
                 # if improved is None or is_better(cand, improved):
                 #     improved = cand
@@ -228,8 +225,8 @@ def explore_two_opt_star(sol: Solution, max_checks=3000, first_improve: bool = F
                         if is_better(cand, sol):
                             return cand
                     else:
-                        if best_cand is None or is_better(cand, best_cand):
-                            best_cand = cand
+                        if improved is None or is_better(cand, improved):
+                            improved = cand
 
                     # if improved is None or is_better(cand, improved):
                     #     improved = cand
@@ -265,8 +262,8 @@ def explore_cross_exchange(sol: Solution, max_checks=3000, first_improve: bool =
                                 if is_better(cand, sol):
                                     return cand
                             else:
-                                if best_cand is None or is_better(cand, best_cand):
-                                    best_cand = cand
+                                if improved is None or is_better(cand, improved):
+                                    improved = cand
 
                             # if improved is None or is_better(cand, improved):
                             #     improved = cand
@@ -304,8 +301,8 @@ def explore_k_relocate(sol: Solution, max_checks=2000, first_improve: bool = Fal
                             if is_better(cand, sol):
                                 return cand
                         else:
-                            if best_cand is None or is_better(cand, best_cand):
-                                best_cand = cand
+                            if improved is None or is_better(cand, improved):
+                                improved = cand
 
                         # if improved is None or is_better(cand, improved):
                         #     improved = cand
@@ -316,7 +313,7 @@ def explore_k_relocate(sol: Solution, max_checks=2000, first_improve: bool = Fal
 # ===================================================================
 #  BVND 
 # ===================================================================
-NEIGHBORHOODS = [
+NEIGHBORHOOD_CALLABLES  = [
     explore_intra_insertion,
     explore_inter_insertion,
     explore_intra_swap,
@@ -326,12 +323,13 @@ NEIGHBORHOODS = [
     explore_cross_exchange,
     explore_k_relocate
 ]
-
+NEIGHBORHOOD_FUNCS = NEIGHBORHOOD_CALLABLES
 
 def b_vnd(sol: Solution,
           time_limit: Optional[float] = None,
           max_no_improve=1,
-          first_improvement: bool = False) -> Solution:
+          first_improvement: bool = False,
+          max_checks_per_neigh: int = 2000) -> Solution:
 
     best = sol
     best.eval()
@@ -347,12 +345,12 @@ def b_vnd(sol: Solution,
         improved_any = False
 
         # sequential neighborhoods
-        for explorer in NEIGHBORHOODS:
+        for explorer in NEIGHBORHOOD_FUNCS:
 
             if time_limit and (time.time() - start) > time_limit:
                 return best
 
-            cand = explorer(best, first_improve=first_improvement)
+            cand = explorer(best, max_checks=max_checks_per_neigh, first_improve=first_improvement)
 
             if cand and is_better(cand, best):
                 best = cand
@@ -365,3 +363,49 @@ def b_vnd(sol: Solution,
                 return best
         else:
             no_improve = 0
+
+# ===================================================================
+# helper used for RL integration
+# to run a single neighborhood (or list of neighborhoods) on a given Solution
+# ===================================================================
+def run_neighborhoods_once(sol: 'Solution',
+                           neighborhoods: list,
+                           max_checks_per_neigh: int = 2000,
+                           first_improvement: bool = False):
+    """
+    neighborhoods: list of explorer functions (callables that accept a Solution and return Optional[Solution])
+    This function tries the provided neighborhoods in order (single pass), returning the first or best candidate
+    depending on first_improvement flag. It does NOT perform a full BVND loop; it performs one pass restricted
+    to the provided neighborhood(s). This matches the expected RL env behavior of one 'decision' per action.
+    """
+    best = None
+    improved_flag = False
+    for nb in neighborhoods:
+        cand = nb(sol, max_checks=max_checks_per_neigh, first_improve=first_improvement)
+        if cand is not None:
+            cand.eval()
+            if not improved_flag:
+                best = cand
+                improved_flag = True
+                if first_improvement:
+                    # return immediately
+                    return best, True, best.Fval, {
+                        'F': best.Fval, 'f': best.travel_time,
+                        'PenT': best.penT, 'PenH': best.penH, 'PenS': best.penS
+                    }
+            else:
+                # keep best among found in this pass
+                if cand.Fval < best.Fval:
+                    best = cand
+
+    if best is not None:
+        return best, True, best.Fval, {
+            'F': best.Fval, 'f': best.travel_time,
+            'PenT': best.penT, 'PenH': best.penH, 'PenS': best.penS
+        }
+    else:
+        # no improvement found
+        return None, False, sol.Fval, {
+            'F': sol.Fval, 'f': sol.travel_time,
+            'PenT': sol.penT, 'PenH': sol.penH, 'PenS': sol.penS
+        }

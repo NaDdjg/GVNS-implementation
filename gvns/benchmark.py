@@ -1,14 +1,22 @@
 import os
 import time
-import pandas as pd  # type: ignore
-import matplotlib.pyplot as plt # type: ignore
-from gvns.instance import Instance
-from gvns.gvns import run_gvns
 import random
 import numpy as np # type: ignore
+import pandas as pd  # type: ignore
+import matplotlib.pyplot as plt # type: ignore
+
+from gvns.instance import Instance
+from gvns.gvns import run_gvns
+
 
 # run GVNS on one instance
-def run_instance(path, n_runs=1, params=None, results_dir="results"):
+def run_instance(
+        path, 
+        n_runs=1, 
+        params=None, 
+        agent=None,
+        results_dir="results"
+    ):
     """Run GVNS multiple times on one instance, save traces and plots."""
     name = os.path.basename(path).split(".")[0]
     print(f"\n=== Running instance {name} ===")
@@ -24,14 +32,29 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
     for run_id in range(1, n_runs + 1):
         print(f"\n[RUN {run_id}/{n_runs}] Starting GVNS on {name} ...")
 
+        # new agent per run (no leakage)
+        run_agent = None
+        if agent is not None:
+            run_agent = agent.clone() if hasattr(agent, "clone") else agent
+
         start = time.time()
         trace = []
 
-        # run GVNS with trace logging
-        best = run_gvns(inst, params=params, verbose=True, trace_list=trace)
+        # -----------------------------
+        # Run GVNS (classic or RL)
+        # -----------------------------
+        best = run_gvns(
+            inst, 
+            params=params, 
+            agent=run_agent, 
+            verbose=True, 
+            trace_list=trace
+        )
         elapsed = time.time() - start
 
-        # normalize trace rows (handle variable-length rows)
+        # -----------------------------
+        # Build trace DataFrame
+        # -----------------------------
         # if trace is empty, produce an empty DataFrame with canonical columns
         if not trace:
             cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
@@ -136,8 +159,10 @@ def run_instance(path, n_runs=1, params=None, results_dir="results"):
     return df_res
 
 
-# run GVNS on all .txt instances in a folder
-def run_folder(folder, n_runs=1, params=None, results_dir="results"):
+# ------------------------------------------------------------
+# Run folder
+# ------------------------------------------------------------
+def run_folder(folder, n_runs=1, params=None, agent=None, results_dir="results"):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
     if not paths:
@@ -147,7 +172,13 @@ def run_folder(folder, n_runs=1, params=None, results_dir="results"):
     all_results = []
     for p in paths:
         path_full = os.path.join(folder, p)
-        res = run_instance(path_full, n_runs=n_runs, params=params, results_dir=results_dir)
+        res = run_instance(
+            path_full, 
+            n_runs=n_runs, 
+            params=params, 
+            agent=agent,
+            results_dir=results_dir
+        )
         all_results.append(res)
 
     # Combine all summaries into one global summary CSV
@@ -157,6 +188,14 @@ def run_folder(folder, n_runs=1, params=None, results_dir="results"):
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
 
-def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS=1):
+def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS=1, agent=None):
+    # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    run_folder(folder=INST_FOLDER, n_runs=N_RUNS, params=PARAMS, results_dir=RESULTS_FOLDER)
+
+    run_folder(
+        folder=INST_FOLDER, 
+        n_runs=N_RUNS, 
+        params=PARAMS, 
+        agent=agent,
+        results_dir=RESULTS_FOLDER
+    )

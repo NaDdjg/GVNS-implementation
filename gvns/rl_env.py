@@ -7,19 +7,19 @@ from typing import Optional, Tuple, Dict, Any
 
 from .operators import clone_solution
 from .evaluate import evaluate_solution
-from .local_search import b_vnd
-from .utils import NEIGHBORHOODS, extract_state, obs_dim
+from .local_search import run_neighborhoods_once, NEIGHBORHOOD_CALLABLES
+from .utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim
 
 class BVNDEnv(gym.Env):
     """
     gym environment wrapper around one-decision-in-B-VND.
-    action: choose neighborhood index (0..3)
+    action: choose neighborhood index (0..n_neigh-1)
     observation: concatenation of scalar instance+solution+search stats + neigh success rates
     """
 
     metadata = {"render.modes": []}
 
-    def __init__(self, inst, initial_sol,
+    def __init__(self, inst, initial_sol, first_improvement: bool = False,
                  w1: float = 0.5, w2: float = 0.1, M: float = 1e6,
                  Tmax: float = 2000.0, b_vnd_max_iters: int = 2000,
                  max_steps: int = 100, time_penalty_coef: float = 1e-3,
@@ -27,6 +27,7 @@ class BVNDEnv(gym.Env):
         super().__init__()
         self.inst = inst
         self.initial_sol = initial_sol
+        self.first_improvement = first_improvement
         self.w1 = w1
         self.w2 = w2
         self.M = M
@@ -36,16 +37,18 @@ class BVNDEnv(gym.Env):
         self.time_penalty_coef = float(time_penalty_coef)
 
         # track attempts + successes per neighborhood
-        self.neigh_attempts = [0.0] * len(NEIGHBORHOODS)
-        self.neigh_success = [0.0] * len(NEIGHBORHOODS)
+        self.neigh_names = NEIGHBORHOOD_NAMES
+        self.n_neigh = len(self.neigh_names)
+        self.neigh_attempts = [0.0] * self.n_neigh
+        self.neigh_success = [0.0] * self.n_neigh
 
         # build observation space dynamically (here i use use 14 dims: 3 + 5 + 2 + 4)
-        self._obs_dim = obs_dim(len(NEIGHBORHOODS))
+        self._obs_dim = obs_dim(self.n_neigh)
         low = -np.inf * np.ones(self._obs_dim, dtype=np.float32)
         high = np.inf * np.ones(self._obs_dim, dtype=np.float32)
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
 
-        self.action_space = spaces.Discrete(len(NEIGHBORHOODS))
+        self.action_space = spaces.Discrete(self.n_neigh)
 
         # RNG
         self.seed(seed)
@@ -85,25 +88,26 @@ class BVNDEnv(gym.Env):
         self.start_time = time.time()
         self.step_count = 0
         self.last_improved_step = 0
-        self.neigh_attempts = [0.0] * len(NEIGHBORHOODS)
-        self.neigh_success = [0.0] * len(NEIGHBORHOODS)
+        self.neigh_names = NEIGHBORHOOD_NAMES
+        self.n_neigh = len(self.neigh_names)
+        self.neigh_attempts = [0.0] * self.n_neigh
+        self.neigh_success = [0.0] * self.n_neigh
         return self._make_state()
 
     # this is what represents the GVNS Environment , i call here the b_vnd function with the selected neighborhood (the action chosen by the policy)
     # returns a reward and the new state
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         assert self.action_space.contains(action), f"Invalid action {action}"
-        nb = NEIGHBORHOODS[int(action)]
+        nb_callable = NEIGHBORHOOD_CALLABLES[int(action)]
 
         F_before = float(self.eval['F'])
         t0 = time.time()
 
         # run one BVND pass restricted to chosen neighborhood
-        cand, improved, F_cand, eval_cand = b_vnd(
-            self.inst, self.current,
-            neighborhoods=[nb],
-            w1=self.w1, w2=self.w2, M=self.M,
-            max_total_iters=self.b_vnd_max_iters
+        cand, improved, F_cand, eval_cand = run_neighborhoods_once(
+            self.current, neighborhoods=[nb_callable],
+            max_checks_per_neigh=self.b_vnd_max_iters,
+            first_improvement=self.first_improvement 
         )
         elapsed = float(time.time() - t0)
 
@@ -119,21 +123,26 @@ class BVNDEnv(gym.Env):
         reward = (F_before - F_after) / (1.0 + abs(F_before))
         # small penalty if no improvement (keeps signal negative for wasted attempts)
         if not improved:
-            reward += -0.01
+            reward += -0.05
+        else :
+            # extra bonus for feasibility + f decreased
+            if eval_cand.get('PenT',0)==0 and eval_cand.get('PenH',0)==0 and eval_cand.get('PenS',0)==0:
+                reward += 0.05 + 0.1 * (F_before - F_after)
 
         # time penalty (for faster improvements)
         reward -= self.time_penalty_coef * elapsed
-
         self.step_count += 1
+        stall_limit = max(5, self.n_neigh)
+
         # termination conditions
         done = False
         if (time.time() - self.start_time) > self.Tmax:
             done = True
-        if self.step_count >= self.max_steps:
+        if self.step_count - self.last_improved_step > stall_limit:
             done = True
 
         info = {
-            "neighborhood": nb,
+            "neighborhood": self.neigh_names[action],
             "improved": bool(improved),
             "F_before": F_before,
             "F_after": F_after,

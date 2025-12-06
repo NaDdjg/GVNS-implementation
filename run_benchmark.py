@@ -1,6 +1,10 @@
 import os
 from gvns import benchmark
 
+# rl utilities
+from gvns.agents.qlearning_agent import QTableAgent
+from gvns.utils import obs_dim, NEIGHBORHOOD_NAMES
+
 # parameters
 N_RUNS = 1  
 INST_FOLDER = "instances"      
@@ -21,6 +25,18 @@ params = {
     "Tmax": 13000  
 }
 
+# ----------------------------
+# Agent configuration
+# ----------------------------
+n_actions = len(NEIGHBORHOOD_NAMES)
+agent = QTableAgent(
+    n_actions=n_actions,
+    obs_dim=obs_dim(),
+    epsilon=0.1,
+    alpha=0.2,
+    gamma=0.95
+)
+
 # this is just a utility to ensure results folder exists
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
@@ -30,5 +46,6 @@ if __name__ == "__main__":
         INST_FOLDER=INST_FOLDER,
         RESULTS_FOLDER=RESULTS_FOLDER,
         PARAMS=params,
+        agent=agent,
         N_RUNS=N_RUNS
     )

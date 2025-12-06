@@ -7,6 +7,8 @@ import gvns.operators as ops
 import gvns.local_search as ls
 from gvns.logger import GVNSLogger
 
+from gvns.rl.rl_env import BVNDEnv
+
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
     "Kmax": 12,           # max shaking strength
@@ -19,7 +21,7 @@ DEFAULT_PARAMS = {
     "Tmax": None,
 }
 
-def run_gvns(instance, params=None, verbose=True, trace_list=None):
+def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None):
     # ============================================================
     # Load parameters
     # ============================================================
@@ -107,8 +109,8 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
     # ============================================================
     while True:
         iteration += 1
-
         elapsed = time.time() - start
+
         if time_limit and elapsed >= time_limit:
             print("[GVNS] Time limit reached.")
             break
@@ -117,7 +119,7 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
             break
 
         # ============================================================
-        # 1. Progressive Shaking: k = 1..Kmax
+        # 1. Progressive Shaking
         # ============================================================
         k = 1 + (iteration % Kmax)
         shaken = ops.random_shake(current, k=k)
@@ -127,11 +129,8 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         shaken.M = current.M
         shaken.eval()
 
-        # logger.log("shake", step_counter := step_counter + 1, shaken,
-        #            note=f"shake_k={k}")
-
         # ============================================================
-        # 2. BVND (local search)
+        # 2. BVND (classic local search/RL)
         # ============================================================
         n_customers = len([nid for nid in instance.nodes if nid != depot_id])
         sync_pairs = len(getattr(instance, "sync_customers", []))
@@ -139,23 +138,45 @@ def run_gvns(instance, params=None, verbose=True, trace_list=None):
         bvnd_time = compute_bvnd_time(n=n_customers, sync_pairs=sync_pairs, m=m, Tmax=time_limit)
         # bvnd_time = compute_bvnd_time()
 
-        improved = ls.b_vnd(
-            shaken,
-            time_limit=bvnd_time,
-            max_no_improve=1,
-            first_improvement=True
-        )
+        if agent is None:
+            # ---------- CLASSIC BVND ----------
+            improved = ls.b_vnd(
+                shaken,
+                time_limit=bvnd_time,
+                max_no_improve=1,
+                first_improvement=False
+            )
+
+        else: 
+            # ---------- RL-DRIVEN BVND ----------
+            env = BVNDEnv(
+                inst=instance,
+                initial_sol=shaken,
+                w1=cfg["w1"],
+                w2=cfg["w2"],
+                M=cfg["M"],
+                Tmax=cfg["Tmax"] or 1e9,
+                max_steps=20
+            )
+
+            obs = env.reset()
+            done = False
+            while not done:
+                action = agent.select_action(obs)
+                next_obs, reward, done, info = env.step(action)
+                agent.update(obs, action, reward, next_obs, done)
+                obs = next_obs
+
+            improved = env.current
+
         improved.eval()
-        # logger.log("after_ls", step_counter := step_counter + 1, improved, note="after_LS")
 
         # ============================================================
         # 3. Acceptance Criterion (Move-or-Not)
         # ============================================================
-        if improved.penS < current.penS:
-            accept = True
-        elif improved.penT < current.penT:
-            accept = True
-        elif improved.penH < current.penH:
+        if (improved.penS < current.penS or
+            improved.penT < current.penT or
+            improved.penH < current.penH):
             accept = True
         else:
             accept = improved.Fval <= (1.0 + delta) * current.Fval
