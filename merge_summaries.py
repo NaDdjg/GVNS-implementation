@@ -69,6 +69,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     input_dir = sys.argv[1]
-    output_file = "merged_summary.csv" if len(sys.argv) < 3 else sys.argv[2]
+    output_file = "merged_summary_qlearning-First.csv" if len(sys.argv) < 3 else sys.argv[2]
 
     merge_summaries(input_dir, output_file)

@@ -7,7 +7,7 @@ import gvns.operators as ops
 import gvns.local_search as ls
 from gvns.logger import GVNSLogger
 
-from gvns.rl.rl_env import BVNDEnv
+from gvns.rl_env import BVNDEnv
 
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
@@ -136,17 +136,15 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None):
         sync_pairs = len(getattr(instance, "sync_customers", []))
         m = instance.m
         bvnd_time = compute_bvnd_time(n=n_customers, sync_pairs=sync_pairs, m=m, Tmax=time_limit)
-        # bvnd_time = compute_bvnd_time()
 
         if agent is None:
             # ---------- CLASSIC BVND ----------
             improved = ls.b_vnd(
                 shaken,
-                time_limit=bvnd_time,
+                time_limit=None,
                 max_no_improve=1,
                 first_improvement=False
             )
-
         else: 
             # ---------- RL-DRIVEN BVND ----------
             env = BVNDEnv(

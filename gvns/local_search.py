@@ -27,7 +27,6 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 
     return new.Fval < old.Fval - eps_f
 
-
 # ============================================================
 # Neighborhood Explorers (best improvement)
 # ============================================================
@@ -59,9 +58,6 @@ def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool 
                 else:
                     if improved is None or is_better(cand, improved):
                         improved = cand
-
-                # if improved is None or is_better(cand, improved):
-                #     improved = cand
 
     return improved
 
@@ -97,8 +93,6 @@ def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool 
                         if improved is None or is_better(cand, improved):
                             improved = cand
 
-                    # if improved is None or is_better(cand, improved):
-                    #     improved = cand
 
     return improved
 
@@ -127,9 +121,6 @@ def explore_intra_swap(sol: Solution, max_checks=2000, first_improve: bool = Fal
                 else:
                     if improved is None or is_better(cand, improved):
                         improved = cand
-
-                # if improved is None or is_better(cand, improved):
-                #     improved = cand
 
     return improved
 
@@ -162,9 +153,6 @@ def explore_inter_swap(sol: Solution, max_checks=4000, first_improve: bool = Fal
                         if improved is None or is_better(cand, improved):
                             improved = cand
 
-                    # if improved is None or is_better(cand, improved):
-                    #     improved = cand
-
     return improved
 
 
@@ -193,9 +181,6 @@ def explore_two_opt(sol: Solution, max_checks=3000, first_improve: bool = False)
                 else:
                     if improved is None or is_better(cand, improved):
                         improved = cand
-
-                # if improved is None or is_better(cand, improved):
-                #     improved = cand
 
     return improved
 
@@ -228,8 +213,6 @@ def explore_two_opt_star(sol: Solution, max_checks=3000, first_improve: bool = F
                         if improved is None or is_better(cand, improved):
                             improved = cand
 
-                    # if improved is None or is_better(cand, improved):
-                    #     improved = cand
 
     return improved
 
@@ -265,8 +248,6 @@ def explore_cross_exchange(sol: Solution, max_checks=3000, first_improve: bool =
                                 if improved is None or is_better(cand, improved):
                                     improved = cand
 
-                            # if improved is None or is_better(cand, improved):
-                            #     improved = cand
 
     return improved
 
@@ -304,9 +285,6 @@ def explore_k_relocate(sol: Solution, max_checks=2000, first_improve: bool = Fal
                             if improved is None or is_better(cand, improved):
                                 improved = cand
 
-                        # if improved is None or is_better(cand, improved):
-                        #     improved = cand
-
     return improved
 
 
@@ -338,7 +316,6 @@ def b_vnd(sol: Solution,
     no_improve = 0
 
     while True:
-
         if time_limit and (time.time() - start) > time_limit:
             return best
 
@@ -365,9 +342,43 @@ def b_vnd(sol: Solution,
             no_improve = 0
 
 # ===================================================================
-# helper used for RL integration
+# helpers used for RL integration
 # to run a single neighborhood (or list of neighborhoods) on a given Solution
 # ===================================================================
+def b_vnd_single_neigh(sol: Solution,
+                       neighborhood,
+                       time_limit=None,
+                       max_no_improve=1,
+                       first_improvement=False,
+                       max_checks_per_neigh=4000):
+    """
+    Same logic as b_vnd, but restricted to ONE neighborhood.
+    """
+    best = sol
+    best.eval()
+
+    start = time.time()
+    no_improve = 0
+
+    while True:
+        if time_limit and (time.time() - start) > time_limit:
+            return best
+
+        cand = neighborhood(
+            best,
+            max_checks=max_checks_per_neigh,
+            first_improve=first_improvement
+        )
+
+        if cand and is_better(cand, best):
+            best = cand
+            no_improve = 0
+        else:
+            no_improve += 1
+            if no_improve >= max_no_improve:
+                return best
+
+
 def run_neighborhoods_once(sol: 'Solution',
                            neighborhoods: list,
                            max_checks_per_neigh: int = 2000,

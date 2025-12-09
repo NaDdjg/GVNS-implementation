@@ -26,6 +26,7 @@ class QTableAgent(BaseAgent):
         self.gamma = gamma
 
         # exploration
+        self.fail_streak = np.zeros(self.n_actions, dtype=int)
         self.eps = eps_start
         self.eps_min = eps_min
         self.eps_decay = eps_decay
@@ -163,6 +164,17 @@ class QTableAgent(BaseAgent):
 
         target = reward + self.gamma * q_next 
         self.Q[s][action] = q_sa + self.alpha * (target - q_sa)
+
+        # fail / success tracking 
+        if reward <= 0:
+            self.fail_streak[action] += 1
+        else:
+            self.fail_streak[action] = 0
+
+        # penalty for repeated failure
+        if self.fail_streak[action] >= 2:
+            self.Q[s, action] -= 0.5
+            self.fail_streak[action] = 0
         
         # increment visit counts for UCB bookkeeping
         self.counts[s][action] += 1

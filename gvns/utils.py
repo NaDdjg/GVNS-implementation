@@ -33,18 +33,24 @@ class RunningMeanStd:
     def normalize(self, x: np.ndarray, clip: float = 10.0):
         return np.clip((x - self.mean) / (np.sqrt(self.var) + 1e-8), -clip, clip)
 
-def extract_state(inst, current_sol, eval_current, iter_no, start_time=None, neigh_success=None, neigh_attempts=None):
-    n = len(inst.visits)
-    tw_widths = [v.tw_late - v.tw_early for v in inst.visits.values()]
+def extract_state(inst, current_sol, iter_no, start_time=None, neigh_success=None, neigh_attempts=None):
+    n = inst.n
+    tw_widths = [
+        node["due"] - node["ready"]
+        for node in inst.nodes.values()
+    ]
     avg_tw = float(np.mean(tw_widths)) if len(tw_widths) > 0 else 0.0
     sync_ratio = len(getattr(inst, "sync_pairs", [])) / max(1, n)
 
     feats = [float(n), avg_tw, sync_ratio]
 
-    evalf = [float(eval_current['F']), float(eval_current['f']),
-             float(eval_current.get('PenT', 0.0)),
-             float(eval_current.get('PenH', 0.0)),
-             float(eval_current.get('PenS', 0.0))]
+    evalf = [
+        float(current_sol.Fval),
+        float(current_sol.travel_time),
+        float(current_sol.penT),
+        float(current_sol.penH),
+        float(current_sol.penS),
+    ]
 
     progress = [float(iter_no), float(time.time() - (start_time or 0.0))]
 

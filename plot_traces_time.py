@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-RESULTS_DIR = "results"
+RESULTS_DIR = "results-qlearning-First"
 PLOTS_DIR = os.path.join(RESULTS_DIR, "plots_time")
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
