@@ -21,7 +21,7 @@ DEFAULT_PARAMS = {
     "Tmax": None,
 }
 
-def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None):
+def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True):
     # ============================================================
     # Load parameters
     # ============================================================
@@ -143,7 +143,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None):
                 shaken,
                 time_limit=None,
                 max_no_improve=1,
-                first_improvement=False
+                first_improvement=first_improvement
             )
         else: 
             # ---------- RL-DRIVEN BVND ----------

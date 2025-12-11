@@ -15,6 +15,7 @@ def run_instance(
         n_runs=1, 
         params=None, 
         agent=None,
+        first_improvement = True,
         results_dir="results"
     ):
     """Run GVNS multiple times on one instance, save traces and plots."""
@@ -47,6 +48,7 @@ def run_instance(
             inst, 
             params=params, 
             agent=run_agent, 
+            first_improvement = first_improvement,
             verbose=True, 
             trace_list=trace
         )
@@ -162,7 +164,7 @@ def run_instance(
 # ------------------------------------------------------------
 # Run folder
 # ------------------------------------------------------------
-def run_folder(folder, n_runs=1, params=None, agent=None, results_dir="results"):
+def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results"):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
     if not paths:
@@ -177,6 +179,7 @@ def run_folder(folder, n_runs=1, params=None, agent=None, results_dir="results")
             n_runs=n_runs, 
             params=params, 
             agent=agent,
+            first_improvement = first_improvement,
             results_dir=results_dir
         )
         all_results.append(res)
@@ -188,7 +191,7 @@ def run_folder(folder, n_runs=1, params=None, agent=None, results_dir="results")
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
 
-def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS=1, agent=None):
+def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
@@ -197,5 +200,6 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS=1, agent=None):
         n_runs=N_RUNS, 
         params=PARAMS, 
         agent=agent,
+        first_improvement = first_improvement,
         results_dir=RESULTS_FOLDER
     )
