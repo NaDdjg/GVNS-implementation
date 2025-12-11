@@ -50,7 +50,8 @@ def run_instance(
             agent=run_agent, 
             first_improvement = first_improvement,
             verbose=True, 
-            trace_list=trace
+            trace_list=trace, 
+            instance_name = name
         )
         elapsed = time.time() - start
 

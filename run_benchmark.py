@@ -8,10 +8,10 @@ from gvns.utils import NEIGHBORHOOD_NAMES
 # parameters
 N_RUNS = 1  
 INST_FOLDER = "instances"      
-# RESULTS_FOLDER = "results-classical"
+RESULTS_FOLDER = "results-First-8"
 # RESULTS_FOLDER = "results-qlearning"
 # RESULTS_FOLDER = "results-Fist-4"
-RESULTS_FOLDER = "results-Best-4"
+# RESULTS_FOLDER = "results-Best-4"
 
 # GVNS hyperparameters 
 params = {
@@ -53,5 +53,6 @@ if __name__ == "__main__":
         RESULTS_FOLDER=RESULTS_FOLDER,
         PARAMS=params,
         agent=agent,
+        first_improvement = True,
         N_RUNS=N_RUNS
     )

@@ -1,9 +1,12 @@
 import random
 import time
+import os
 from typing import List, Optional
 
-from gvns.solution import Solution
 import gvns.operators as ops
+from gvns.solution import Solution
+from run_benchmark import RESULTS_FOLDER
+from gvns.utils import save_suggested_order, save_neighborhood_heatmap, save_neighborhood_usage, load_suggested_order
 
 # ============================================================
 #  Lexicographic comparator 
@@ -307,7 +310,20 @@ def b_vnd(sol: Solution,
           time_limit: Optional[float] = None,
           max_no_improve=1,
           first_improvement: bool = False,
-          max_checks_per_neigh: int = 2000) -> Solution:
+          max_checks_per_neigh: int = 2000,
+          save_usage=False,
+          instance_name="unknown",
+          use_suggested_order=False) -> Solution:
+
+    # initialize usage counter 
+    usage_counter = [0] * len(NEIGHBORHOOD_FUNCS)
+    if use_suggested_order:
+        neighborhoods = load_suggested_order(instance_name)
+    else:
+        neighborhoods = list(NEIGHBORHOOD_FUNCS)
+
+    # copy the list so original order stays intact
+    neighborhoods = list(NEIGHBORHOOD_FUNCS)
 
     best = sol
     best.eval()
@@ -322,7 +338,7 @@ def b_vnd(sol: Solution,
         improved_any = False
 
         # sequential neighborhoods
-        for explorer in NEIGHBORHOOD_FUNCS:
+        for idx, explorer in enumerate(neighborhoods):
 
             if time_limit and (time.time() - start) > time_limit:
                 return best
@@ -335,6 +351,7 @@ def b_vnd(sol: Solution,
 
             if cand and is_better(cand, best):
                 best = cand
+                usage_counter[idx] += 1 # record that this neighborhood produced the improvement
                 improved_any = True
                 break  # restart from first neighborhood
 
@@ -344,6 +361,12 @@ def b_vnd(sol: Solution,
                 return best
         else:
             no_improve = 0
+
+        # save counter's results
+        if save_usage:
+            save_neighborhood_usage(usage_counter, instance_name)
+            save_neighborhood_heatmap(usage_counter, instance_name)
+            save_suggested_order(usage_counter, instance_name, neighborhoods)
 
 # ===================================================================
 # helpers used for RL integration
