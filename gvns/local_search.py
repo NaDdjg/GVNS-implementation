@@ -327,7 +327,11 @@ def b_vnd(sol: Solution,
             if time_limit and (time.time() - start) > time_limit:
                 return best
 
-            cand = explorer(best, max_checks=max_checks_per_neigh, first_improve=first_improvement)
+            cand = explorer(
+                best, 
+                max_checks=max_checks_per_neigh, 
+                first_improve=first_improvement
+            )
 
             if cand and is_better(cand, best):
                 best = cand
