@@ -12,8 +12,13 @@ NEIGHBORHOODS = NEIGHBORHOOD_NAMES
 # local search utils 
 # ===================================================================
 def save_neighborhood_usage(counter, instance_name):
+    """
+    Saves counts of usage of each neighborhood during the local search
+    """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    path = os.path.join(RESULTS_FOLDER, f"/neigh_usage/{instance_name}_usage.csv")
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+    path = os.path.join(neigh_folder, f"{instance_name}_usage.csv")
 
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
@@ -22,8 +27,13 @@ def save_neighborhood_usage(counter, instance_name):
             w.writerow([i, count])
 
 def save_neighborhood_heatmap(counter, instance_name):
+    """
+    Creates heatmaps for the usage of each neighborhood 
+    """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    path = os.path.join(RESULTS_FOLDER, f"/neigh_usage/{instance_name}_heatmap.png")
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+    path = os.path.join(neigh_folder, f"{instance_name}_heatmap.png")
 
     plt.figure(figsize=(8, 2))
     plt.imshow([counter], cmap="viridis", aspect="auto")
@@ -35,8 +45,13 @@ def save_neighborhood_heatmap(counter, instance_name):
     plt.close()
 
 def save_suggested_order(counter, instance_name, neighborhoods):
+    """
+    Crates an order suggestion based on the usage counts of each neighborhood
+    """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    path = os.path.join(RESULTS_FOLDER, f"/neigh_usage/{instance_name}_order_suggestion.txt")
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+    path = os.path.join(neigh_folder, f"{instance_name}_order_suggestion.txt")
 
     # pair = (neigh_id, usage)
     pairs = list(enumerate(counter))
@@ -50,41 +65,40 @@ def save_suggested_order(counter, instance_name, neighborhoods):
 
 def load_suggested_order(instance_name):
     """
-    Read the suggestion file and return neighborhoods in the corresponding order.
-    Expected lines:  N1 — usage = X
+    Used when the local search mode is "suggested"
+    Reads the suggestion file and return a list of neighborhood indices (0-based).
+    lines are like these :  N1 — usage = X
     """
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    path = os.path.join(RESULTS_FOLDER, f"/neigh_usage/{instance_name}_order_suggestion.txt")
+    path = os.path.join(
+        RESULTS_FOLDER,
+        "neigh_usage",
+        f"{instance_name}_order_suggestion.txt"
+    )
+
     if not os.path.exists(path):
         print(f"[WARNING] Suggested order file not found: {path}")
         print("Using default neighborhood order.")
-        return list(NEIGHBORHOOD_FUNCS)
+        return list(range(len(NEIGHBORHOOD_FUNCS)))
 
     order = []
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line.startswith("N"):
-                # format is "N<id> — usage = x"
                 try:
                     nid = int(line.split("—")[0].replace("N", "")) - 1
                     order.append(nid)
-                except:
+                except ValueError:
                     pass
 
-    # Build neighborhood list in this order
-    ordered_funcs = []
-    for nid in order:
-        if 0 <= nid < len(NEIGHBORHOOD_FUNCS):
-            ordered_funcs.append(NEIGHBORHOOD_FUNCS[nid])
-
-    # Safety: if missing or corrupted, fall back
-    if len(ordered_funcs) != len(NEIGHBORHOOD_FUNCS):
+    if len(order) != len(NEIGHBORHOOD_FUNCS):
         print("[WARNING] Suggested order incomplete — falling back to default order.")
-        return list(NEIGHBORHOOD_FUNCS)
+        return list(range(len(NEIGHBORHOOD_FUNCS)))
 
     print(f"[INFO] Loaded suggested neighborhood order from {path}")
-    return ordered_funcs
+    print(f"[INFO] suggested neighborhood order {order}")
+    return order
+
 # ===================================================================
 # rl utils
 # ===================================================================

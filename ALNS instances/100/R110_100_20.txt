@@ -1,13 +1,8 @@
-R110_100_20							
-									
-Number of caregivers: 30			
-
-The synchronized service customers are 5th, 9th, 18th, 26th, 30th, 31th, 34th, 44th, 52th, 54th, 61th, 62th, 66th, 74th, 76th, 78th, 85th, 88th, 95th and 97th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+30	
+100
+230		
+20
+5 9 18 26 30 31 34 44 52 54 61 62 66 74 76 78 85 88 95 97		
 0	35	35	0	230	0
 1	41	49	130	201	10
 2	35	17	20	89	10

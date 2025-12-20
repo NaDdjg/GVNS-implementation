@@ -33,7 +33,7 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 # ============================================================
 # Neighborhood Explorers (best improvement)
 # ============================================================
-def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
+def explore_intra_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N1 - Best improvement using intra-route insertion."""
     m = sol.instance.m
 
@@ -49,7 +49,7 @@ def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool 
             for j in range(L + 1):
                 if i == j: continue
                 checks += 1
-                if checks > max_checks: return improved
+                if max_checks and checks > max_checks: return improved
 
                 cand = ops.intra_insertion(sol, r, i, j)
                 if not cand: continue
@@ -65,7 +65,7 @@ def explore_intra_insertion(sol: Solution, max_checks=2000, first_improve: bool 
     return improved
 
 
-def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool = False) -> Optional[Solution]:
+def explore_inter_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N2 - Best improvement using inter-route insertion."""
     m = sol.instance.m
     checks = 0
@@ -83,7 +83,7 @@ def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool 
                 for pos2 in range(L2+1):
 
                     checks += 1
-                    if checks > max_checks: return improved
+                    if max_checks and checks > max_checks: return improved
 
                     cand = ops.inter_insertion(sol, r1, pos1, r2, pos2)
                     if not cand: continue
@@ -99,7 +99,7 @@ def explore_inter_insertion(sol: Solution, max_checks=4000, first_improve: bool 
 
     return improved
 
-def explore_intra_swap(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
+def explore_intra_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N3 - Best improvement using intra-route swap."""
     m = sol.instance.m
     improved = None
@@ -112,7 +112,7 @@ def explore_intra_swap(sol: Solution, max_checks=2000, first_improve: bool = Fal
         for i in range(L):
             for j in range(i+1, L):
                 checks += 1
-                if checks > max_checks: return improved
+                if max_checks and checks > max_checks: return improved
 
                 cand = ops.intra_swap(sol, r, i, j)
                 if not cand: continue
@@ -128,7 +128,7 @@ def explore_intra_swap(sol: Solution, max_checks=2000, first_improve: bool = Fal
     return improved
 
 
-def explore_inter_swap(sol: Solution, max_checks=4000, first_improve: bool = False) -> Optional[Solution]:
+def explore_inter_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N4 - Best improvement using inter-route swap."""
     m = sol.instance.m
     improved = None
@@ -143,7 +143,7 @@ def explore_inter_swap(sol: Solution, max_checks=4000, first_improve: bool = Fal
             for i in range(L1):
                 for j in range(L2):
                     checks += 1
-                    if checks > max_checks: return improved
+                    if max_checks and checks > max_checks: return improved
 
                     cand = ops.inter_swap(sol, r1, i, r2, j)
                     if not cand: continue
@@ -159,7 +159,7 @@ def explore_inter_swap(sol: Solution, max_checks=4000, first_improve: bool = Fal
     return improved
 
 
-def explore_two_opt(sol: Solution, max_checks=3000, first_improve: bool = False) -> Optional[Solution]:
+def explore_two_opt(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N5 - intra-route 2-opt (best improvement)."""
     m = sol.instance.m
     improved = None
@@ -172,7 +172,7 @@ def explore_two_opt(sol: Solution, max_checks=3000, first_improve: bool = False)
         for i in range(L-2):
             for j in range(i+2, L):
                 checks += 1
-                if checks > max_checks: return improved
+                if max_checks and checks > max_checks: return improved
 
                 cand = ops.two_opt(sol, r, i, j)
                 if not cand: continue
@@ -188,7 +188,7 @@ def explore_two_opt(sol: Solution, max_checks=3000, first_improve: bool = False)
     return improved
 
 
-def explore_two_opt_star(sol: Solution, max_checks=3000, first_improve: bool = False) -> Optional[Solution]:
+def explore_two_opt_star(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N6 - cross 2-opt* (route disconnect-reconnect)."""
     m = sol.instance.m
     improved = None
@@ -203,7 +203,7 @@ def explore_two_opt_star(sol: Solution, max_checks=3000, first_improve: bool = F
             for i in range(1, L1):
                 for j in range(1, L2):
                     checks += 1
-                    if checks > max_checks: return improved
+                    if max_checks and checks > max_checks: return improved
 
                     cand = ops.two_opt_star(sol, r1, i, r2, j)
                     if not cand: continue
@@ -220,7 +220,7 @@ def explore_two_opt_star(sol: Solution, max_checks=3000, first_improve: bool = F
     return improved
 
 
-def explore_cross_exchange(sol: Solution, max_checks=3000, first_improve: bool = False) -> Optional[Solution]:
+def explore_cross_exchange(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N7 - swap segments of limited size between routes."""
     m = sol.instance.m
     improved = None
@@ -238,7 +238,7 @@ def explore_cross_exchange(sol: Solution, max_checks=3000, first_improve: bool =
                         for b2 in range(a2+1, min(a2+4, L2)+1):
 
                             checks += 1
-                            if checks > max_checks: return improved
+                            if max_checks and checks > max_checks: return improved
 
                             cand = ops.cross_exchange(sol, r1, a1, b1, r2, a2, b2)
                             if not cand: continue
@@ -250,11 +250,9 @@ def explore_cross_exchange(sol: Solution, max_checks=3000, first_improve: bool =
                             else:
                                 if improved is None or is_better(cand, improved):
                                     improved = cand
-
-
     return improved
 
-def explore_k_relocate(sol: Solution, max_checks=2000, first_improve: bool = False) -> Optional[Solution]:
+def explore_k_relocate(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N8 - move small segments between routes."""
     m = sol.instance.m
     improved = None
@@ -275,7 +273,7 @@ def explore_k_relocate(sol: Solution, max_checks=2000, first_improve: bool = Fal
                     for pos in range(L2+1):
 
                         checks += 1
-                        if checks > max_checks: return improved
+                        if max_checks and checks > max_checks: return improved
 
                         cand = ops.k_relocate(sol, r1, start, length, r2, pos)
                         if not cand: continue
@@ -306,24 +304,32 @@ NEIGHBORHOOD_CALLABLES  = [
 ]
 NEIGHBORHOOD_FUNCS = NEIGHBORHOOD_CALLABLES
 
-def b_vnd(sol: Solution,
-          time_limit: Optional[float] = None,
-          max_no_improve=1,
-          first_improvement: bool = False,
-          max_checks_per_neigh: int = 2000,
-          save_usage=False,
-          instance_name="unknown",
-          use_suggested_order=False) -> Solution:
+def b_vnd(
+    sol: Solution,
+    time_limit: Optional[float] = None,
+    max_no_improve=1,
+    first_improvement: bool = False,
+    max_checks_per_neigh: int = None,
+    save_usage=False,
+    instance_name="unknown",
+    order_mode="default"
+) -> Solution:
+    
+    # dont save the order usage (counter results) if the mode is suggested, it will perturb the order each iteration
+    if order_mode == "suggested":
+        save_usage = False
 
-    # initialize usage counter 
-    usage_counter = [0] * len(NEIGHBORHOOD_FUNCS)
-    if use_suggested_order:
-        neighborhoods = load_suggested_order(instance_name)
-    else:
-        neighborhoods = list(NEIGHBORHOOD_FUNCS)
+    # Prepare the neighborhood order
+    n_neigh = len(NEIGHBORHOOD_FUNCS)
+    usage_counter = [0] * n_neigh
 
-    # copy the list so original order stays intact
-    neighborhoods = list(NEIGHBORHOOD_FUNCS)
+    if order_mode == "reverse":
+        neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
+    elif order_mode == "suggested":
+        order = load_suggested_order(instance_name)
+        neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
+    else:  # "default"
+        neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))
 
     best = sol
     best.eval()
@@ -333,15 +339,15 @@ def b_vnd(sol: Solution,
 
     while True:
         if time_limit and (time.time() - start) > time_limit:
-            return best
+            break
 
         improved_any = False
 
         # sequential neighborhoods
-        for idx, explorer in enumerate(neighborhoods):
+        for idx, explorer in neighborhoods:
 
             if time_limit and (time.time() - start) > time_limit:
-                return best
+                break
 
             cand = explorer(
                 best, 
@@ -358,15 +364,17 @@ def b_vnd(sol: Solution,
         if not improved_any:
             no_improve += 1
             if no_improve >= max_no_improve:
-                return best
+                break
         else:
             no_improve = 0
 
-        # save counter's results
-        if save_usage:
-            save_neighborhood_usage(usage_counter, instance_name)
-            save_neighborhood_heatmap(usage_counter, instance_name)
-            save_suggested_order(usage_counter, instance_name, neighborhoods)
+    # save counter's results
+    if save_usage:
+        save_neighborhood_usage(usage_counter, instance_name)
+        save_neighborhood_heatmap(usage_counter, instance_name)
+        save_suggested_order(usage_counter, instance_name, neighborhoods)
+    
+    return best
 
 # ===================================================================
 # helpers used for RL integration
@@ -377,7 +385,7 @@ def b_vnd_single_neigh(sol: Solution,
                        time_limit=None,
                        max_no_improve=1,
                        first_improvement=False,
-                       max_checks_per_neigh=4000):
+                       max_checks_per_neigh=None):
     """
     Same logic as b_vnd, but restricted to ONE neighborhood.
     """

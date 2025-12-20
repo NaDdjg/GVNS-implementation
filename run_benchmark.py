@@ -1,5 +1,8 @@
 import os
+import warnings
 from gvns import benchmark
+
+warnings.filterwarnings('ignore')
 
 # rl utilities
 from gvns.agents.qlearning_agent import QTableAgent
@@ -14,18 +17,20 @@ RESULTS_FOLDER = "results-First-8"
 # RESULTS_FOLDER = "results-Best-4"
 
 # GVNS hyperparameters 
+# neigh_order can be: "default", "reverse", "suggested"
 params = {
     "Contmax": 100,
     "p_init": 1,
     "p_max": 10,
     "Dp": 0.3,
-    "w1": 0.8,    # kan 0.5, mais to have less time in the start to solve penalties
+    "w1": 0.5,    
     "w2": 0.1,
-    "alpha": 0.1, # kan 0.1 mais to make penalties solved in a stronger way
-    "delta": 0.4, # kan 0.4 mais to keep accpetance tae worse f meshi kbira 
+    "alpha": 0.1, 
+    "delta": 0.4, 
     "M": 1e6,
     "seed": 42,
-    "Tmax": 200  
+    "Tmax": 200 ,
+    "neigh_order": "reverse"
 }
 
 # ----------------------------
@@ -52,7 +57,7 @@ if __name__ == "__main__":
         INST_FOLDER=INST_FOLDER,
         RESULTS_FOLDER=RESULTS_FOLDER,
         PARAMS=params,
-        agent=agent,
+        agent=None,
         first_improvement = True,
         N_RUNS=N_RUNS
     )

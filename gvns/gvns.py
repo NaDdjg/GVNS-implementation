@@ -80,31 +80,6 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     delta = cfg["delta"]
 
     # ============================================================
-    # Helper for BVND budget
-    # ============================================================
-    def compute_bvnd_time():
-        if time_limit is None:
-            return None
-        elapsed = time.time() - start
-        remaining = time_limit - elapsed
-        return max(0.01, 0.7 * remaining)
-
-    def compute_bvnd_time(n, sync_pairs, m, Tmax=None,
-                      base=5.0,
-                      per_customer=2.2,
-                      per_sync=15.0,
-                      per_vehicle=0.6,
-                      min_time=30.0,
-                      max_time=3600.0,
-                      frac_of_Tmax=0.85):
-        # aggressive scaling for large instances
-        t = base + per_customer * n + per_sync * sync_pairs + per_vehicle * m
-        if Tmax is not None:
-            t = min(t, frac_of_Tmax * Tmax)
-        t = max(min_time, min(t, max_time))
-        return float(t)
-
-    # ============================================================
     # GVNS iterating
     # ============================================================
     while True:
@@ -132,11 +107,6 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         # ============================================================
         # 2. BVND (classic local search/RL)
         # ============================================================
-        n_customers = len([nid for nid in instance.nodes if nid != depot_id])
-        sync_pairs = len(getattr(instance, "sync_customers", []))
-        m = instance.m
-        bvnd_time = compute_bvnd_time(n=n_customers, sync_pairs=sync_pairs, m=m, Tmax=time_limit)
-
         if agent is None:
             # ---------- CLASSIC BVND ----------
             improved = ls.b_vnd(
@@ -144,7 +114,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 max_no_improve=1,
                 first_improvement=first_improvement,
                 save_usage=True,
-                use_suggested_order=False,
+                order_mode=cfg.get("neigh_order", "default"),
                 instance_name=instance_name
             )
         else: 
