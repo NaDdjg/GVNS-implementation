@@ -52,6 +52,6 @@ def collect_neigh_usage(results_dir="result_summaries/neigh_usage", output_dir="
 
 if __name__ == "__main__":
     collect_neigh_usage(
-        results_dir="results/without RL/reverse_order/Best/neigh_usage", 
-        output_dir="result_summaries/neigh_usage/Best_reverse"
+        results_dir="results/with RL/qlearning/Best/neigh_usage", 
+        output_dir="result_summaries/neigh_usage/Best_qlearning"
     ) 

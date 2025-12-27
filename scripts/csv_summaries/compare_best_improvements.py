@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to compare best_f costs from different best improvement strategies and paper values.
-Outputs a CSV with instance, f_best_default, f_best_suggested, f_best_reverse, f_paper
+Outputs a CSV with instance, f_best_default, f_best_suggested, f_best_reverse, f_best_random, f_paper
 """
 
 import csv
@@ -27,13 +27,15 @@ def main():
     files = {
         'default': os.path.join(base_dir, 'merged_summary_Best_default.csv'),
         'suggested': os.path.join(base_dir, 'merged_summary_Best_suggested.csv'),
-        'reversed': os.path.join(base_dir, 'merged_summary_Best_reversed.csv')
+        'reversed': os.path.join(base_dir, 'merged_summary_Best_reversed.csv'),
+        'random': os.path.join(base_dir, 'merged_summary_Best_random.csv')
     }
 
     # Load data
     data_default = load_data(files['default'])
     data_suggested = load_data(files['suggested'])
     data_reversed = load_data(files['reversed'])
+    data_random = load_data(files['random'])
 
     # Get all instances
     instances = set(data_default.keys()) | set(data_suggested.keys()) | set(data_reversed.keys())
@@ -46,6 +48,7 @@ def main():
             'f_best_default': data_default.get(instance, {}).get('best_f', ''),
             'f_best_suggested': data_suggested.get(instance, {}).get('best_f', ''),
             'f_best_reverse': data_reversed.get(instance, {}).get('best_f', ''),
+            'f_best_random': data_random.get(instance, {}).get('best_f', ''),
             'f_paper': data_default.get(instance, {}).get('best_f_paper', '') or
                        data_suggested.get(instance, {}).get('best_f_paper', '') or
                        data_reversed.get(instance, {}).get('best_f_paper', '')
@@ -55,7 +58,7 @@ def main():
     # Write cost comparison CSV
     cost_file = os.path.join(output_dir, 'cost_comparison_best.csv')
     with open(cost_file, 'w', newline='') as f:
-        fieldnames = ['instance', 'f_best_default', 'f_best_suggested', 'f_best_reverse', 'f_paper']
+        fieldnames = ['instance', 'f_best_default', 'f_best_suggested', 'f_best_reverse', 'f_best_random', 'f_paper']
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(cost_output)
@@ -70,6 +73,7 @@ def main():
             'time_best_default': data_default.get(instance, {}).get('time', ''),
             'time_best_suggested': data_suggested.get(instance, {}).get('time', ''),
             'time_best_reverse': data_reversed.get(instance, {}).get('time', ''),
+            'time_best_random': data_random.get(instance, {}).get('time', ''),
             'time_paper': data_default.get(instance, {}).get('time_paper', '') or
                           data_suggested.get(instance, {}).get('time_paper', '') or
                           data_reversed.get(instance, {}).get('time_paper', '')
@@ -79,7 +83,7 @@ def main():
     # Write time comparison CSV
     time_file = os.path.join(output_dir, 'time_comparison_best.csv')
     with open(time_file, 'w', newline='') as f:
-        fieldnames = ['instance', 'time_best_default', 'time_best_suggested', 'time_best_reverse', 'time_paper']
+        fieldnames = ['instance', 'time_best_default', 'time_best_suggested', 'time_best_reverse', 'time_best_random', 'time_paper']
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(time_output)

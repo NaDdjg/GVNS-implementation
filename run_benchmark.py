@@ -29,8 +29,8 @@ params = {
     "delta": 0.4, 
     "M": 1e6,
     "seed": 42,
-    "Tmax": 200 ,
-    "neigh_order": "reverse"
+    "Tmax": 500,
+    "neigh_order": "default"
 }
 
 # ----------------------------

@@ -19,6 +19,8 @@ def main():
         # ("results/without RL/suggested_order/First", "result_summaries/merged_summary_First_suggested.csv"),
         # ("results/without RL/reverse_order/First", "result_summaries/merged_summary_First_reversed.csv"),
         # ("results/without RL/reverse_order/Best", "result_summaries/merged_summary_Best_reversed.csv"),
+        # ("results/without RL/random_order/Best", "result_summaries/merged_summary_Best_random.csv"),
+        ("results/with RL/qlearning/Best", "result_summaries/merged_summary_qlearning_Best.csv"),
     ]
 
     for input_dir, output_file in merges:

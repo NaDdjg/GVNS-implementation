@@ -15,7 +15,7 @@ with open('merged_summary.csv', newline='') as fh:
 # Read merged_summary_new.csv and update columns
 rows = []
 fieldnames = None
-with open('result_summaries/merged_summary_First_suggested.csv', newline='') as fh:
+with open('result_summaries/merged_summary_qlearning_best.csv', newline='') as fh:
     reader = csv.DictReader(fh)
     fieldnames = reader.fieldnames
     for row in reader:
@@ -26,9 +26,7 @@ with open('result_summaries/merged_summary_First_suggested.csv', newline='') as 
         rows.append(row)
 
 # Write back to merged_summary_new.csv
-with open('result_summaries/merged_summary_First_suggested.csv', 'w', newline='') as fh:
+with open('result_summaries/merged_summary_qlearning_best.csv', 'w', newline='') as fh:
     writer = csv.DictWriter(fh, fieldnames=fieldnames)
     writer.writeheader()
     writer.writerows(rows)
-
-print("Copied best_f_paper and time_paper columns to merged_summary_new.csv")

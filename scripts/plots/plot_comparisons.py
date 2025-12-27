@@ -18,7 +18,7 @@ def load_comparison_data(file_path):
 
 def plot_comparison(data, value_key, title, ylabel, output_file):
     instances = list(data.keys())
-    methods = ['f_best_default', 'f_best_suggested', 'f_best_reverse', 'f_paper'] if 'f' in value_key else ['time_best_default', 'time_best_suggested', 'time_best_reverse', 'time_paper']
+    methods = ['f_best_default', 'f_best_suggested', 'f_best_reverse', 'f_best_random', 'f_paper'] if 'f' in value_key else ['time_best_default', 'time_best_suggested', 'time_best_reverse', 'time_best_random', 'time_paper']
     
     # Prepare data
     values = {method: [] for method in methods}
@@ -36,7 +36,7 @@ def plot_comparison(data, value_key, title, ylabel, output_file):
 
     fig, ax = plt.subplots(figsize=(max(10, len(instances) * 0.8), 10))  # Wide and tall enough
 
-    colors = ["#800000", "#4400FF", "#92B205", '#FF00FF']
+    colors = ["#800000", "#4400FF", "#92B205", "#CE913B", "#FF00FF"]
     for i, method in enumerate(methods):
         ax.bar(x + i * width, values[method], width, label=method.replace('_', ' ').title(), color=colors[i], edgecolor='black', linewidth=0.5)
 
