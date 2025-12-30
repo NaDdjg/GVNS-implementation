@@ -50,8 +50,7 @@ def _ensure_m_tours(tours: List[List[int]], m: int):
 def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info: str="") -> Optional[Solution]:
     """
     allow temporary violations (do not check multisets).
-    This function pads/truncates new_sol.tours to m and returns new_sol.
-    Use DEBUG_OPERATORS to optionally show multiset differences.
+    this function pads/truncates new_sol.tours to m and returns new_sol.
     """
     inst = sol.instance
     m = inst.m
@@ -189,8 +188,8 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
 
 def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, pos: int) -> Optional[Solution]:
     """
-    Move a contiguous segment of `length` from r_from[start:start+length] into r_to at position pos.
-    Option A: allowed to temporarily break multiplicities.
+    move a contiguous segment of `length` from r_from[start:start+length] into r_to at position pos.
+    allowed to temporarily break multiplicities.
     """
     m = sol.instance.m
     if r_from < 0 or r_to < 0 or r_from >= m or r_to >= m:
@@ -218,7 +217,7 @@ def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, p
 
 def two_opt(sol: Solution, r: int, i: int, j: int):
     """
-    Reverse segment [i..j] inside route r.
+    reverse segment [i..j] inside route r.
     """
     m = sol.instance.m
     if r < 0 or r >= m:
@@ -267,7 +266,8 @@ def two_opt_star(sol: Solution, r1: int, i: int, r2: int, j: int):
 
 def cross_exchange(sol: Solution, r1: int, a1: int, b1: int, r2: int, a2: int, b2: int) -> Optional[Solution]:
     """
-    Exchange segments A[a1:b1] with B[a2:b2]. Inclusive-exclusive: [a1:b1), [a2:b2)
+    exchange segments A[a1:b1] with B[a2:b2]. 
+    inclusive-exclusive: [a1:b1), [a2:b2)
     """
     m = sol.instance.m
     if r1 < 0 or r2 < 0 or r1 >= m or r2 >= m:
@@ -290,9 +290,9 @@ def cross_exchange(sol: Solution, r1: int, a1: int, b1: int, r2: int, a2: int, b
 
 def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional[Solution]:
     """
-    Remove both occurrences of a synchronized customer and reinsert them randomly
-    into two (distinct) vehicles at (random) positions. This helps realign synchronization.
-    Attempts up to `attempts` random trials and returns the first valid candidate (does not enforce feasibility).
+    remove both occurrences of a synchronized customer and reinsert them randomly
+    into two (distinct) vehicles at (random) positions. this helps realign synchronization.
+    attempts up to `attempts` random trials and returns the first valid candidate (does not enforce feasibility).
     """
     inst = sol.instance
     if cust not in getattr(inst, "sync_customers", set()):
@@ -349,7 +349,7 @@ def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional
 # ============================================================
 def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True) -> Solution:
     """
-    - Performs up to `k` *accepted* random moves (tries many times).
+    -performs up to `k` *accepted* random moves (tries many times).
     - Move mix:
         20% light intra moves (insertion/swap),
         20% inter-insertion (move single customer between routes),
@@ -358,10 +358,10 @@ def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True) -> Solutio
         10% two-opt* (very small suffixes),
         10% cross-exchange (small segments),
         10% relocate_sync_pair (try to realign sync customers)
-    - After candidate creation we check soft sync-safety:
+    - after candidate creation we check soft sync-safety:
         reject candidate if any synchronized customer ends up with all its occurrences
         placed on a single vehicle (concentrates all occurrences on one route).
-    - Returns a new Solution after applied accepted moves.
+    - returns a new Solution after applied accepted moves.
     """
     new = sol.copy()
     inst = sol.instance

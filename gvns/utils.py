@@ -13,7 +13,7 @@ NEIGHBORHOODS = NEIGHBORHOOD_NAMES
 # ===================================================================
 def save_neighborhood_usage(counter, instance_name):
     """
-    Saves counts of usage of each neighborhood during the local search
+    saves counts of usage of each neighborhood during the local search
     """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
     neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
@@ -26,9 +26,32 @@ def save_neighborhood_usage(counter, instance_name):
         for i, count in enumerate(counter):
             w.writerow([i, count])
 
+def save_neighborhood_improvement_log(events, instance_name, suffix="bvnd"):
+    if not events:
+        return
+
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+
+    path = os.path.join(
+        neigh_folder,
+        f"{instance_name}_neigh_improvements_{suffix}.csv"
+    )
+
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+
+        # header from dict keys
+        header = events[0].keys()
+        w.writerow(header)
+
+        for ev in events:
+            w.writerow(ev.values())
+
 def save_neighborhood_heatmap(counter, instance_name):
     """
-    Creates heatmaps for the usage of each neighborhood 
+    creates heatmaps for the usage of each neighborhood 
     """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
     neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
@@ -44,9 +67,9 @@ def save_neighborhood_heatmap(counter, instance_name):
     plt.savefig(path, bbox_inches="tight")
     plt.close()
 
-def save_suggested_order(counter, instance_name, neighborhoods):
+def save_suggested_order(counter, instance_name):
     """
-    Crates an order suggestion based on the usage counts of each neighborhood
+    crates an order suggestion based on the usage counts of each neighborhood
     """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
     neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
@@ -65,9 +88,10 @@ def save_suggested_order(counter, instance_name, neighborhoods):
 
 def load_suggested_order(instance_name):
     """
-    Used when the local search mode is "suggested"
-    Reads the suggestion file and return a list of neighborhood indices (0-based).
+    used when the local search mode is "suggested"
+    reads the suggestion file and return a list of neighborhood indices (0-based).
     lines are like these :  N1 — usage = X
+    default order should be run before it because it takes the order from the saved files after the default order run.
     """
     path = os.path.join(
         RESULTS_FOLDER,

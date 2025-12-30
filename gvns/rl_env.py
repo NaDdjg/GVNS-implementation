@@ -19,8 +19,7 @@ class BVNDEnv(gym.Env):
 
     def __init__(self, inst, initial_sol, first_improvement: bool = False,
                  w1: float = 0.5, w2: float = 0.1, M: float = 1e6,
-                 Tmax: float = 2000.0, b_vnd_max_iters: int = 2000,
-                 max_steps: int = 100, time_penalty_coef: float = 1e-3,
+                 Tmax: float = 2000.0, b_vnd_max_iters: int = 2000, time_penalty_coef: float = 1e-3,
                  seed: Optional[int] = None):
         super().__init__()
         self.inst = inst
@@ -30,8 +29,7 @@ class BVNDEnv(gym.Env):
         self.w2 = w2
         self.M = M
         self.Tmax = float(Tmax)
-        self.b_vnd_max_iters = int(b_vnd_max_iters)
-        self.max_steps = int(max_steps)
+        self.b_vnd_max_iters = (int(b_vnd_max_iters) if b_vnd_max_iters is not None else None)
         self.time_penalty_coef = float(time_penalty_coef)
 
         # track attempts + successes per neighborhood
@@ -40,7 +38,7 @@ class BVNDEnv(gym.Env):
         self.neigh_attempts = [0.0] * self.n_neigh
         self.neigh_success = [0.0] * self.n_neigh
 
-        # build observation space dynamically (here i use use 14 dims: 3 + 5 + 2 + 4)
+        # build observation space dynamically based on n_neigh
         self._obs_dim = obs_dim(self.n_neigh)
         low = -np.inf * np.ones(self._obs_dim, dtype=np.float32)
         high = np.inf * np.ones(self._obs_dim, dtype=np.float32)
@@ -91,40 +89,34 @@ class BVNDEnv(gym.Env):
         self.neigh_success = [0.0] * self.n_neigh
         return self._make_state()
 
-    # this is what represents the GVNS Environment , i call here the b_vnd function with the selected neighborhood (the action chosen by the policy)
+    # this is what represents the GVNS Environment 
     # returns a reward and the new state
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+    def step(self,
+             action: int,
+             improved: bool,
+             new_sol=None,
+             elapsed: float = 0.0):
+        
         assert self.action_space.contains(action), f"Invalid action {action}"
-        nb_name = self.neigh_names[action]
-        print(f"[RL-BVND] step={self.step_count}  neighborhood={nb_name}")
-        nb_callable = NEIGHBORHOOD_CALLABLES[int(action)]
 
         F_before = float(self.current.Fval)
-        t0 = time.time()
-
-        # run one BVND pass restricted to chosen neighborhood
-        cand = b_vnd_single_neigh(
-            sol=self.current,
-            neighborhood=nb_callable,
-            time_limit=None,
-            max_no_improve=1,
-            first_improvement=self.first_improvement,
-            max_checks_per_neigh=self.b_vnd_max_iters
-        )
-        cand.eval()
-        improved = cand.Fval < self.current.Fval
-        elapsed = float(time.time() - t0)
-
+        
         # record attempt
         self.neigh_attempts[action] += 1.0
-        if improved:
-            self.current = cand
+
+        
+        self.step_count += 1
+        if improved and new_sol is not None:
+            self.current = new_sol
             self.current.eval()
             self.neigh_success[action] += 1.0
-
+            self.last_improved_step = self.step_count
+    
         F_after = float(self.current.Fval)
+
         # normalized improvement reward
         reward = (F_before - F_after) / (1.0 + abs(F_before))
+
         # small penalty if no improvement (keeps signal negative for wasted attempts)
         if not improved:
             reward += -0.05
@@ -137,11 +129,11 @@ class BVNDEnv(gym.Env):
 
         # time penalty (for faster improvements)
         reward -= self.time_penalty_coef * elapsed
-        self.step_count += 1
-        stall_limit = max(5, self.n_neigh)
 
         # termination conditions
         done = False
+        stall_limit = max(5, self.n_neigh)
+
         if (time.time() - self.start_time) > self.Tmax:
             done = True
         if self.step_count - self.last_improved_step > stall_limit:

@@ -6,6 +6,7 @@ from gvns.initializer import random_insertion
 import gvns.operators as ops
 import gvns.local_search as ls
 from gvns.logger import GVNSLogger
+from gvns.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
 
 from gvns.rl_env import BVNDEnv
 
@@ -78,6 +79,12 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     start = time.time()
     time_limit = cfg["Tmax"]
     delta = cfg["delta"]
+    order_mode=cfg.get("neigh_order", "default")
+
+    usage_logger = {
+        "counter": [0] * len(ls.NEIGHBORHOOD_FUNCS), # usage counts per neighborhood 
+        "events": []
+    }
 
     # ============================================================
     # GVNS iterating
@@ -108,17 +115,18 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         # 2. BVND (classic local search/RL)
         # ============================================================
         if agent is None:
-            # ---------- CLASSIC BVND ----------
+            #  CLASSIC BVND 
             improved = ls.b_vnd(
                 shaken,
                 max_no_improve=1,
                 first_improvement=first_improvement,
-                save_usage=True,
-                order_mode=cfg.get("neigh_order", "default"),
+                order_mode=order_mode,
+                usage_logger=usage_logger,
+                order_mode=order_mode,
                 instance_name=instance_name
             )
         else: 
-            # ---------- RL-DRIVEN BVND ----------
+            #  RL-DRIVEN BVND 
             env = BVNDEnv(
                 inst=instance,
                 initial_sol=shaken,
@@ -126,16 +134,33 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 w2=cfg["w2"],
                 M=cfg["M"],
                 Tmax=cfg["Tmax"] or 1e9,
-                max_steps=20
             )
 
             obs = env.reset()
             done = False
-            while not done:
-                action = agent.select_action(obs)
-                next_obs, reward, done, info = env.step(action)
+
+            new_sol, action, tried, improved = ls.rl_bvnd_step(
+                sol=env.current,
+                agent=agent,
+                obs=obs,
+                neighborhoods=ls.NEIGHBORHOOD_FUNCS,
+                first_improvement=first_improvement,
+                iteration=iteration, 
+                usage_logger=usage_logger
+            )
+
+            next_obs, reward, done, info = env.step(
+                action=action if action is not None else 0,
+                improved=improved,
+                new_sol=new_sol if improved else None,
+                elapsed=elapsed
+            )
+
+            # Q update omly for the improving action
+            if action is not None:
                 agent.update(obs, action, reward, next_obs, done)
-                obs = next_obs
+
+            obs = next_obs
 
             improved = env.current
 
@@ -144,12 +169,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         # ============================================================
         # 3. Acceptance Criterion (Move-or-Not)
         # ============================================================
-        if (improved.penS < current.penS or
-            improved.penT < current.penT or
-            improved.penH < current.penH):
-            accept = True
-        else:
-            accept = improved.Fval <= (1.0 + delta) * current.Fval
+        accept = improved.Fval <= (1.0 + delta) * current.Fval
 
         if accept:
             current = improved
@@ -193,6 +213,25 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 iteration, current.Fval, current.travel_time,
                 current.penT, current.penH, current.penS, elapsed
             ])
+
+    # save neighborhood statistics
+    if order_mode != "suggested":
+        save_neighborhood_usage(
+            usage_logger["counter"],
+            instance_name
+        )
+        
+        save_neighborhood_improvement_log(
+            usage_logger["events"],
+            instance_name,
+            suffix="rl" if agent is not None else "bvnd"
+        )
+        
+        save_suggested_order(
+            usage_logger["counter"],
+            instance_name,
+            list(enumerate(ls.NEIGHBORHOOD_FUNCS))
+        )
 
     if best_feasible is not None:
         best_feasible.eval()

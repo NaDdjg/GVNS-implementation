@@ -18,7 +18,7 @@ def run_instance(
         first_improvement = True,
         results_dir="results"
     ):
-    """Run GVNS multiple times on one instance, save traces and plots."""
+    """run GVNS multiple times on one instance, save traces and plots."""
     name = os.path.basename(path).split(".")[0]
     print(f"\n=== Running instance {name} ===")
 

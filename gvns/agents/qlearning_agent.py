@@ -71,10 +71,10 @@ class QTableAgent(BaseAgent):
         penT_flag = 1 if obs[5] > 1e-9 else 0
         penH_flag = 1 if obs[6] > 1e-9 else 0
 
-        # cont bucket : 0 => fresh, 1=> small, 2=> large
+        # cont bucket 
         stagn  = int(obs[8])
         if stagn  == 0:
-            stag_bucket  = 0 # just improved
+            stag_bucket  = 0     # just improved
         elif stagn <= 2:
             stag_bucket = 1      # short stagnation
         elif stagn <= 6:
@@ -82,8 +82,8 @@ class QTableAgent(BaseAgent):
         else:
             stag_bucket = 3      # long stagnation
 
-        # --- neighborhood effectiveness proxy ---
-        # last improvement magnitude - here we use neigh success: if any success > 0.5 -> good
+        # neighborhood effectiveness proxy 
+        # success rate when chosen as first improving neighborhood
         best_succ = max(obs[-self.n_actions:])  # best success rate among neighbors as proxy
         if best_succ > 0.6:
             eff_bucket = 0   # strong
@@ -94,7 +94,7 @@ class QTableAgent(BaseAgent):
         else:
             eff_bucket = 3   # dead
 
-        # --- instance size ---
+        # instance size
         n = int(obs[0])
         if n < 25:
             size_bucket = 0
@@ -164,17 +164,6 @@ class QTableAgent(BaseAgent):
 
         target = reward + self.gamma * q_next 
         self.Q[s][action] = q_sa + self.alpha * (target - q_sa)
-
-        # fail / success tracking 
-        if reward <= 0:
-            self.fail_streak[action] += 1
-        else:
-            self.fail_streak[action] = 0
-
-        # penalty for repeated failure
-        if self.fail_streak[action] >= 2:
-            self.Q[s, action] -= 0.5
-            self.fail_streak[action] = 0
         
         # increment visit counts for UCB bookkeeping
         self.counts[s][action] += 1

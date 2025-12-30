@@ -1,12 +1,10 @@
 import random
 import time
-import os
-from typing import List, Optional
+from typing import Optional
 
 import gvns.operators as ops
 from gvns.solution import Solution
-from run_benchmark import RESULTS_FOLDER
-from gvns.utils import save_suggested_order, save_neighborhood_heatmap, save_neighborhood_usage, load_suggested_order
+from gvns.utils import load_suggested_order, NEIGHBORHOOD_NAMES
 
 # ============================================================
 #  Lexicographic comparator 
@@ -310,24 +308,32 @@ def b_vnd(
     max_no_improve=1,
     first_improvement: bool = False,
     max_checks_per_neigh: int = None,
-    save_usage=False,
+    
+    usage_logger: dict = None,
+    iteration: int = None,
     instance_name="unknown",
     order_mode="default"
 ) -> Solution:
     
-    # dont save the order usage (counter results) if the mode is suggested, it will perturb the order each iteration
-    if order_mode == "suggested":
-        save_usage = False
-
     # Prepare the neighborhood order
     n_neigh = len(NEIGHBORHOOD_FUNCS)
     usage_counter = [0] * n_neigh
+    improvement_events = [] 
 
+    # neighborhood list = list of (original_index, function)
     if order_mode == "reverse":
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
+
     elif order_mode == "suggested":
         order = load_suggested_order(instance_name)
         neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
+
+    elif order_mode == "random":
+        rng = random.Random(iteration)  # for a different order for each iteration
+        indices = list(range(len(NEIGHBORHOOD_FUNCS)))
+        rng.shuffle(indices)
+        neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in indices]
+
     else:  # "default"
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))
 
@@ -357,8 +363,19 @@ def b_vnd(
 
             if cand and is_better(cand, best):
                 best = cand
-                usage_counter[idx] += 1 # record that this neighborhood produced the improvement
                 improved_any = True
+
+                # logging
+                if usage_logger is not None and order_mode != "suggested":
+                    usage_logger["counter"][idx] += 1
+                    if iteration is not None:
+                        usage_logger["events"].append({
+                            "iteration": iteration,
+                            "neighborhood_id": idx,
+                            "neighborhood_name": NEIGHBORHOOD_NAMES[idx],
+                            "F_before": best.Fval,
+                            "F_after": cand.Fval,
+                        })
                 break  # restart from first neighborhood
 
         if not improved_any:
@@ -367,12 +384,6 @@ def b_vnd(
                 break
         else:
             no_improve = 0
-
-    # save counter's results
-    if save_usage:
-        save_neighborhood_usage(usage_counter, instance_name)
-        save_neighborhood_heatmap(usage_counter, instance_name)
-        save_suggested_order(usage_counter, instance_name, neighborhoods)
     
     return best
 
@@ -380,6 +391,73 @@ def b_vnd(
 # helpers used for RL integration
 # to run a single neighborhood (or list of neighborhoods) on a given Solution
 # ===================================================================
+def rl_bvnd_step(sol: Solution,
+                 agent,
+                 obs,
+                 neighborhoods,
+                 first_improvement=False,
+                 time_limit=None,
+                 max_checks_per_neigh=None,
+                 iteration: int = None,
+                 usage_logger: dict = None,
+                 verbose=False):
+    """
+    its one bvnd step using RL:
+    - agent proposes neighborhoods
+    - each neighborhood tried at most once
+    - stop at first improvement or when all fail
+    """
+    tried = set()
+    best = sol
+    repeat_count = 0
+    MAX_REPEAT = 2
+
+    while len(tried) < len(neighborhoods):        
+        action = agent.select_action(obs) # call a neighborhood
+
+        if action in tried:
+            repeat_count += 1
+
+            # after too many repeats of the same neighborhood, force exploration
+            if repeat_count >= MAX_REPEAT:
+                untried = list(set(range(len(neighborhoods))) - tried) 
+                if not untried:
+                    break
+                action = random.choice(untried) # try a random untried neighborhood 
+                repeat_count = 0
+            else:
+                continue
+        else:
+            repeat_count = 0
+
+        tried.add(action)
+
+        cand = b_vnd_single_neigh(
+            best,
+            neighborhoods[action],
+            time_limit=time_limit,
+            first_improvement=first_improvement,
+            max_checks_per_neigh=max_checks_per_neigh
+        )
+
+        if cand and is_better(cand, best):
+            # logging 
+            if usage_logger is not None:
+                usage_logger["counter"][action] += 1
+                if iteration is not None:
+                    usage_logger["events"].append({
+                        "iteration": iteration,
+                        "neighborhood_id": action,
+                        "neighborhood_name": NEIGHBORHOOD_NAMES[action],
+                        "F_before": best.Fval,
+                        "F_after": cand.Fval,
+                    })     
+            return cand, action, tried, True
+
+    if verbose:
+        print("[RL-BVND] No improving neighborhood found")
+    return best, None, tried, False
+
 def b_vnd_single_neigh(sol: Solution,
                        neighborhood,
                        time_limit=None,
@@ -389,6 +467,8 @@ def b_vnd_single_neigh(sol: Solution,
     """
     Same logic as b_vnd, but restricted to ONE neighborhood.
     """
+    assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
+
     best = sol
     best.eval()
 
