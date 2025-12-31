@@ -122,7 +122,6 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 first_improvement=first_improvement,
                 order_mode=order_mode,
                 usage_logger=usage_logger,
-                order_mode=order_mode,
                 instance_name=instance_name
             )
         else: 
