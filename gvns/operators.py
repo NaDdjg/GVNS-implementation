@@ -1,142 +1,519 @@
-from .solution import Solution
-from .evaluate import evaluate_solution
-from .viz import plot_side_by_side, which_nodes_changed
+from typing import List, Optional
 import random
+from collections import Counter
 
-def clone_solution(sol: Solution) -> Solution:
-    return Solution(routes=[list(r) for r in sol.routes])
+from gvns.solution import Solution
 
-def intra_route_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -> Solution:
-    new_sol = clone_solution(sol)
-    route = new_sol.routes[route_idx]
-    v = route.pop(from_pos)
-    # adjust to_pos if removal occurred before insertion point
-    if to_pos > from_pos:
-        to_pos -= 1
-    route.insert(to_pos, v)
-    return new_sol
+# debug prints for operator diagnostics
+DEBUG_OPERATORS = False
 
-def inter_route_insertion(sol: Solution, from_route: int, pos: int, to_route: int, insert_pos: int) -> Solution:
-    new_sol = clone_solution(sol)
-    v = new_sol.routes[from_route].pop(pos)
-    new_sol.routes[to_route].insert(insert_pos, v)
-    # remove empty routes optionally
-    new_sol.routes = [r for r in new_sol.routes if len(r) > 0]
-    return new_sol
-
-def intra_route_swap(sol: Solution, route_idx: int, pos1: int, pos2: int) -> Solution:
-    new_sol = clone_solution(sol)
-    r = new_sol.routes[route_idx]
-    r[pos1], r[pos2] = r[pos2], r[pos1]
-    return new_sol
-
-def inter_route_swap(sol: Solution, r1:int, p1:int, r2:int, p2:int) -> Solution:
-    new_sol = clone_solution(sol)
-    a = new_sol.routes[r1][p1]
-    b = new_sol.routes[r2][p2]
-    new_sol.routes[r1][p1] = b
-    new_sol.routes[r2][p2] = a
-    return new_sol
-
-def shake_solution(inst, sol: Solution, p:int, Dp:float=0.3, seed=None, verbose: bool = False, debug_visual: bool = False):
+# ============================================================
+# Helpers: multiset checks + diagnostics
+# ============================================================
+def multiset_of_tours(tours: List[List[int]]) -> Counter:
     """
-    apply p randomized moves: with prob Dp pick a swap move (N3/N4), else insertion (N1/N2)
-    returns shaken solution and applied moves
-    debug_visual -> show small side-by-side plots for each move (limited)
+    returns a counter of totsl occurences of each customer across all tours
+    used to check that moves preserve the multiset of visits (no lost/duplicated visits)
     """
-    from .instance import Instance
-    assert isinstance(inst, Instance)
+    c = Counter()
+    for rt in tours:
+        for v in rt:
+            c[v] += 1
+    return c
 
-    if seed is not None:
-        random.seed(seed)
+def diagnostic_print(op_name: str, before, after, details=""):
+    if not DEBUG_OPERATORS:
+        return
+    print("[OPERATORS][DIAG]", op_name)
+    print("  before total_visits:", sum(before.values()), "distinct:", len(before))
+    print("  after  total_visits:", sum(after.values()), "distinct:", len(after))
+    if details:
+        print("  details:", details)
 
-    cur = clone_solution(sol)
-    moves = []
-
-    # Visualize whole sol before if requested
-    if debug_visual:
-        ev0 = evaluate_solution(inst, sol)
-        plot_side_by_side(inst, sol, sol, title="shake_solution_before",
-                          highlight_nodes=set(), move_desc="initial", show=True)
-
-    max_visual_moves = 6   # limit how many move-steps we'll draw (avoid OOM)
-    visual_count = 0
-
-    for step in range(p):
-        before = clone_solution(cur)
-        move = None
-
-        if random.random() < Dp:
-            # swap move: choose intra or inter swap with 50-50
-            if random.random() < 0.5 and len(cur.routes) > 0:
-                # intra-route swap
-                r = random.randrange(len(cur.routes))
-                if len(cur.routes[r]) >= 2:
-                    i, j = random.sample(range(len(cur.routes[r])), 2)
-                    cur = intra_route_swap(cur, r, i, j)
-                    move = ('intra_swap', r, i, j)
-                else:
-                    move = None
-            else:
-                if len(cur.routes) >= 2:
-                    r1, r2 = random.sample(range(len(cur.routes)), 2)
-                    if len(cur.routes[r1])>0 and len(cur.routes[r2])>0:
-                        p1 = random.randrange(len(cur.routes[r1]))
-                        p2 = random.randrange(len(cur.routes[r2]))
-                        cur = inter_route_swap(cur, r1, p1, r2, p2)
-                        move = ('inter_swap', r1, p1, r2, p2)
-                        break
+def safe_tt(TT, i, j):
+    """safe travel time access - mirrors solution.safe_tt behavior"""
+    try:
+        if isinstance(TT, dict):
+            return TT.get(i, {}).get(j, 0.0)
         else:
-            # insertion move
-            if random.random() < 0.5 and cur.routes:
-                # intra insertion if possible
-                r = random.randrange(len(cur.routes))
-                if len(cur.routes[r]) >= 1:
-                    from_pos = random.randrange(len(cur.routes[r]))
-                    to_pos = random.randrange(len(cur.routes[r]))
-                    if from_pos != to_pos:
-                            cur = intra_route_insertion(cur, r, from_pos, to_pos)
-                            move = ('intra_ins', r, from_pos, to_pos)  # N1
-                            break
-            else:
-                # inter insertion
-                if len(cur.routes) >= 2:
-                    r1, r2 = random.sample(range(len(cur.routes)), 2)
-                    if len(cur.routes[r1])>0:
-                        p = random.randrange(len(cur.routes[r1]))
-                        inspos = random.randrange(len(cur.routes[r2])+1)
-                        cur = inter_route_insertion(cur, r1, p, r2, inspos)
-                        move = ('inter_ins', r1, p, r2, inspos)
-                    else:
-                        move = None
+            return TT[i][j]
+    except Exception:
+        return 0.0
+    
+def _ensure_m_tours(tours: List[List[int]], m: int):
+    # modify list in-place to have exactly m inner-lists
+    if len(tours) < m:
+        tours.extend([[] for _ in range(m - len(tours))])
+    elif len(tours) > m:
+        del tours[m:]
+
+def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info: str="") -> Optional[Solution]:
+    """
+    allow temporary violations (do not check multisets).
+    this function pads/truncates new_sol.tours to m and returns new_sol.
+    """
+    inst = sol.instance
+    m = inst.m
+
+    # pad/truncate inplace
+    if len(new_sol.tours) < m:
+        new_sol.tours.extend([[] for _ in range(m - len(new_sol.tours))])
+    elif len(new_sol.tours) > m:
+        new_sol.tours = new_sol.tours[:m]
+
+    if DEBUG_OPERATORS:
+        before = multiset_of_tours([list(r) for r in sol.tours])
+        after = multiset_of_tours([list(r) for r in new_sol.tours])
+        if before != after:
+            diagnostic_print(op_name, before, after, details=extra_info)
+
+    return new_sol
+
+# ============================================================
+#  Operators
+# they are are allowed to move occurrences between routes but will refuse any move that would put all required occurrences for a synced customer on the same vehicle
+# ============================================================
+def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -> Optional[Solution]:
+    """
+    move an item inside the same route from from_pos to to_pos
+    returns None if invalid indices or positions equal 
+    """
+    if from_pos == to_pos:
+        return None
+
+    m = sol.instance.m
+    if route_idx < 0 or route_idx >= m:
+        return None
+    
+    route = sol.tours[route_idx] if route_idx < len(sol.tours) else []
+    if from_pos < 0 or from_pos >= len(route):
+        return None
+    if to_pos < 0 or to_pos > len(route):
+        return None
+
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+    try:
+        val = new.tours[route_idx].pop(from_pos)
+        insert_pos = to_pos if to_pos <= len(new.tours[route_idx]) else len(new.tours[route_idx])
+        new.tours[route_idx].insert(insert_pos, val)
+    except Exception as e:
+        if DEBUG_OPERATORS:
+            print("[OPERATORS] intra_insertion exception:", e)
+        return None
+
+    return safe_move_wrapper(sol, new, "intra_insertion", f"r{route_idx} {from_pos}->{to_pos}")
+
+def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_idx: int, to_pos: int) -> Optional[Solution]:
+    """
+    remove an element from route A and insert it into route B
+    added a check for synchronized elements: 
+        - if the customer is synchronized, it checks occs = [rt.count(cust) for rt in new.tours] and total_occ
+        - If after the move all required occurrences end up on a single vehicle (route) it rejects the move
+    it will prevents putting both occurrences on the same vehicle
+    """
+    if from_route_idx == to_route_idx:
+        return None
+    
+    m = sol.instance.m
+    if from_route_idx < 0 or to_route_idx < 0 or from_route_idx >= m or to_route_idx >= m:
+        return None
+    # ensure source route exists
+    if from_route_idx >= len(sol.tours) or from_pos < 0 or from_pos >= len(sol.tours[from_route_idx]):
+        return None
+
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+    try:
+        val = new.tours[from_route_idx].pop(from_pos)
+        insert_pos = to_pos if to_pos <= len(new.tours[to_route_idx]) else len(new.tours[to_route_idx])
+        new.tours[to_route_idx].insert(insert_pos, val)
+    except Exception as e:
+        if DEBUG_OPERATORS:
+            print("[OPERATORS] inter_insertion exception:", e)
+        return None
+
+    return safe_move_wrapper(sol, new, "inter_insertion", f"{from_route_idx}:{from_pos} -> {to_route_idx}:{to_pos}")
+
+def intra_swap(sol: Solution, route_idx: int, pos_a: int, pos_b: int) -> Optional[Solution]:
+    """
+    swap two positions inside a route
+    returns None if invalid indices
+    """
+    m = sol.instance.m
+    if route_idx < 0 or route_idx >= m:
+        return None
+    rt = sol.tours[route_idx] if route_idx < len(sol.tours) else []
+    if pos_a == pos_b:
+        return None
+    if pos_a < 0 or pos_b < 0 or pos_a >= len(rt) or pos_b >= len(rt):
+        return None
+    
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+    try:
+        new.tours[route_idx][pos_a], new.tours[route_idx][pos_b] = new.tours[route_idx][pos_b], new.tours[route_idx][pos_a]
+    except Exception as e:
+        if DEBUG_OPERATORS:
+            print("[OPERATORS] intra_swap exception:", e)
+        return None
+    return safe_move_wrapper(sol, new, "intra_swap", f"r{route_idx} p{pos_a}<->{pos_b}")
+
+def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[Solution]:
+    """
+    swap an item from route r1 with an item from r2
+    added safety for synchronized ones: for both swapped customers it recomputes occurrences per route 
+        and rejects if the swap concentrates all required occs on a single route
+    """
+    m = sol.instance.m
+    if r1 == r2:
+        return None
+    if r1 < 0 or r2 < 0 or r1 >= m or r2 >= m:
+        return None
+    if r1 >= len(sol.tours) or r2 >= len(sol.tours):
+        return None
+    if p1 < 0 or p2 < 0 or p1 >= len(sol.tours[r1]) or p2 >= len(sol.tours[r2]):
+        return None
+
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+    try:
+        new.tours[r1][p1], new.tours[r2][p2] = new.tours[r2][p2], new.tours[r1][p1]
+    except Exception as e:
+        if DEBUG_OPERATORS:
+            print("[OPERATORS] inter_swap exception:", e)
+        return None
+
+    return safe_move_wrapper(sol, new, "inter_swap", f"r{r1}p{p1}<->{r2}p{p2}")
+
+def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, pos: int) -> Optional[Solution]:
+    """
+    move a contiguous segment of `length` from r_from[start:start+length] into r_to at position pos.
+    allowed to temporarily break multiplicities.
+    """
+    m = sol.instance.m
+    if r_from < 0 or r_to < 0 or r_from >= m or r_to >= m:
+        return None
+    if r_from >= len(sol.tours):
+        return None
+    if start < 0 or start >= len(sol.tours[r_from]):
+        return None
+    if length <= 0 or start + length > len(sol.tours[r_from]):
+        return None
+    if pos < 0:
+        return None
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+
+    segment = new.tours[r_from][start:start+length]
+    del new.tours[r_from][start:start+length]
+    if r_from == r_to and pos > start:
+        pos -= length
+    if pos > len(new.tours[r_to]):
+        pos = len(new.tours[r_to])
+    new.tours[r_to][pos:pos] = segment
+
+    return safe_move_wrapper(sol, new, "k_relocate", f"{r_from}[{start}:{start+length}] -> {r_to}@{pos}")
+
+def two_opt(sol: Solution, r: int, i: int, j: int):
+    """
+    reverse segment [i..j] inside route r.
+    """
+    m = sol.instance.m
+    if r < 0 or r >= m:
+        return None
+    rt = sol.tours[r]
+    if i < 0 or j < 0 or i >= len(rt) or j >= len(rt) or i >= j:
+        return None
+    
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+
+    new.tours[r][i:j+1] = reversed(new.tours[r][i:j+1])
+
+    return safe_move_wrapper(sol, new, "2-opt", f"r{r} {i}-{j}")
+
+def two_opt_star(sol: Solution, r1: int, i: int, r2: int, j: int):
+    """
+    2-opt* between two routes: swap suffixes.
+    """
+    if r1 == r2:
+        return None
+    m = sol.instance.m
+    if r1 < 0 or r1 >= m or r2 < 0 or r2 >= m:
+        return None
+    
+    rt1 = sol.tours[r1]
+    rt2 = sol.tours[r2]
+    
+    if i <= 0 or j <= 0:
+        return None
+    if i > len(rt1) or j > len(rt2):
+        return None
+
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+    A = new.tours[r1]
+    B = new.tours[r2]
+
+    newA = A[:i] + B[j:]
+    newB = B[:j] + A[i:]
+
+    new.tours[r1] = newA
+    new.tours[r2] = newB
+
+    return safe_move_wrapper(sol, new, "2-opt*", f"{r1}:{i} <-> {r2}:{j}")
+
+def cross_exchange(sol: Solution, r1: int, a1: int, b1: int, r2: int, a2: int, b2: int) -> Optional[Solution]:
+    """
+    exchange segments A[a1:b1] with B[a2:b2]. 
+    inclusive-exclusive: [a1:b1), [a2:b2)
+    """
+    m = sol.instance.m
+    if r1 < 0 or r2 < 0 or r1 >= m or r2 >= m:
+        return None
+    if r1 >= len(sol.tours) or r2 >= len(sol.tours):
+        return None
+    A = sol.tours[r1]
+    B = sol.tours[r2]
+    if not (0 <= a1 < b1 <= len(A)) or not (0 <= a2 < b2 <= len(B)):
+        return None
+
+    new = sol.copy()
+    _ensure_m_tours(new.tours, m)
+    segA = new.tours[r1][a1:b1]
+    segB = new.tours[r2][a2:b2]
+    new.tours[r1][a1:b1] = segB
+    new.tours[r2][a2:b2] = segA
+
+    return safe_move_wrapper(sol, new, "cross_exchange", f"r{r1}[{a1}:{b1}] <-> r{r2}[{a2}:{b2}]")
+
+def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional[Solution]:
+    """
+    remove both occurrences of a synchronized customer and reinsert them randomly
+    into two (distinct) vehicles at (random) positions. this helps realign synchronization.
+    attempts up to `attempts` random trials and returns the first valid candidate (does not enforce feasibility).
+    """
+    inst = sol.instance
+    if cust not in getattr(inst, "sync_customers", set()):
+        return None
+
+    occ = [(r, pos) for r, rt in enumerate(sol.tours) for pos, v in enumerate(rt) if v == cust]
+    if len(occ) < 1:
+        return None
+
+    # if more than two occurrences exist, handle all occurrences: remove them then reinsert req times
+    req = inst.sync_requirements.get(cust, 2)
+    # create base copy
+    for _ in range(attempts):
+        new = sol.copy()
+        _ensure_m_tours(new.tours, inst.m)
+        # remove up to all occurrences
+        removed = 0
+        for r, pos in sorted(occ, key=lambda x: (x[0], -x[1]), reverse=True):
+            try:
+                # if route may have shifted due to previous removals, attempt safe removal
+                if r < len(new.tours) and (pos < len(new.tours[r]) and new.tours[r][pos] == cust):
+                    new.tours[r].pop(pos)
+                    removed += 1
                 else:
-                    move = None
+                    # try to remove any occurrence from that route
+                    if r < len(new.tours) and cust in new.tours[r]:
+                        new.tours[r].remove(cust)
+                        removed += 1
+            except Exception:
+                pass
 
-        if move is not None:
-            moves.append(move)
-            if verbose:
-                # map move type -> neighborhood label
-                mt = move[0]
-                nb = {'intra_ins':'N1','inter_ins':'N2','intra_swap':'N3','inter_swap':'N4'}.get(mt, 'UNK')
-                msg = f"shake step {step+1}/{p}: move={move} -> neighborhood={nb}"
-                print(msg)
+        # now reinsert req occurrences into random distinct vehicles
+        vehicles = list(range(inst.m))
+        random.shuffle(vehicles)
+        chosen = []
+        for v in vehicles:
+            if len(chosen) >= req:
+                break
+            chosen.append(v)
 
-            # visualize the move if debug and under cap
-            if debug_visual and visual_count < max_visual_moves:
-                diff = which_nodes_changed(before, cur)
-                highlight = set(diff['added'] + diff['removed'] + [d[0] for d in diff['moved']])
-                desc = f"shake step {step+1} | move={move} | nb={nb} | changed={len(highlight)}"
-                savepath = plot_side_by_side(inst, before, cur,
-                                             title=f"shake_move_{step+1}",
-                                             highlight_nodes=highlight,
-                                             move_desc=desc,
-                                             show=True)
-                print("Saved:", savepath)
-                visual_count += 1
+        if len(chosen) < req:
+            continue
 
-    if debug_visual:
-        ev1 = evaluate_solution(inst, cur)
-        plot_side_by_side(inst, sol, cur, title="shake_solution_after",
-                          highlight_nodes=set(), move_desc=f"Total moves: {len(moves)}", show=True)
+        for idx, v in enumerate(chosen):
+            pos = random.randrange(len(new.tours[v]) + 1)
+            new.tours[v].insert(pos, cust)
 
-    return cur, moves
+        return safe_move_wrapper(sol, new, "relocate_sync_pair", f"cust {cust}")
+
+    return None
+
+# ============================================================
+# Shaking
+# ============================================================
+def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True, Dp: int = 0.3) -> Solution:
+    """
+    - performs up to `k` "accepted" random moves (tries many times).
+    - after candidate creation we check soft sync-safety:
+        reject candidate if any synchronized customer ends up with all its occurrences
+        placed on a single vehicle (concentrates all occurrences on one route).
+    - returns a new Solution after applied accepted moves.
+    """
+    new = sol.copy()
+    inst = sol.instance
+    m = inst.m
+    _ensure_m_tours(new.tours, m)
+
+    # helper: check whether a candidate breaks sync "soft" protection:
+    def breaks_sync_soft(tours: List[List[int]]) -> bool:
+        syncs = getattr(inst, "sync_customers", set())
+        if not syncs:
+            return False
+        # compute occurrences per customer
+        from collections import Counter, defaultdict
+        total = Counter()
+        per_route = defaultdict(lambda: Counter())
+        for r_idx, rt in enumerate(tours):
+            for v in rt:
+                total[v] += 1
+                per_route[r_idx][v] += 1
+        for cust in syncs:
+            req = inst.sync_requirements.get(cust, 1)
+            tot = total.get(cust, 0)
+            if tot < req:
+                # missing occurrences — allow (initializer/repair may add later) but prefer not to create missing
+                continue
+            # if all occurrences are concentrated into one route and that route has >= req, reject
+            for r_idx in range(len(tours)):
+                if per_route[r_idx].get(cust, 0) >= req and per_route[r_idx].get(cust, 0) == tot and tot >= req:
+                    return True
+        return False
+
+    attempts = 0
+    accepted = 0
+    max_attempts = max(200, k * 30)
+
+    # helper to accept candidate if it passes sync check
+    def try_accept(candidate: Optional[Solution]) -> Optional[Solution]:
+        nonlocal attempts, accepted
+        if candidate is None:
+            return None
+        # ensure candidate.tours padded
+        _ensure_m_tours(candidate.tours, m)
+        # quick sync safety check
+        if breaks_sync_soft(candidate.tours):
+            return None
+        accepted += 1
+        return candidate
+
+    while accepted < max(1, k) and attempts < max_attempts:
+        attempts += 1
+        r = random.random()
+
+        # family selection
+        if r <= Dp:
+            # swap/exchange family (30%)
+            move = random.choice([
+                "intra_swap",
+                "inter_swap",
+                "two_opt",
+                "two_opt_star",
+                "cross_exchange"
+            ])
+
+            if move == "intra_swap":
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+                if not candidates:
+                    continue
+                r = random.choice(candidates)
+                L = len(new.tours[r])
+                p1, p2 = random.sample(range(L), 2)
+                cand = intra_swap(new, r, p1, p2)
+
+            elif move == "inter_swap":
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+                if not candidates:
+                    continue
+                r1, r2 = random.sample(candidates, 2)
+                p1 = random.randrange(len(new.tours[r1]))
+                p2 = random.randrange(len(new.tours[r2]))
+                cand = inter_swap(new, r1, p1, r2, p2)
+
+            elif move == "two_opt":
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 4]
+                if not candidates:
+                    continue
+                r = random.choice(candidates)
+                L = len(new.tours[r])
+                i = random.randint(0, L - 3)
+                j = random.randint(i + 2, L - 1)
+                cand = two_opt(new, r, i, j)
+
+            elif move == "two_opt_star":
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 2]
+                if len(candidates) < 2:
+                    continue
+                r1, r2 = random.sample(candidates, 2)
+                i = random.randint(1, min(3, len(new.tours[r1]) - 1))
+                j = random.randint(1, min(3, len(new.tours[r2]) - 1))
+                cand = two_opt_star(new, r1, i, r2, j)
+
+            else:  # cross_exchange
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 1]
+                if len(candidates) < 2:
+                    continue
+                r1, r2 = random.sample(candidates, 2)
+                A, B = new.tours[r1], new.tours[r2]
+                a1 = random.randint(0, len(A) - 1)
+                a2 = min(len(A), a1 + random.randint(1, min(3, len(A) - a1)))
+                b1 = random.randint(0, len(B) - 1)
+                b2 = min(len(B), b1 + random.randint(1, min(3, len(B) - b1)))
+                if a1 < a2 and b1 < b2:
+                    cand = cross_exchange(new, r1, a1, a2, r2, b1, b2)
+        else: 
+            # insertion family (70%))
+            move = random.choice([
+                "intra_insertion",
+                "inter_insertion",
+                "k_relocate",
+            ])
+
+            if move == "intra_insertion":
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+                if not candidates:
+                    continue
+                r_idx = random.choice(candidates)
+                L = len(new.tours[r_idx])
+                from_pos = random.randrange(L)
+                to_pos = random.randrange(L + 1)
+                if from_pos == to_pos:
+                    continue
+                cand = intra_insertion(new, r_idx, from_pos, to_pos)
+
+            elif move == "inter_insertion":
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 0]
+                if not candidates:
+                    continue
+                a = random.choice(candidates)
+                b = random.randrange(m)
+                if a == b:
+                    continue
+                from_pos = random.randrange(len(new.tours[a]))
+                to_pos = random.randrange(len(new.tours[b]) + 1)
+                cand = inter_insertion(new, a, from_pos, b, to_pos)
+
+            else: #k_relocate"
+                candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 1]
+                if not candidates:
+                    continue
+                r_from = random.choice(candidates)
+                max_len = min(3, max(1, len(new.tours[r_from]) // 4))
+                length = random.randint(1, max_len)
+                start = random.randint(0, len(new.tours[r_from]) - length)
+                r_to = random.randrange(m)
+                pos = random.randrange(len(new.tours[r_to]) + 1)
+                cand = k_relocate(new, r_from, start, length, r_to, pos)
+                
+        cand = try_accept(cand)
+        if cand:
+            new = cand
+
+    # final pad/truncate and return
+    _ensure_m_tours(new.tours, m)
+    return new

@@ -1,69 +1,131 @@
-from .evaluate import evaluate_solution
-from .viz import visualize_solution
 import numpy as np, time
+import csv
+import os
+import matplotlib.pyplot as plt
+from run_benchmark import RESULTS_FOLDER
+from gvns.benchmark import NEIGHBORHOOD_FUNCS
 
-NEIGHBORHOODS = ['N1','N2','N3','N4']
+NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
+NEIGHBORHOODS = NEIGHBORHOOD_NAMES
 
-# clssic utils 
-def _maybe_get_inst_and_sol_from_args(args, kwargs):
-    if len(args) >= 2:
-        return args[0], args[1]
-    elif 'inst' in kwargs and 'sol' in kwargs:
-        return kwargs['inst'], kwargs['sol']
-    return None, None
-
-def wrap_with_visualization(func_name, before=True, after=True, debug_visual=True, max_nodes=60):
-    if func_name not in globals():
-        print(f"[wrap] {func_name} not found — skip")
-        return False
-    orig = globals()[func_name]
-    if not callable(orig):
-        print(f"[wrap] {func_name} not callable — skip")
-        return False
-
-    def wrapped(*args, **kwargs):
-        inst, sol = _maybe_get_inst_and_sol_from_args(args, kwargs)
-        if debug_visual and inst and sol:
-            try:
-                ev = evaluate_solution(inst, sol)
-            except Exception:
-                ev = {}
-            nodes = sum(len(r) for r in sol.routes)
-            if nodes <= max_nodes and before:
-                visualize_solution(inst, sol, start_times=ev.get('start_times'), title=f"{func_name}_before", show=True)
-        res = orig(*args, **kwargs)
-        new_sol = None
-        if isinstance(res, tuple):
-            for item in res:
-                if hasattr(item, 'routes'):
-                    new_sol = item
-                    break
-        elif hasattr(res, 'routes'):
-            new_sol = res
-        else:
-            new_sol = args[1] if len(args)>=2 else kwargs.get('sol', None)
-
-        if debug_visual and inst and new_sol and after:
-            try:
-                ev2 = evaluate_solution(inst, new_sol)
-            except Exception:
-                ev2 = {}
-            nodes2 = sum(len(r) for r in new_sol.routes)
-            if nodes2 <= max_nodes:
-                visualize_solution(inst, new_sol, start_times=ev2.get('start_times'), title=f"{func_name}_after", show=True)
-        return res
-
-    globals()[func_name] = wrapped
-    print(f"[wrap] {func_name} wrapped for visualization (before={before}, after={after})")
-    return True
-
-def infer_vehicle_estimate(default=30) -> int:
+# ===================================================================
+# local search utils 
+# ===================================================================
+def save_neighborhood_usage(counter, instance_name):
     """
-    i'll keep it static following the paper values for now
+    saves counts of usage of each neighborhood during the local search
     """
-    return default
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+    path = os.path.join(neigh_folder, f"{instance_name}_usage.csv")
 
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Neighborhood_ID", "Usage_Count"])
+        for i, count in enumerate(counter):
+            w.writerow([i, count])
+
+def save_neighborhood_improvement_log(events, instance_name, suffix="bvnd"):
+    if not events:
+        return
+
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+
+    path = os.path.join(
+        neigh_folder,
+        f"{instance_name}_neigh_improvements_{suffix}.csv"
+    )
+
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+
+        # header from dict keys
+        header = events[0].keys()
+        w.writerow(header)
+
+        for ev in events:
+            w.writerow(ev.values())
+
+def save_neighborhood_heatmap(counter, instance_name):
+    """
+    creates heatmaps for the usage of each neighborhood 
+    """
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+    path = os.path.join(neigh_folder, f"{instance_name}_heatmap.png")
+
+    plt.figure(figsize=(8, 2))
+    plt.imshow([counter], cmap="viridis", aspect="auto")
+    plt.colorbar(label="Usage Count")
+    plt.yticks([])
+    plt.xticks(range(len(counter)), [f"N{i+1}" for i in range(len(counter))])
+    plt.title(f"Neighborhood Usage Heatmap - {instance_name}")
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()
+
+def save_suggested_order(counter, instance_name):
+    """
+    crates an order suggestion based on the usage counts of each neighborhood
+    """
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(neigh_folder, exist_ok=True)
+    path = os.path.join(neigh_folder, f"{instance_name}_order_suggestion.txt")
+
+    # pair = (neigh_id, usage)
+    pairs = list(enumerate(counter))
+    pairs.sort(key=lambda x: -x[1])
+
+    with open(path, "w") as f:
+        f.write(f"Suggested order for instance {instance_name}:\n")
+        f.write("From most useful to least useful:\n\n")
+        for neigh_id, usage in pairs:
+            f.write(f"N{neigh_id+1} — usage = {usage}\n")
+
+def load_suggested_order(instance_name):
+    """
+    used when the local search mode is "suggested"
+    reads the suggestion file and return a list of neighborhood indices (0-based).
+    lines are like these :  N1 — usage = X
+    default order should be run before it because it takes the order from the saved files after the default order run.
+    """
+    path = os.path.join(
+        RESULTS_FOLDER,
+        "neigh_usage",
+        f"{instance_name}_order_suggestion.txt"
+    )
+
+    if not os.path.exists(path):
+        print(f"[WARNING] Suggested order file not found: {path}")
+        print("Using default neighborhood order.")
+        return list(range(len(NEIGHBORHOOD_FUNCS)))
+
+    order = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("N"):
+                try:
+                    nid = int(line.split("—")[0].replace("N", "")) - 1
+                    order.append(nid)
+                except ValueError:
+                    pass
+
+    if len(order) != len(NEIGHBORHOOD_FUNCS):
+        print("[WARNING] Suggested order incomplete — falling back to default order.")
+        return list(range(len(NEIGHBORHOOD_FUNCS)))
+
+    print(f"[INFO] Loaded suggested neighborhood order from {path}")
+    print(f"[INFO] suggested neighborhood order {order}")
+    return order
+
+# ===================================================================
 # rl utils
+# ===================================================================
 class RunningMeanStd:
     def __init__(self, shape, epsilon=1e-4):
         self.mean = np.zeros(shape, dtype=np.float64)
@@ -93,18 +155,24 @@ class RunningMeanStd:
     def normalize(self, x: np.ndarray, clip: float = 10.0):
         return np.clip((x - self.mean) / (np.sqrt(self.var) + 1e-8), -clip, clip)
 
-def extract_state(inst, current_sol, eval_current, iter_no, start_time=None, neigh_success=None, neigh_attempts=None):
-    n = len(inst.visits)
-    tw_widths = [v.tw_late - v.tw_early for v in inst.visits.values()]
+def extract_state(inst, current_sol, iter_no, start_time=None, neigh_success=None, neigh_attempts=None):
+    n = inst.n
+    tw_widths = [
+        node["due"] - node["ready"]
+        for node in inst.nodes.values()
+    ]
     avg_tw = float(np.mean(tw_widths)) if len(tw_widths) > 0 else 0.0
     sync_ratio = len(getattr(inst, "sync_pairs", [])) / max(1, n)
 
     feats = [float(n), avg_tw, sync_ratio]
 
-    evalf = [float(eval_current['F']), float(eval_current['f']),
-             float(eval_current.get('PenT', 0.0)),
-             float(eval_current.get('PenH', 0.0)),
-             float(eval_current.get('PenS', 0.0))]
+    evalf = [
+        float(current_sol.Fval),
+        float(current_sol.travel_time),
+        float(current_sol.penT),
+        float(current_sol.penH),
+        float(current_sol.penS),
+    ]
 
     progress = [float(iter_no), float(time.time() - (start_time or 0.0))]
 

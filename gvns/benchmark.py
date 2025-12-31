@@ -1,276 +1,205 @@
-import os, glob, time
-import pandas as pd
-import matplotlib.pyplot as plt
-from .instance import parse_vrptws_txt, Instance, SEED
-from .local_search import gvns
-from .evaluate import evaluate_solution
-from .solution import Solution
-from .utils import infer_vehicle_estimate
+import os
+import time
+import random
+import numpy as np # type: ignore
+import pandas as pd  # type: ignore
+import matplotlib.pyplot as plt # type: ignore
 
-def run_multiple(inst, runs=5, Tmax_seconds=10, **gvns_kwargs):
-    results = []
-    for i in range(runs):
-        seed = SEED + i*7
-        start_time = time.time()
-        best, history = gvns(inst, Tmax_seconds=Tmax_seconds, seed=seed, **gvns_kwargs)
-        t_run = time.time() - start_time
-        eval_best = evaluate_solution(inst, best, gvns_kwargs.get('w1_init', 0.5),
-                                      gvns_kwargs.get('w2_init', 0.1), gvns_kwargs.get('M', 1e6))
-        results.append({'run': i, 'best_F': eval_best['F'], 'f': eval_best['f'],
-                        'PenT': eval_best['PenT'], 'PenH': eval_best['PenH'], 'PenS': eval_best['PenS'],
-                        'time_s': t_run})
-        print(f"Run {i}: best_F={eval_best['F']:.3f}, time={t_run:.1f}s")
-    df = pd.DataFrame(results)
-    return df
+from gvns.instance import Instance
+from gvns.gvns import run_gvns
 
-def solution_details(inst: Instance, sol: Solution):
-    # return per-visit info
-    details = []
-    for r_idx, route in enumerate(sol.routes):
-        cur_time = 0.0
-        cur_node = inst.depot
-        for v_id in route:
-            travel = inst.travel_time[(cur_node.id, v_id)]
-            arrival = cur_time + travel
-            visit = inst.visits[v_id]
-            start = max(arrival, visit.tw_early)
-            depart = start + visit.service
-            details.append({'visit': v_id, 'route': r_idx, 'arrival': arrival, 'start': start, 'late': max(0.0, start - visit.tw_late)})
-            cur_time = depart
-            cur_node = visit
-    return pd.DataFrame(details)
+# run GVNS on one instance
+def run_instance(
+        path, 
+        n_runs=1, 
+        params=None, 
+        agent=None,
+        first_improvement = True,
+        results_dir="results"
+    ):
+    """run GVNS multiple times on one instance, save traces and plots."""
+    name = os.path.basename(path).split(".")[0]
+    print(f"\n=== Running instance {name} ===")
 
-def benchmark_folder(folder='vrptws',
-                     runs_per_instance=5,
-                     Tmax_rule=lambda n: None,
-                     gvns_kwargs=None,
-                     out_csv='gvns_benchmark_results.csv',
-                     agent_factory=None):
+    seed = params.get("seed", 42) if params else 42
+    random.seed(seed)
+    np.random.seed(seed)
 
-    if gvns_kwargs is None:
-        gvns_kwargs = {
-            'contmax':100, 'p_init':1, 'p_max':10, 'Dp':0.3,
-            'w1_init':0.5, 'w2_init':0.1, 'alpha':0.1,
-            'delta':0.4, 'M':1e6, 'w1_max':None, 'w2_max':None,
-            'update_every':1
-        }
-
-    cwd = os.getcwd()
-    results_dir = os.path.join(cwd, "results")
-    plots_dir = os.path.join(results_dir, "plots")
-    traces_dir = os.path.join(results_dir, "traces")
-    models_dir = os.path.join(cwd, "models")
-
-    os.makedirs(results_dir, exist_ok=True)
-    os.makedirs(plots_dir, exist_ok=True)
-    os.makedirs(traces_dir, exist_ok=True)
-    os.makedirs(models_dir, exist_ok=True)
-
-    if agent_factory is not None:
-        try:
-            agent_name = getattr(agent_factory, "__name__", None) or "agent"
-            if agent_name in ("<lambda>", "partial", None):
-                # fallback: make a temporary agent to read its class name
-                tmp_agent = agent_factory()
-                agent_name = tmp_agent.__class__.__name__
-                del tmp_agent
-        except Exception:
-            agent_name = "agent"
-    else:
-        agent_name = "classic"
-
-    agent_results_dir = os.path.join(results_dir, "agents", agent_name)
-    agent_plots_dir = os.path.join(agent_results_dir, "plots")
-    agent_traces_dir = os.path.join(agent_results_dir, "traces")
-    agent_models_dir = os.path.join(models_dir, agent_name)
-
-    os.makedirs(agent_results_dir, exist_ok=True)
-    os.makedirs(agent_plots_dir, exist_ok=True)
-    os.makedirs(agent_traces_dir, exist_ok=True)
-    os.makedirs(agent_models_dir, exist_ok=True)
-
-    files = sorted(glob.glob(os.path.join(folder, '**', '*.txt'), recursive=True))
-    
-    if not files:
-        raise FileNotFoundError(f"No .txt files found in {os.path.abspath(folder)}")
-    
+    inst = Instance().load_liu_format(path)
+    best_overall = None
     results = []
 
-    for fpath in files:
-        instance_name = os.path.basename(fpath)
-        instance_class = os.path.basename(os.path.dirname(fpath))
-        num_veh_est = infer_vehicle_estimate()
+    for run_id in range(1, n_runs + 1):
+        print(f"\n[RUN {run_id}/{n_runs}] Starting GVNS on {name} ...")
 
-        print(f"Benchmarking: {fpath} (class={instance_class})")
+        # new agent per run (no leakage)
+        run_agent = None
+        if agent is not None:
+            run_agent = agent.clone() if hasattr(agent, "clone") else agent
 
-        inst = parse_vrptws_txt(fpath)
-        n = len(inst.visits)
-        Tmax = Tmax_rule(n)
-        per_instance_values = []
+        start = time.time()
+        trace = []
 
-        for run_id in range(runs_per_instance):
-            seed = SEED + run_id*31
-            t0 = time.time()
+        # ============================================================
+        # Run GVNS (classic or RL)
+        # ============================================================
+        best = run_gvns(
+            inst, 
+            params=params, 
+            agent=run_agent, 
+            first_improvement = first_improvement,
+            verbose=True, 
+            trace_list=trace, 
+            instance_name = name
+        )
+        elapsed = time.time() - start
 
-            agent = agent_factory() if agent_factory is not None else None
-            best, history = gvns(
-                inst, 
-                Tmax_seconds=Tmax, 
-                seed=seed, 
-                verbose=False, 
-                num_vehicles_estimate=num_veh_est,
-                agent=agent,
-                **gvns_kwargs)
-            t_run = time.time() - t0
+        # ============================================================
+        # Build trace DataFrame
+        # ============================================================
+        # if trace is empty, produce an empty DataFrame with canonical columns
+        if not trace:
+            cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
+            df = pd.DataFrame(columns=cols)
+        else:
+            # determine max row length
+            max_len = max(len(r) for r in trace)
+            # pad shorter rows with None
+            normalized = [list(r) + [None] * (max_len - len(r)) for r in trace]
 
-            if agent is not None:
-                agent_path = os.path.join(agent_models_dir, f"QTable_{instance_name}_run{run_id}.pkl")
-                os.makedirs(os.path.dirname(agent_path), exist_ok=True)
-                try:
-                    agent.save(agent_path)
-                except Exception as e:
-                    print(f"[WARN] could not save agent model: {e}")
-
-                # also save a CSV summary of the Q-table if available
-                try:
-                    if hasattr(agent, "Q"):
-                        q_items = []
-                        for k, v in agent.Q.items():
-                            row = {"state": repr(k)}
-                            for i, val in enumerate(v):
-                                row[f"q{i}"] = float(val)
-                            q_items.append(row)
-                        if q_items:
-                            qdf = pd.DataFrame(q_items)
-                            qcsv = os.path.join(agent_traces_dir, f"qtable_{instance_name}_run{run_id}.csv")
-                            qdf.to_csv(qcsv, index=False)
-                except Exception as e:
-                    print(f"[WARN] could not dump Q-table CSV: {e}")
- 
-            # inspect convergence
-            times = [h.get('time', None) for h in history]
-            raw_f = [h.get('raw_f', None) for h in history]
-            best_f = [h.get('f_best', None) for h in history]
-
-            print(f"    improvement trace (raw_f over time): {raw_f}")
-
-            # plots
-            if agent is not None:
-                try:
-                    plt.figure()
-                    plt.plot(times, raw_f, marker='.', label='raw_f')
-                    plt.plot(times, best_f, marker='.', label='best_f')
-                    plt.xlabel("time (s)")
-                    plt.ylabel("f")
-                    plt.title(f"Convergence – {instance_name} run {run_id} ({agent_name})")
-                    plt.grid(True)
-                    plt.legend()
-                    afname = os.path.join(agent_plots_dir, f"curve_{instance_name}_run{run_id}_combined_{agent_name}.png")
-                    plt.savefig(afname)
-                    plt.close()
-                except Exception as e:
-                    print(f"[WARN] plotting agent-specific failed: {e}")
+            if max_len == 7:
+                cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
+            elif max_len == 8:
+                cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed", "best_feasible_f"]
             else:
-                try:
-                    plt.figure()
-                    plt.plot(times, raw_f, marker='.', label='raw_f')
-                    plt.plot(times, best_f, marker='.', label='best_f')
-                    plt.xlabel("time (s)")
-                    plt.ylabel("f")
-                    plt.title(f"Convergence – {instance_name} run {run_id}")
-                    plt.grid(True)
-                    plt.legend()
-                    fname = os.path.join(plots_dir, f"curve_{instance_name}_run{run_id}_combined.png")
-                    plt.savefig(fname)
-                    plt.close()
-                except Exception as e:
-                    print(f"[WARN] plotting classic combined failed: {e}")
+                # fallback generic column names
+                cols = [f"col{i}" for i in range(max_len)]
+            df = pd.DataFrame(normalized, columns=cols)
 
-            if agent is not None:
-                try:
-                    trace_agent_csv = os.path.join(agent_traces_dir, f"trace_{instance_name}_run{run_id}_{agent_name}.csv")
-                    pd.DataFrame(history).to_csv(trace_agent_csv, index=False)
-                except Exception as e:
-                    print(f"[WARN] saving agent trace failed: {e}")
-            else:
-                try:
-                    trace_csv = os.path.join(traces_dir, f"trace_{instance_name}_run{run_id}.csv")
-                    pd.DataFrame(history).to_csv(trace_csv, index=False)
-                except Exception as e:
-                    print(f"[WARN] saving classic trace failed: {e}")
+        # save trace as CSV
+        os.makedirs(results_dir, exist_ok=True)
+        csv_path = os.path.join(results_dir, f"{name}_run{run_id}.csv")
+        df.to_csv(csv_path, index=False)
 
-            if history:
-                try:
-                    min_F = min(h['F_best'] for h in history)
-                    best_time = min(h['time'] for h in history if abs(h['F_best']-min_F) < 1e-9)
-                except Exception:
-                    best_time = t_run
-            else:
-                best_time = t_run
+        # attempt to extract best_feasible_f from trace if present
+        best_f_feasible = None
+        if "best_feasible_f" in df.columns:
+            # take the last non-null value
+            series = df["best_feasible_f"].dropna()
+            if not series.empty:
+                best_f_feasible = float(series.iloc[-1])
 
-            stats = evaluate_solution(inst, best,
-                                      gvns_kwargs.get('w1_init',0.5),
-                                      gvns_kwargs.get('w2_init',0.1),
-                                      gvns_kwargs.get('M',None))
-            per_instance_values.append({
-                'instance': instance_name,
-                'class': instance_class,
-                'run': run_id,
-                'best_F': stats['F'],
-                'f': stats['f'],
-                'PenT': stats['PenT'],
-                'PenH': stats['PenH'],
-                'PenS': stats['PenS'],
-                'time_s': t_run,
-                'best_time_s': best_time       
-            })
-            print(f"  run {run_id}: best_F={stats['F']:.3f}, "
-                  f"f={stats['f']:.3f}, PenT={stats['PenT']:.3f}, "
-                  f"time={t_run:.1f}s, best_time={best_time:.1f}s")
+        # record final stats (best returned object still used)
+        results.append({
+            "instance": name,
+            "run": run_id,
+            "best_f": best.travel_time,
+            "PenT": best.penT,
+            "PenH": best.penH,
+            "PenS": best.penS,
+            "time": best.best_time
+        })
 
-        # save per-run details
-        run_csv = os.path.join(results_dir, f"results_{instance_name}.csv")
-        pd.DataFrame(per_instance_values).to_csv(run_csv, index=False)
+        if best_overall is None or best.travel_time < best_overall.travel_time:
+            best_overall = best.copy()
 
-        dfpi = pd.DataFrame(per_instance_values)
+        # plot evolution of f (travel cost) and best feasible f line
+        plt.figure(figsize=(8, 5))
+        plt.title(f"GVNS evolution for {name} (run {run_id})")
+        plt.xlabel("Iteration")
+        plt.ylabel("Objective f (travel distance)")
 
-        # per-instance summary: use mean best_time across runs
-        summary = {
-            'instance': instance_name,
-            'class': instance_class,
-            'best_over_runs': dfpi['best_F'].min(),
-            'avg_over_runs': dfpi['best_F'].mean(),
-            'std_over_runs': dfpi['best_F'].std(),
-            'avg_time': dfpi['time_s'].mean(),
-            'avg_best_time': dfpi['best_time_s'].mean(), 
-            'n_customers': n
-        }
-        results.append(summary)
+        # raw f points
+        if "iter" in df.columns and "f" in df.columns and not df.empty:
+            feasible_df = df[(df["PenT"] == 0) & (df["PenH"] == 0) & (df["PenS"] == 0)]
+            if not feasible_df.empty:
+                plt.scatter(feasible_df["iter"], feasible_df["f"], s=20,
+                            label="feasible f (raw accepted)", alpha=0.7)
 
-    dfres = pd.DataFrame(results)
-    out_csv_path = os.path.join(results_dir, out_csv)
-    dfres.to_csv(out_csv_path, index=False)
-    print("Benchmark finished. Results saved to", out_csv)
-    return dfres
+            # compute feasible-best series: only consider iterations where penalties are zero (if those columns exist)
+            best_series = []
+            best_val = float("inf")
+            for _, row in df.iterrows():
+                f = row.get("f", None)
+                PenT = row.get("PenT", None)
+                PenH = row.get("PenH", None)
+                PenS = row.get("PenS", None)
+                # update best only when fully feasible (all penalties zero) and f is positive
+                if (PenT in (0.0, 0, None) and PenH in (0.0, 0, None) and PenS in (0.0, 0, None)):
+                    # if penalties columns are None, we cannot rely on them; treat as unknown -> do not update best
+                    if (PenT is None) or (PenH is None) or (PenS is None):
+                        best_series.append(best_val if best_val < float("inf") else float("nan"))
+                        continue
+                    if f is not None and f > 0:
+                        if f < best_val:
+                            best_val = f
+                best_series.append(best_val if best_val < float("inf") else float("nan"))
 
-def get_instance_class(instance_name):
-    base = instance_name.upper().replace('.TXT','')
-    if base.startswith('RC'):
-        return 'RC' + base[2]
-    elif base.startswith('R'):
-        return 'R' + base[1]
-    elif base.startswith('C'):
-        return 'C' + base[1]
-    else:
-        return 'Unknown'
-    
-def summarize_by_class(df_summary):
-    grouped = df_summary.groupby('class').agg({
-        'best_over_runs': ['mean','std'],
-        'avg_over_runs': 'mean',
-        'n_customers': 'mean',
-        'avg_time': 'mean'
-    }).reset_index()
+            plt.plot(df["iter"], best_series, label="best feasible f (so far)", linewidth=2)
 
-    grouped.columns = ['class','best_mean','best_std','avg_mean','n_customers','avg_time']
-    return grouped
+        plt.legend()
+        plt.grid(True, linestyle="--", alpha=0.5)
+        plt.tight_layout()
+
+        plot_path = os.path.join(results_dir, f"{name}_run{run_id}.png")
+        plt.savefig(plot_path, dpi=150)
+        plt.close()
+
+        print(f"[RUN {run_id}] Done. Best f={best.travel_time:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
+
+    # summary over all runs
+    df_res = pd.DataFrame(results)
+    summary_path = os.path.join(results_dir, f"{name}_summary.csv")
+    df_res.to_csv(summary_path, index=False)
+
+    print(f"\n=== Summary for {name} ===")
+    # safe prints even if some keys missing
+    cols_to_show = [c for c in ["run", "best_f", "best_feasible_f", "PenS", "time"] if c in df_res.columns]
+    print(df_res[cols_to_show])
+    print(f"→ mean f={df_res['best_f'].mean():.3f}, best f={df_res['best_f'].min():.3f}")
+
+    return df_res
+
+
+# ============================================================
+# Run folder
+# ============================================================
+def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results"):
+    """Run all instances in the specified folder sequentially."""
+    paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
+    if not paths:
+        print(f"No .txt instances found in {folder}")
+        return
+
+    all_results = []
+    for p in paths:
+        path_full = os.path.join(folder, p)
+        res = run_instance(
+            path_full, 
+            n_runs=n_runs, 
+            params=params, 
+            agent=agent,
+            first_improvement = first_improvement,
+            results_dir=results_dir
+        )
+        all_results.append(res)
+
+    # combine all summaries into one global summary CSV
+    df_all = pd.concat(all_results, ignore_index=True)
+    df_all.to_csv(os.path.join(results_dir, "all_instances_summary.csv"), index=False)
+    print("\nBenchmark completed.")
+    print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
+
+
+def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
+    # check again if folder exists 
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+
+    run_folder(
+        folder=INST_FOLDER, 
+        n_runs=N_RUNS, 
+        params=PARAMS, 
+        agent=agent,
+        first_improvement = first_improvement,
+        results_dir=RESULTS_FOLDER
+    )

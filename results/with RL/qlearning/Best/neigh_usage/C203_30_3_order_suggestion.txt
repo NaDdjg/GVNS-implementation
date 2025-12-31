@@ -1,0 +1,11 @@
+Suggested order for instance C203_30_3:
+From most useful to least useful:
+
+N2 — usage = 38
+N7 — usage = 31
+N8 — usage = 27
+N3 — usage = 2
+N5 — usage = 2
+N4 — usage = 1
+N1 — usage = 0
+N6 — usage = 0
