@@ -11,21 +11,27 @@ from gvns.utils import load_suggested_order, NEIGHBORHOOD_NAMES
 # ============================================================
 def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
     """
-    Lexicographic comparison:
+    lexicographic comparison:
       1) penS
       2) penT
       3) penH
       4) F travel time
+    worsening enalties is done by shaking, and controlled by acceptance and penalty adaptation
+    the role of bvnd is to find the best feasible solution possible
     """
+    # no violation in synch allowed
     if new.penS < old.penS - 1e-12: return True
-    if new.penS > old.penS + 1e-12: return False # penS is not allowed 
+    if new.penS > old.penS + 1e-12: return False
 
+    # among solutions with same penS, prefer lower penT
     if new.penT < old.penT - 1e-12: return True
     if new.penT > old.penT + 1e-12: return False
 
+    # among solutions with same penS and penT, prefer lower penH
     if new.penH < old.penH - 1e-12: return True
     if new.penH > old.penH + 1e-12: return False
 
+    # finally, among solutions with same penS, penT, penH, prefer lower Fval
     return new.Fval < old.Fval - eps_f
 
 # ============================================================
