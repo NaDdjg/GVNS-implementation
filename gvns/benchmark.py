@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt # type: ignore
 from gvns.instance import Instance
 from gvns.gvns import run_gvns
 
-
 # run GVNS on one instance
 def run_instance(
         path, 
@@ -41,9 +40,9 @@ def run_instance(
         start = time.time()
         trace = []
 
-        # -----------------------------
+        # ============================================================
         # Run GVNS (classic or RL)
-        # -----------------------------
+        # ============================================================
         best = run_gvns(
             inst, 
             params=params, 
@@ -55,9 +54,9 @@ def run_instance(
         )
         elapsed = time.time() - start
 
-        # -----------------------------
+        # ============================================================
         # Build trace DataFrame
-        # -----------------------------
+        # ============================================================
         # if trace is empty, produce an empty DataFrame with canonical columns
         if not trace:
             cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
@@ -162,9 +161,9 @@ def run_instance(
     return df_res
 
 
-# ------------------------------------------------------------
+# ============================================================
 # Run folder
-# ------------------------------------------------------------
+# ============================================================
 def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results"):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
@@ -185,7 +184,7 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
         )
         all_results.append(res)
 
-    # Combine all summaries into one global summary CSV
+    # combine all summaries into one global summary CSV
     df_all = pd.concat(all_results, ignore_index=True)
     df_all.to_csv(os.path.join(results_dir, "all_instances_summary.csv"), index=False)
     print("\nBenchmark completed.")

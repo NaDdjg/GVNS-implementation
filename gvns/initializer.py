@@ -1,9 +1,9 @@
 import random
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from gvns.solution import Solution
 
 # ============================================================
-# Utilities
+# utilities
 # ============================================================
 def safe_tt(TT, i, j):
     try:
@@ -16,8 +16,8 @@ def safe_tt(TT, i, j):
 
 def compute_route_prefixes(instance, route):
     """
-    Compute arrival/start/depart arrays for a route (depart depot at time 0).
-    Returns (arrivals, starts, departs, return_to_depot_time).
+    compute arrival/start/depart arrays for a route (depart depot at time 0).
+    returns (arrivals, starts, departs, return_to_depot_time).
     """
     nodes = instance.nodes
     TT = instance.travel_time
@@ -50,8 +50,8 @@ def compute_route_prefixes(instance, route):
 def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
                             lateness_weight=50.0, horizon_weight=50.0):
     """
-    Quick cost estimate for inserting cust at position pos in route.
-    Returns (cost, start_at_cust, lateness, est_end_time).
+    quick cost estimate for inserting cust at position pos in route.
+    returns (cost, start_at_cust, lateness, est_end_time).
     """
     nodes = instance.nodes
     TT = instance.travel_time
@@ -94,8 +94,8 @@ def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
 def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
                                sample_pos_limit=12, lateness_weight=50.0, horizon_weight=50.0):
     """
-    Return best insertion info (pos, cost, start, lateness, est_end) for customer cust on vehicle v.
-    For long routes we sample candidate positions to keep runtime bounded.
+    return best insertion info (pos, cost, start, lateness, est_end) for customer cust on vehicle v.
+    for long routes it samples candidate positions to keep runtime bounded.
     """
     route = tours[v]
     L = len(route)
@@ -132,7 +132,7 @@ def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
     return best_info
 
 # ============================================================
-# Main initializer
+# main initializer
 # ============================================================
 def random_insertion(instance, seed: int = 0,
                      lateness_weight: float = 50.0,
@@ -140,18 +140,17 @@ def random_insertion(instance, seed: int = 0,
                      sample_pos_limit: int = 14,
                      top_k_vehicles_for_sync: int = 6):
     """
-    Build an initial solution:
-      - Balanced assignment across vehicles (avoids dumping all customers on few vehicles)
-      - Time-aware insertion using prefix estimates
-      - Sync customers placed on distinct, least-loaded vehicles
-    Returns a Solution(instance, tours)
+    build an initial solution:
+      - balanced assignment across vehicles (avoids dumping all customers on few vehicles)
+      - sync customers placed on distinct, least-loaded vehicles
+    returns a Solution(instance, tours)
     """
     random.seed(seed)
     m = instance.m
     nodes = instance.nodes
     depot = min(nodes.keys())
 
-    # Prepare empty tours
+    # prepare empty tours
     tours: List[List[int]] = [[] for _ in range(m)]
 
     total_customers = len([nid for nid in nodes.keys() if nid != depot])
@@ -166,13 +165,13 @@ def random_insertion(instance, seed: int = 0,
 
     sync_list = list(instance.sync_customers)
 
-    # 1) Place synchronized customers (one-by-one but ensure distinct vehicles & balance)
+    # place synchronized customers (one-by-one but ensure distinct vehicles & balance)
     for sc in sync_list:
         req = instance.sync_requirements.get(sc, 2)
         if req <= 0:
             continue
 
-        # Choose vehicles greedily among least-loaded ones
+        # choose vehicles greedily among least-loaded ones
         chosen = []
         for _ in range(req):
             # consider only vehicles under max_load, otherwise consider full list
@@ -191,7 +190,8 @@ def random_insertion(instance, seed: int = 0,
                 if info is None:
                     continue
                 pos, cost, start, lateness, est_end = info
-                # score: prefer balanced (few nodes) and low lateness/align
+                # score
+                # prefer balanced (few nodes) and low lateness/align
                 score = cost + 0.01 * len(tours[v])
                 if best_score is None or score < best_score:
                     best_score = score
@@ -206,7 +206,7 @@ def random_insertion(instance, seed: int = 0,
                 tours[v].insert(pos, sc)
                 chosen.append(v)
 
-    # 2) Place remaining customers (time-aware, balanced, sample positions)
+    # place remaining customers (balanced, sample positions)
     all_customers = [cid for cid in nodes.keys() if cid != depot]
     remaining = [c for c in all_customers if c not in instance.sync_customers]
     random.shuffle(remaining)
@@ -241,8 +241,8 @@ def random_insertion(instance, seed: int = 0,
             tours[v].insert(pos, cust)
             prefixes_cache[v] = compute_route_prefixes(instance, tours[v])
 
-    # 3) Final safety & balancing pass
-    # Ensure each sync customer occurrences are on distinct vehicles and required count met
+    # final safety & balancing pass
+    # ensure each sync customer occurrences are on distinct vehicles and required count met
     for sc in sync_list:
         occurrences = [(idx, pos) for idx, rt in enumerate(tours) for pos, val in enumerate(rt) if val == sc]
         needed = instance.sync_requirements.get(sc, 2)
@@ -265,7 +265,8 @@ def random_insertion(instance, seed: int = 0,
                                 continue
                             tours[newv].append(sc)
 
-    # Final balancing fix: ensure no route is enormously larger than average
+    # final balancing fix
+    # ensure no route is enormously larger than average
     avg = max(1, total_customers // max(1, m))
     max_allowed = max(avg + 3, max_load)
     for v in range(m):

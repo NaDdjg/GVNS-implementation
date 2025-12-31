@@ -18,7 +18,7 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
       4) F travel time
     """
     if new.penS < old.penS - 1e-12: return True
-    if new.penS > old.penS + 1e-12: return False
+    if new.penS > old.penS + 1e-12: return False # penS is not allowed 
 
     if new.penT < old.penT - 1e-12: return True
     if new.penT > old.penT + 1e-12: return False
@@ -29,10 +29,10 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
     return new.Fval < old.Fval - eps_f
 
 # ============================================================
-# Neighborhood Explorers (best improvement)
+# neighborhood explorers (best or first improvement)
 # ============================================================
 def explore_intra_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N1 - Best improvement using intra-route insertion."""
+    """N1 - intra-route insertion."""
     m = sol.instance.m
 
     checks = 0
@@ -64,7 +64,7 @@ def explore_intra_insertion(sol: Solution, max_checks=None, first_improve: bool 
 
 
 def explore_inter_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N2 - Best improvement using inter-route insertion."""
+    """N2 - inter-route insertion."""
     m = sol.instance.m
     checks = 0
     improved = None
@@ -98,7 +98,7 @@ def explore_inter_insertion(sol: Solution, max_checks=None, first_improve: bool 
     return improved
 
 def explore_intra_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N3 - Best improvement using intra-route swap."""
+    """N3 - intra-route swap."""
     m = sol.instance.m
     improved = None
     checks = 0
@@ -127,7 +127,7 @@ def explore_intra_swap(sol: Solution, max_checks=None, first_improve: bool = Fal
 
 
 def explore_inter_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N4 - Best improvement using inter-route swap."""
+    """N4 - inter-route swap."""
     m = sol.instance.m
     improved = None
     checks = 0
@@ -158,7 +158,7 @@ def explore_inter_swap(sol: Solution, max_checks=None, first_improve: bool = Fal
 
 
 def explore_two_opt(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N5 - intra-route 2-opt (best improvement)."""
+    """N5 - intra-route 2-opt"""
     m = sol.instance.m
     improved = None
     checks = 0
@@ -187,7 +187,7 @@ def explore_two_opt(sol: Solution, max_checks=None, first_improve: bool = False)
 
 
 def explore_two_opt_star(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N6 - cross 2-opt* (route disconnect-reconnect)."""
+    """N6 - two-opt*"""
     m = sol.instance.m
     improved = None
     checks = 0
@@ -219,7 +219,7 @@ def explore_two_opt_star(sol: Solution, max_checks=None, first_improve: bool = F
 
 
 def explore_cross_exchange(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N7 - swap segments of limited size between routes."""
+    """N7 - cross exchange"""
     m = sol.instance.m
     improved = None
     checks = 0
@@ -251,7 +251,7 @@ def explore_cross_exchange(sol: Solution, max_checks=None, first_improve: bool =
     return improved
 
 def explore_k_relocate(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
-    """N8 - move small segments between routes."""
+    """N8 - k-relocate (move small segments between routes)"""
     m = sol.instance.m
     improved = None
     checks = 0
@@ -315,12 +315,7 @@ def b_vnd(
     order_mode="default"
 ) -> Solution:
     
-    # Prepare the neighborhood order
-    n_neigh = len(NEIGHBORHOOD_FUNCS)
-    usage_counter = [0] * n_neigh
-    improvement_events = [] 
-
-    # neighborhood list = list of (original_index, function)
+    # neighborhood list 
     if order_mode == "reverse":
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
 
@@ -389,7 +384,7 @@ def b_vnd(
 
 # ===================================================================
 # helpers used for RL integration
-# to run a single neighborhood (or list of neighborhoods) on a given Solution
+# to run a single neighborhood (or list of neighborhoods) on a given solution
 # ===================================================================
 def rl_bvnd_step(sol: Solution,
                  agent,
@@ -404,59 +399,35 @@ def rl_bvnd_step(sol: Solution,
     """
     its one bvnd step using RL:
     - agent proposes neighborhoods
-    - each neighborhood tried at most once
-    - stop at first improvement or when all fail
+    - we try it and save it if it improves
     """
-    tried = set()
-    best = sol
-    repeat_count = 0
-    MAX_REPEAT = 2
+    action = agent.select_action(obs) # call a neighborhood
 
-    while len(tried) < len(neighborhoods):        
-        action = agent.select_action(obs) # call a neighborhood
+    cand = b_vnd_single_neigh(
+        sol,
+        neighborhoods[action],
+        time_limit=time_limit,
+        first_improvement=first_improvement,
+        max_checks_per_neigh=max_checks_per_neigh
+    )
 
-        if action in tried:
-            repeat_count += 1
-
-            # after too many repeats of the same neighborhood, force exploration
-            if repeat_count >= MAX_REPEAT:
-                untried = list(set(range(len(neighborhoods))) - tried) 
-                if not untried:
-                    break
-                action = random.choice(untried) # try a random untried neighborhood 
-                repeat_count = 0
-            else:
-                continue
-        else:
-            repeat_count = 0
-
-        tried.add(action)
-
-        cand = b_vnd_single_neigh(
-            best,
-            neighborhoods[action],
-            time_limit=time_limit,
-            first_improvement=first_improvement,
-            max_checks_per_neigh=max_checks_per_neigh
-        )
-
-        if cand and is_better(cand, best):
-            # logging 
-            if usage_logger is not None:
-                usage_logger["counter"][action] += 1
-                if iteration is not None:
-                    usage_logger["events"].append({
-                        "iteration": iteration,
-                        "neighborhood_id": action,
-                        "neighborhood_name": NEIGHBORHOOD_NAMES[action],
-                        "F_before": best.Fval,
-                        "F_after": cand.Fval,
-                    })     
-            return cand, action, tried, True
-
-    if verbose:
-        print("[RL-BVND] No improving neighborhood found")
-    return best, None, tried, False
+    if cand and is_better(cand, sol):
+        # logging 
+        if usage_logger is not None:
+            usage_logger["counter"][action] += 1
+            if iteration is not None:
+                usage_logger["events"].append({
+                    "iteration": iteration,
+                    "neighborhood_id": action,
+                    "neighborhood_name": NEIGHBORHOOD_NAMES[action],
+                    "F_before": sol.Fval,
+                    "F_after": cand.Fval,
+                })     
+        return cand, action, True
+    else:
+        if verbose:
+            print(f"[RL-BVND] Neighborhood {action} did not improve (F={sol.Fval})")
+        return sol, action, False
 
 def b_vnd_single_neigh(sol: Solution,
                        neighborhood,
@@ -465,7 +436,7 @@ def b_vnd_single_neigh(sol: Solution,
                        first_improvement=False,
                        max_checks_per_neigh=None):
     """
-    Same logic as b_vnd, but restricted to ONE neighborhood.
+    same logic as b_vnd, but restricted to ONE neighborhood.
     """
     assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
 

@@ -3,9 +3,8 @@ import numpy as np
 import random
 import gym
 from gym import spaces
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional
 
-from .local_search import b_vnd_single_neigh, NEIGHBORHOOD_CALLABLES
 from .utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim
 
 class BVNDEnv(gym.Env):
@@ -114,8 +113,12 @@ class BVNDEnv(gym.Env):
     
         F_after = float(self.current.Fval)
 
-        # normalized improvement reward
-        reward = (F_before - F_after) / (1.0 + abs(F_before))
+        # clip raw improvement
+        raw_impr = F_before - F_after
+        raw_impr = np.clip(raw_impr, -1000.0, 1000.0)
+
+        # normalized reward
+        reward = raw_impr / (1.0 + abs(F_before))
 
         # small penalty if no improvement (keeps signal negative for wasted attempts)
         if not improved:
@@ -125,7 +128,7 @@ class BVNDEnv(gym.Env):
             if (self.current.penT == 0 and
                 self.current.penH == 0 and
                 self.current.penS == 0):
-                reward += 0.05 + 0.1 * (F_before - F_after)
+                reward += 0.1
 
         # time penalty (for faster improvements)
         reward -= self.time_penalty_coef * elapsed

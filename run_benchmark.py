@@ -1,8 +1,8 @@
 import os
 import warnings
-from gvns import benchmark
-
 warnings.filterwarnings('ignore')
+
+from gvns import benchmark
 
 # rl utilities
 from gvns.agents.qlearning_agent import QTableAgent
@@ -10,14 +10,20 @@ from gvns.utils import NEIGHBORHOOD_NAMES
 
 # parameters
 N_RUNS = 1  
+
+# ============================================================
+# saving paths
+# ============================================================
 INST_FOLDER = "instances"      
 RESULTS_FOLDER = "results-First-8"
 # RESULTS_FOLDER = "results-qlearning"
 # RESULTS_FOLDER = "results-Fist-4"
 # RESULTS_FOLDER = "results-Best-4"
 
+# ============================================================
 # GVNS hyperparameters 
 # neigh_order can be: "default", "reverse", "suggested"
+# ============================================================
 params = {
     "Contmax": 100,
     "p_init": 1,
@@ -33,9 +39,9 @@ params = {
     "neigh_order": "default"
 }
 
-# ----------------------------
+# ============================================================
 # Agent configuration
-# ----------------------------
+# ============================================================
 n_actions = len(NEIGHBORHOOD_NAMES)
 agent = QTableAgent(
     n_actions=n_actions,

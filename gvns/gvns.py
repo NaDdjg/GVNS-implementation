@@ -24,7 +24,7 @@ DEFAULT_PARAMS = {
 
 def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown"):
     # ============================================================
-    # Load parameters
+    # load parameters
     # ============================================================
     if params is None:
         cfg = DEFAULT_PARAMS.copy()
@@ -34,17 +34,16 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
 
     random.seed(cfg["seed"])
     Kmax = cfg["Kmax"]
-    depot_id = min(instance.nodes.keys())
 
     # ============================================================
-    # Logger
+    # logger
     # ============================================================
     log_path = cfg.get("log_path", "gvns_trace.jsonl")
     logger = GVNSLogger(path=log_path, console=True)
     step_counter = 0
 
     # ============================================================
-    # Initial solution
+    # initial solution
     # ============================================================
     current = random_insertion(instance, seed=cfg["seed"])
     current.w1 = cfg["w1"]
@@ -72,13 +71,14 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
               f"PenS={current.penS}, PenT={current.penT}, PenH={current.penH}")
 
     # ============================================================
-    # Main GVNS loop
+    # main GVNS loop
     # ============================================================
     cont = 0
     iteration = 0
     start = time.time()
     time_limit = cfg["Tmax"]
     delta = cfg["delta"]
+    Dp = cfg["Dp"]
     order_mode=cfg.get("neigh_order", "default")
 
     usage_logger = {
@@ -101,10 +101,10 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             break
 
         # ============================================================
-        # 1. Progressive Shaking
+        # 1. progressive shaking
         # ============================================================
         k = 1 + (iteration % Kmax)
-        shaken = ops.random_shake(current, k=k)
+        shaken = ops.random_shake(current, k=k, Dp=Dp)
         shaken.w1 = current.w1
         shaken.w2 = current.w2
         shaken.alpha = current.alpha
@@ -139,7 +139,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             obs = env.reset()
             done = False
 
-            new_sol, action, tried, improved = ls.rl_bvnd_step(
+            new_sol, action, improved = ls.rl_bvnd_step(
                 sol=env.current,
                 agent=agent,
                 obs=obs,
@@ -150,15 +150,14 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             )
 
             next_obs, reward, done, info = env.step(
-                action=action if action is not None else 0,
+                action=action,
                 improved=improved,
                 new_sol=new_sol if improved else None,
                 elapsed=elapsed
             )
 
-            # Q update omly for the improving action
-            if action is not None:
-                agent.update(obs, action, reward, next_obs, done)
+            # Q update
+            agent.update(obs, action, reward, next_obs, done)
 
             obs = next_obs
 
@@ -167,9 +166,14 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         improved.eval()
 
         # ============================================================
-        # 3. Acceptance Criterion (Move-or-Not)
+        # 3. acceptance criterion (Move-or-Not)
         # ============================================================
-        accept = improved.Fval <= (1.0 + delta) * current.Fval
+        if (improved.penS < current.penS or
+            improved.penT < current.penT or
+            improved.penH < current.penH):
+            accept = True
+        else:
+            accept = improved.Fval <= (1.0 + delta) * current.Fval
 
         if accept:
             current = improved
@@ -182,7 +186,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                        note=f"iter_{iteration}")
 
         # ============================================================
-        # 4. Track best solutions
+        # 4. track best solutions
         # ============================================================
         if improved.Fval < best_aug.Fval:
             best_aug = improved.copy()
@@ -196,12 +200,12 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                       f"f={best_feasible_f:.3f}")
 
         # ============================================================
-        # 5. Penalty Adaptation
+        # 5. penalty Adaptation
         # ============================================================
         current.self_adjust_penalties()
 
         # ============================================================
-        # 6. Print iteration summary
+        # 6. print iteration summary
         # ============================================================
         print(f"[GVNS][iter {iteration}] "
               f"F={improved.Fval:.3f} f={improved.travel_time:.3f} "

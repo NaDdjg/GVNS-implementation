@@ -3,7 +3,7 @@ import pickle
 import random
 import numpy as np
 from collections import defaultdict
-from typing import Tuple, Any, Dict
+from typing import Tuple
 
 from .base_agent import BaseAgent
 
@@ -17,9 +17,12 @@ class QTableAgent(BaseAgent):
                  eps_decay: float = 5e-4,
                  use_ucb: bool = False,
                  ucb_start_step: int = 0,
-                 seed: int = 0):
+                 seed: int = 0,
+                 debug: bool = False):
         random.seed(seed)
         np.random.seed(seed)
+
+        self.debug = debug
 
         self.n_actions = n_actions
         self.alpha = alpha
@@ -114,9 +117,9 @@ class QTableAgent(BaseAgent):
         )
 
     # BaseAgent API
-    # ------------------------------------------------------------------
+    # ============================================================
     # Action selection
-    # ------------------------------------------------------------------
+    # ============================================================
     def select_action(self, obs: np.ndarray) -> int:
         """
         given an observation (raw vector), discretize and pick action via epsilon-greedy.
@@ -128,6 +131,7 @@ class QTableAgent(BaseAgent):
         if self.use_ucb and self.total_steps >= self.ucb_start_step:
             # ensure each action is tried at least once
             untried = np.where(self.counts[s] == 0)[0]
+
             if len(untried) > 0:
                 return int(np.random.choice(untried))
 
@@ -144,9 +148,9 @@ class QTableAgent(BaseAgent):
 
         return int(np.argmax(self.Q[s]))
 
-    # ------------------------------------------------------------------
+    # ============================================================
     # Q update
-    # ------------------------------------------------------------------
+    # ============================================================
     def update(self,
                obs: np.ndarray,
                action: int,
@@ -159,11 +163,16 @@ class QTableAgent(BaseAgent):
         s = self.discretize_obs(obs)
         s_next = self.discretize_obs(next_obs)
 
-        q_sa = self.Q[s][action]
-        q_next  = 0.0 if done else float(np.max(self.Q[s_next]))
+        # past experience
+        q_old  = self.Q[s][action] 
+        # does this choice lead to a promising search region
+        q_next  = 0.0 if done else float(np.max(self.Q[s_next]))  
 
         target = reward + self.gamma * q_next 
-        self.Q[s][action] = q_sa + self.alpha * (target - q_sa)
+        # the updated belief about this neighborhood in this state
+        q_new = q_old + self.alpha * (target - q_old)
+
+        self.Q[s][action] = q_new # expected improvement if the agent try this neighborhood now
         
         # increment visit counts for UCB bookkeeping
         self.counts[s][action] += 1
@@ -173,9 +182,19 @@ class QTableAgent(BaseAgent):
         if not self.use_ucb and self.eps > self.eps_min:
             self.eps = max(self.eps_min, self.eps - self.eps_decay)
 
-    # ------------------------------------------------------------------
-    # Persistence
-    # ------------------------------------------------------------------
+        if self.debug:
+            print(
+                f"[Q-UPDATE] state={s} | "
+                f"action={action} | "
+                f"Q_old={q_old:.4f} | "       
+                f"reward={reward:.4f} | "
+                f"Q_next_max={q_next:.4f} | "
+                f"Q_new={q_new:.4f}"
+            )
+
+    # ============================================================
+    # persistence
+    # ============================================================
     def save(self, path: str):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
