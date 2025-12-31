@@ -3,9 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="gvns",
     version="0.1.0",
-    description="General Variable Neighborhood Search implementation for VRPTW-S (Masmoudi 2025)",
-    author="Your Name",
-    author_email="you@example.com",
+    description="General Variable Neighborhood Search implementation for VRPTW-S",
     packages=find_packages(exclude=("tests", "docs")),
     python_requires=">=3.8",
     install_requires=[
