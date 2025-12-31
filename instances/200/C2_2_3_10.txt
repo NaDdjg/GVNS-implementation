@@ -1,13 +1,8 @@
-C2_2_3_20			
-									
-Number of caregivers: 60			
-
-The synchronized service customers are 5th, 11th, 14th, 31th, 32th, 47th, 53th, 58th, 62th, 83th, 95th, 106th, 122th, 130th, 146th, 158th, 168th, 172th, 186th and 189th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+60
+200
+3598
+10
+5 14 31 58 62 95 122 158 172 189				
 0	70	70	0	3598	0
 1	38	105	0	3461	90
 2	100	5	668	828	90

@@ -3,6 +3,7 @@ import argparse
 import warnings
 warnings.filterwarnings('ignore')
 
+from pathlib import Path
 from gvns import benchmark
 
 # rl utilities
@@ -30,6 +31,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--instances_dir",
+    type=str,
+    default="instances/30",
+    help="Path to instance folder (instances/30, instances/100, instances/200)"
+)
+
+parser.add_argument(
     "--results_dir",
     type=str,
     default=None,
@@ -42,8 +50,7 @@ args = parser.parse_args()
 # GVNS hyperparameters 
 # neigh_order can be: "default", "reverse", "random", "suggested"
 # ============================================================
-N_RUNS = 1  
-INST_FOLDER = "instances"   
+N_RUNS = 1    
 
 params = {
     "Contmax": 100,
@@ -66,7 +73,11 @@ params = {
 agent = None
 first_improvement = False
 
-#  Fisrst improvement GVNS
+INST_FOLDER = Path(args.instances_dir)
+if not INST_FOLDER.exists():
+    raise FileNotFoundError(f"Instances directory not found: {INST_FOLDER}")
+
+#  First improvement GVNS
 if args.mode == "first":
     first_improvement = True
     params["neigh_order"] = args.neigh_order

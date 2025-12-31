@@ -6,9 +6,9 @@ dependencies:
   - numpy
   - pandas
   - matplotlib
-  - networkx
   - pytest
+  - scipy
   - pip
-  - torch
   - pip:
+      - torch
       - tqdm

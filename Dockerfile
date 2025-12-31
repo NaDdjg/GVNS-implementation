@@ -1,39 +1,24 @@
-# ------------------------------------------------------------
-# Base image with Conda
-# ------------------------------------------------------------
-FROM continuumio/miniconda3:latest
+FROM python:3.10-slim
 
 # ------------------------------------------------------------
-# Set working directory
+# set working directory
 # ------------------------------------------------------------
 WORKDIR /app
 
 # ------------------------------------------------------------
-# Copy environment definition
+# install system dependencies 
 # ------------------------------------------------------------
-COPY environment.yml .
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
-# Create conda environment
+# install Python dependencies
 # ------------------------------------------------------------
-RUN conda env create -f environment.yml
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ------------------------------------------------------------
-# Make conda env the default shell
+# Default command (can be overridden for arguments passing)
 # ------------------------------------------------------------
-SHELL ["conda", "run", "-n", "gvns-pypy", "/bin/bash", "-c"]
-
-# ------------------------------------------------------------
-# Copy project files
-# ------------------------------------------------------------
-COPY . .
-
-# ------------------------------------------------------------
-# Ensure gvns package is discoverable
-# ------------------------------------------------------------
-ENV PYTHONPATH=/app
-
-# ------------------------------------------------------------
-# Default command: run the benchmark
-# ------------------------------------------------------------
-CMD ["conda", "run", "-n", "gvns-pypy", "python", "run_benchmark.py"]
+CMD ["python", "run_benchmark.py"]

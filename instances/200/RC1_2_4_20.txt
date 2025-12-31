@@ -1,13 +1,8 @@
-RC1_2_4_10			
-									
-Number of caregivers: 60			
-
-The synchronized service customers are 5th, 14th, 31th, 58th, 62th, 95th, 122th, 158th, 172th and 189th customers.
-The remained customers require a single service.
-					
-CUSTOMER					
-NO.	XCOORD.	YCOORD.	READY.	DUE.	DURATION
-					
+60
+200
+634
+20			
+5 11 14 31 32 47 53 58 62 83 95 106 122 130 146 158 168 172 186 189			
 0	70	70	0	634	0
 1	10	86	0	562	10
 2	16	62	0	570	10
