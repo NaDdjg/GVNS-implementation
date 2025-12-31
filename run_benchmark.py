@@ -15,10 +15,16 @@ N_RUNS = 1
 # saving paths
 # ============================================================
 INST_FOLDER = "instances"      
-RESULTS_FOLDER = "results-First-8"
-# RESULTS_FOLDER = "results-qlearning"
-# RESULTS_FOLDER = "results-Fist-4"
-# RESULTS_FOLDER = "results-Best-4"
+RESULTS_FOLDER = "results\\without RL\\predefined_order\\Best"
+# RESULTS_FOLDER = "results\\without RL\\predefined_order\\First"
+# RESULTS_FOLDER = "results\\without RL\\random_order\\Best"
+# RESULTS_FOLDER = "results\\without RL\\random_order\\First"
+# RESULTS_FOLDER = "results\\without RL\\reverse_order\\Best"
+# RESULTS_FOLDER = "results\\without RL\\reverse_order\\First"
+# RESULTS_FOLDER = "results\\without RL\\suggested_order\\Best"
+# RESULTS_FOLDER = "results\\without RL\\suggested_order\\First"
+# RESULTS_FOLDER = "results\\with RL\\qlearning\\Best"
+# RESULTS_FOLDER = "results\\with RL\\qlearning\\First"
 
 # ============================================================
 # GVNS hyperparameters 
@@ -64,6 +70,6 @@ if __name__ == "__main__":
         RESULTS_FOLDER=RESULTS_FOLDER,
         PARAMS=params,
         agent=None,
-        first_improvement = True,
+        first_improvement = False,
         N_RUNS=N_RUNS
     )
