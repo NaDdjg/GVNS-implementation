@@ -2,8 +2,8 @@ import numpy as np, time
 import csv
 import os
 import matplotlib.pyplot as plt
-from run_benchmark import RESULTS_FOLDER
-from gvns.benchmark import NEIGHBORHOOD_FUNCS
+from run_benchmark_local import RESULTS_FOLDER
+from gvns.local_search import NEIGHBORHOOD_FUNCS
 
 NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 NEIGHBORHOODS = NEIGHBORHOOD_NAMES

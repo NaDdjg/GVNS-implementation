@@ -4,7 +4,6 @@ from typing import Optional
 
 import gvns.operators as ops
 from gvns.solution import Solution
-from gvns.utils import load_suggested_order, NEIGHBORHOOD_NAMES
 
 # ============================================================
 #  Lexicographic comparator 
@@ -306,6 +305,7 @@ NEIGHBORHOOD_CALLABLES  = [
     explore_cross_exchange,
     explore_k_relocate
 ]
+NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 NEIGHBORHOOD_FUNCS = NEIGHBORHOOD_CALLABLES
 
 def b_vnd(
@@ -326,6 +326,8 @@ def b_vnd(
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
 
     elif order_mode == "suggested":
+        from gvns.utils import load_suggested_order
+
         order = load_suggested_order(instance_name)
         neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
 

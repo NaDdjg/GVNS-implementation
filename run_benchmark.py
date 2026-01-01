@@ -8,7 +8,6 @@ from gvns import benchmark
 
 # rl utilities
 from gvns.agents.qlearning_agent import QTableAgent
-from gvns.utils import NEIGHBORHOOD_NAMES
 
 # ============================================================
 # Argument parsing
@@ -28,6 +27,13 @@ parser.add_argument(
     default="default",
     choices=["default", "reverse", "random", "suggested"],
     help="Neighborhood order (non-RL only)"
+)
+
+parser.add_argument(
+    "--tmax",
+    type=int,
+    default=500,
+    help="Maximum execution time per instance (seconds)"
 )
 
 parser.add_argument(
@@ -51,6 +57,7 @@ args = parser.parse_args()
 # neigh_order can be: "default", "reverse", "random", "suggested"
 # ============================================================
 N_RUNS = 1    
+NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 
 params = {
     "Contmax": 100,
@@ -81,6 +88,7 @@ if not INST_FOLDER.exists():
 if args.mode == "first":
     first_improvement = True
     params["neigh_order"] = args.neigh_order
+    params["Tmax"] = args.tmax
 
     RESULTS_FOLDER = (
         args.results_dir
@@ -91,6 +99,7 @@ if args.mode == "first":
 elif args.mode == "best":
     first_improvement = False
     params["neigh_order"] = args.neigh_order
+    params["Tmax"] = args.tmax
 
     RESULTS_FOLDER = (
         args.results_dir
@@ -100,6 +109,7 @@ elif args.mode == "best":
 #  RL based GVNS
 elif args.mode == "rl":
     # neigh_order is ignored in RL
+    params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results-rl"
 
     n_actions = len(NEIGHBORHOOD_NAMES)

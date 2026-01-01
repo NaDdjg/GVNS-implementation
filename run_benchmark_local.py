@@ -6,15 +6,15 @@ from gvns import benchmark
 
 # rl utilities
 from gvns.agents.qlearning_agent import QTableAgent
-from gvns.utils import NEIGHBORHOOD_NAMES
 
 # parameters
 N_RUNS = 1  
+NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 
 # ============================================================
 # saving paths
 # ============================================================
-INST_FOLDER = "instances"      
+INST_FOLDER = "instances/30"      
 RESULTS_FOLDER = "results\\without RL\\predefined_order\\Best"
 # RESULTS_FOLDER = "results\\without RL\\predefined_order\\First"
 # RESULTS_FOLDER = "results\\without RL\\random_order\\Best"
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         INST_FOLDER=INST_FOLDER,
         RESULTS_FOLDER=RESULTS_FOLDER,
         PARAMS=params,
-        agent=None,
+        agent=agent,
         first_improvement = True,
         N_RUNS=N_RUNS
     )
