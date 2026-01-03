@@ -48,7 +48,7 @@ def compute_route_prefixes(instance, route):
     return arrivals, starts, departs, return_to_depot
 
 def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
-                            lateness_weight=50.0, horizon_weight=50.0):
+                            lateness_weight=10.0, horizon_weight=10.0):
     """
     quick cost estimate for inserting cust at position pos in route.
     returns (cost, start_at_cust, lateness, est_end_time).
@@ -92,7 +92,7 @@ def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
     return cost, start, lateness, est_end
 
 def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
-                               sample_pos_limit=12, lateness_weight=50.0, horizon_weight=50.0):
+                               sample_pos_limit=12, lateness_weight=10.0, horizon_weight=10.0):
     """
     return best insertion info (pos, cost, start, lateness, est_end) for customer cust on vehicle v.
     for long routes it samples candidate positions to keep runtime bounded.
@@ -135,8 +135,8 @@ def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
 # main initializer
 # ============================================================
 def random_insertion(instance, seed: int = 0,
-                     lateness_weight: float = 50.0,
-                     horizon_weight: float = 50.0,
+                     lateness_weight: float = 10.0,
+                     horizon_weight: float = 10.0,
                      sample_pos_limit: int = 14,
                      top_k_vehicles_for_sync: int = 6):
     """
