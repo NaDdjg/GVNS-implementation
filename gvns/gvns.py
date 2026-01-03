@@ -54,9 +54,6 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
 
     best_aug = current.copy()
     best_aug.eval()
-    print(best_aug.Fval, best_aug.penS, best_aug.penT, best_aug.penH, best_aug.travel_time)
-    for i, r in enumerate(best_aug.tours):
-        print(i, len(r))
 
     best_feasible = None
     best_feasible_f = float("inf")
