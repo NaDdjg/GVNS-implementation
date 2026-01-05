@@ -135,8 +135,8 @@ def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
 # main initializer
 # ============================================================
 def random_insertion(instance, seed: int = 0,
-                     lateness_weight: float = 10.0,
-                     horizon_weight: float = 10.0,
+                     lateness_weight: float = 0.0,
+                     horizon_weight: float = 0.0,
                      sample_pos_limit: int = 14,
                      top_k_vehicles_for_sync: int = 6):
     """
