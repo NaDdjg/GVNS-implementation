@@ -18,6 +18,7 @@ class QTableAgent(BaseAgent):
                  use_ucb: bool = False,
                  ucb_start_step: int = 0,
                  seed: int = 0,
+                 ucb_c: float = 1.0,
                  debug: bool = False):
         random.seed(seed)
         np.random.seed(seed)
@@ -34,22 +35,19 @@ class QTableAgent(BaseAgent):
         self.eps_min = eps_min
         self.eps_decay = eps_decay
 
-        # usb controls
+        # ucb controls
         self.use_ucb = use_ucb
         self.ucb_start_step = ucb_start_step
         self.total_steps = 0
-        self.ucb_c = 1.0
-
+        self.counts = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.int32))   # N(s,a)
+        self.state_counts = defaultdict(int)   
+        self.ucb_c = ucb_c  
+        
         # Q-table
         self.Q = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.float32))
 
-        # visit counts (needed for ucb)
-        self.counts = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.int32))   # N(s,a)
-        self.state_counts = defaultdict(int)                                          # N(s)
-        self.ucb_c = 1.0 # exploration coeff 
-
-
     # discretization helper
+    # we use semantic buckets not raw values, because we don't want the agent to memorize numbers, but recongnize situations
     def discretize_obs(self, obs: np.ndarray) -> Tuple:
         """
         convert observation vector produced by BVNDEnv._make_state() into a discrete key.
@@ -75,6 +73,7 @@ class QTableAgent(BaseAgent):
         penH_flag = 1 if obs[6] > 1e-9 else 0
 
         # cont bucket 
+        # to learn which neighborhoods work better when search is stuck
         stagn  = int(obs[8])
         if stagn  == 0:
             stag_bucket  = 0     # just improved
@@ -86,8 +85,8 @@ class QTableAgent(BaseAgent):
             stag_bucket = 3      # long stagnation
 
         # neighborhood effectiveness proxy 
-        # success rate when chosen as first improving neighborhood
-        best_succ = max(obs[-self.n_actions:])  # best success rate among neighbors as proxy
+        # success rate when chosen as first improving neighborhood (how successful neighborhoods have been recently)
+        best_succ = max(obs[-self.n_actions:])  # best success rate among neighbors as proxy 
         if best_succ > 0.6:
             eff_bucket = 0   # strong
         elif best_succ > 0.2:
@@ -99,14 +98,15 @@ class QTableAgent(BaseAgent):
 
         # instance size
         n = int(obs[0])
-        if n < 25:
+        if n < 100:
             size_bucket = 0
-        elif n < 50:
+        elif n < 200:
             size_bucket = 1
         else:
             size_bucket = 2
 
         # return state key tuple 
+        # information: feasibility, is the search stuck, is the region promising, instance size
         return (
             penS_flag,
             penT_flag,
@@ -127,7 +127,7 @@ class QTableAgent(BaseAgent):
         s = self.discretize_obs(obs)
         self.total_steps += 1
 
-        # --- UCB (after warm-up) ---
+        #  UCB (after warm-up) 
         if self.use_ucb and self.total_steps >= self.ucb_start_step:
             # ensure each action is tried at least once
             untried = np.where(self.counts[s] == 0)[0]

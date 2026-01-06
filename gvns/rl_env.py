@@ -18,7 +18,7 @@ class BVNDEnv(gym.Env):
 
     def __init__(self, inst, initial_sol, first_improvement: bool = False,
                  w1: float = 0.5, w2: float = 0.1, M: float = 1e6,
-                 Tmax: float = 2000.0, b_vnd_max_iters: int = 2000, time_penalty_coef: float = 1e-3,
+                 Tmax: float = 2000.0, b_vnd_max_iters: int = None, time_penalty_coef: float = 1e-3,
                  seed: Optional[int] = None):
         super().__init__()
         self.inst = inst
@@ -66,6 +66,8 @@ class BVNDEnv(gym.Env):
 
     # state extraction and feature vector part 
     def _make_state(self) -> np.ndarray:
+        # the agent never sees the full solution, only high-level search indicators
+        # makes the agent learn how to search, not how to build solutions for specific instances
         return extract_state(
             self.inst, self.current,
             iter_no=self.step_count, start_time=self.start_time,
@@ -75,13 +77,17 @@ class BVNDEnv(gym.Env):
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> np.ndarray:
         if seed is not None:
             self.seed(seed)
-        # reset solution and metrics
+        # reset solution 
         self.current = self.initial_sol.copy()
         self.current.eval()
         self.best_F = float(self.current.Fval)
+
+        # time and iteration tracking
         self.start_time = time.time()
         self.step_count = 0
         self.last_improved_step = 0
+
+        # reset neigh stats
         self.neigh_names = NEIGHBORHOOD_NAMES
         self.n_neigh = len(self.neigh_names)
         self.neigh_attempts = [0.0] * self.n_neigh
@@ -89,12 +95,15 @@ class BVNDEnv(gym.Env):
         return self._make_state()
 
     # this is what represents the GVNS Environment 
+    # does not execute the neighborhood itself, only records the result
+    # BVND executes and reports back 
     # returns a reward and the new state
     def step(self,
-             action: int,
-             improved: bool,
-             new_sol=None,
-             elapsed: float = 0.0):
+             action: int,           # chosen neighborhood index
+             improved: bool,        # whether the neighborhood produced an improved solution
+             new_sol=None,          # the new solution if improved is True
+             elapsed: float = 0.0   # time spent in the neighborhood search
+        ):
         
         assert self.action_space.contains(action), f"Invalid action {action}"
 
@@ -115,7 +124,7 @@ class BVNDEnv(gym.Env):
 
         # clip raw improvement
         raw_impr = F_before - F_after
-        raw_impr = np.clip(raw_impr, -1000.0, 1000.0)
+        raw_impr = np.clip(raw_impr, -1000.0, 1000.0) # to prevent exploding rewards
 
         # normalized reward
         reward = raw_impr / (1.0 + abs(F_before))
@@ -135,12 +144,12 @@ class BVNDEnv(gym.Env):
 
         # termination conditions
         done = False
-        stall_limit = max(5, self.n_neigh)
+        # stall_limit = max(5, self.n_neigh)
 
         if (time.time() - self.start_time) > self.Tmax:
             done = True
-        if self.step_count - self.last_improved_step > stall_limit:
-            done = True
+        # if self.step_count - self.last_improved_step > stall_limit:
+        #     done = True
 
         info = {
             "neighborhood": self.neigh_names[action],

@@ -121,6 +121,7 @@ elif args.mode == "rl":
         eps_min=0.01,
         eps_decay=5e-4,
         use_ucb=True,
+        ucb_c=1.0,
         seed=params["seed"]
     )
 
