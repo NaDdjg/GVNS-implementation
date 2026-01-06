@@ -189,7 +189,6 @@ def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[So
 def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, pos: int) -> Optional[Solution]:
     """
     move a contiguous segment of `length` from r_from[start:start+length] into r_to at position pos.
-    allowed to temporarily break multiplicities.
     """
     m = sol.instance.m
     if r_from < 0 or r_to < 0 or r_from >= m or r_to >= m:
