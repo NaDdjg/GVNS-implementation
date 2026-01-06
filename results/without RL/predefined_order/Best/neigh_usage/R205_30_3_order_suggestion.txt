@@ -1,11 +1,11 @@
 Suggested order for instance R205_30_3:
 From most useful to least useful:
 
-N1 — usage = 14
-N2 — usage = 8
-N6 — usage = 2
-N3 — usage = 0
-N4 — usage = 0
-N5 — usage = 0
-N7 — usage = 0
-N8 — usage = 0
+N1 — usage = 1174
+N2 — usage = 1005
+N6 — usage = 40
+N8 — usage = 34
+N4 — usage = 16
+N3 — usage = 6
+N7 — usage = 6
+N5 — usage = 5
