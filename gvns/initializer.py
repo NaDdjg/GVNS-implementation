@@ -51,7 +51,7 @@ def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
                             lateness_weight=0.0, horizon_weight=0.0):
     """
     quick cost estimate for inserting cust at position pos in route.
-    returns (cost, start_at_cust, lateness, est_end_time).
+    returns (cost, start_at_cust, lateness, est_end_time)
     """
     nodes = instance.nodes
     TT = instance.travel_time
