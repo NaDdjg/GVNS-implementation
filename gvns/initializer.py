@@ -92,7 +92,7 @@ def evaluate_insertion_cost(instance, route, prefixes, pos, cust,
     return cost, start, lateness, est_end
 
 def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
-                               sample_pos_limit=12, lateness_weight=0.0, horizon_weight=0.0):
+                               sample_pos_limit=0, lateness_weight=0.0, horizon_weight=0.0):
     """
     return best insertion info (pos, cost, start, lateness, est_end) for customer cust on vehicle v.
     for long routes it samples candidate positions to keep runtime bounded.
@@ -137,8 +137,8 @@ def best_insertion_for_vehicle(instance, tours, cust, v, prefixes=None,
 def random_insertion(instance, seed: int = 0,
                      lateness_weight: float = 0.0,
                      horizon_weight: float = 0.0,
-                     sample_pos_limit: int = 14,
-                     top_k_vehicles_for_sync: int = 6):
+                     sample_pos_limit: int = 0,
+                     top_k_vehicles_for_sync: int = 0):
     """
     build an initial solution:
       - balanced assignment across vehicles (avoids dumping all customers on few vehicles)

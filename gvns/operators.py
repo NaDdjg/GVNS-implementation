@@ -386,7 +386,6 @@ def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True, Dp: int = 
 
     attempts = 0
     accepted = 0
-    max_attempts = max(200, k * 30)
 
     # helper to accept candidate if it passes sync check
     def try_accept(candidate: Optional[Solution]) -> Optional[Solution]:
@@ -401,7 +400,7 @@ def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True, Dp: int = 
         accepted += 1
         return candidate
 
-    while accepted < max(1, k) and attempts < max_attempts:
+    while accepted < max(1, k):
         attempts += 1
         r = random.random()
 
