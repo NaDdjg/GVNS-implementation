@@ -22,7 +22,7 @@ DEFAULT_PARAMS = {
     "Tmax": None,
 }
 
-def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown"):
+def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown", qtables_dir=None):
     # ============================================================
     # load parameters
     # ============================================================
@@ -156,8 +156,12 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             agent.update(obs, action, reward, next_obs, done)
 
             obs = next_obs
-
             improved = env.current
+
+            # logs for qtables
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            save_path = f"{qtables_dir}/qtable_{ts}.pkl"
+            agent.save(save_path)
 
         improved.eval()
 

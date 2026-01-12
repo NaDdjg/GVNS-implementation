@@ -15,7 +15,8 @@ def run_instance(
         params=None, 
         agent=None,
         first_improvement = True,
-        results_dir="results"
+        results_dir="results",
+        qtables_dir=None
     ):
     """run GVNS multiple times on one instance, save traces and plots."""
     name = os.path.basename(path).split(".")[0]
@@ -50,7 +51,8 @@ def run_instance(
             first_improvement = first_improvement,
             verbose=True, 
             trace_list=trace, 
-            instance_name = name
+            instance_name = name,
+            qtables_dir=qtables_dir
         )
         elapsed = time.time() - start
 
@@ -164,7 +166,7 @@ def run_instance(
 # ============================================================
 # Run folder
 # ============================================================
-def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results"):
+def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
     if not paths:
@@ -180,7 +182,8 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
             params=params, 
             agent=agent,
             first_improvement = first_improvement,
-            results_dir=results_dir
+            results_dir=results_dir,
+            qtables_dir=qtables_dir
         )
         all_results.append(res)
 
@@ -191,7 +194,7 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
 
-def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
+def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
@@ -201,5 +204,6 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, PARAMS, N_RUNS = 1, agent = None
         params=PARAMS, 
         agent=agent,
         first_improvement = first_improvement,
-        results_dir=RESULTS_FOLDER
+        results_dir=RESULTS_FOLDER,
+        qtables_dir=QTABLE_DIR
     )

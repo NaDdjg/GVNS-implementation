@@ -63,11 +63,17 @@ agent = QTableAgent(
 # this is just a utility to ensure results folder exists
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
+QTABLE_DIR = None
+if agent is not None:
+    QTABLE_DIR = os.path.join(RESULTS_FOLDER, "qtables")
+    os.makedirs(QTABLE_DIR, exist_ok=True)
+
 # run benchmark
 if __name__ == "__main__":
     benchmark.benchmark_main(
         INST_FOLDER=INST_FOLDER,
         RESULTS_FOLDER=RESULTS_FOLDER,
+        QTABLE_DIR=QTABLE_DIR,
         PARAMS=params,
         agent=agent,
         first_improvement = True,

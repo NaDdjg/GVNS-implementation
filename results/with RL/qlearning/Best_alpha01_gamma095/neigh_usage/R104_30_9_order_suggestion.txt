@@ -1,11 +1,11 @@
 Suggested order for instance R104_30_9:
 From most useful to least useful:
 
-N2 — usage = 54
-N4 — usage = 13
-N3 — usage = 8
-N8 — usage = 8
-N7 — usage = 7
-N1 — usage = 6
-N6 — usage = 5
-N5 — usage = 4
+N2 — usage = 24
+N7 — usage = 23
+N8 — usage = 23
+N6 — usage = 21
+N4 — usage = 19
+N1 — usage = 18
+N3 — usage = 18
+N5 — usage = 18

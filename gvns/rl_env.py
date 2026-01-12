@@ -1,8 +1,8 @@
 import time
 import numpy as np
 import random
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 from typing import Optional
 
 from .utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim

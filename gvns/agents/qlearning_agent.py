@@ -197,10 +197,37 @@ class QTableAgent(BaseAgent):
     # ============================================================
     def save(self, path: str):
         os.makedirs(os.path.dirname(path), exist_ok=True)
+        payload = {
+            "Q": dict(self.Q),
+            "counts": dict(self.counts),
+            "state_counts": dict(self.state_counts),
+            "eps": self.eps,
+            "total_steps": self.total_steps,
+            "params": {
+                "alpha": self.alpha,
+                "gamma": self.gamma,
+                "n_actions": self.n_actions,
+                "use_ucb": self.use_ucb,
+                "ucb_c": self.ucb_c
+            }
+        }
         with open(path, "wb") as f:
-            pickle.dump(dict(self.Q), f)
+            pickle.dump(payload, f)
+
 
     def load(self, path: str):
         with open(path, "rb") as f:
             data = pickle.load(f)
-        self.Q = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.float32), data)
+    
+        self.Q = defaultdict(
+            lambda: np.zeros(self.n_actions, dtype=np.float32),
+            data["Q"]
+        )
+        self.counts = defaultdict(
+            lambda: np.zeros(self.n_actions, dtype=np.int32),
+            data.get("counts", {})
+        )
+        self.state_counts = defaultdict(int, data.get("state_counts", {}))
+    
+        self.eps = data.get("eps", self.eps)
+        self.total_steps = data.get("total_steps", 0)
