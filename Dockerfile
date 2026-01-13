@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y \
 # ------------------------------------------------------------
 # install Python dependencies
 # ------------------------------------------------------------
-COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
 # ------------------------------------------------------------
 # Default command (can be overridden for arguments passing)

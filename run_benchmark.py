@@ -115,7 +115,7 @@ elif args.mode == "rl":
     n_actions = len(NEIGHBORHOOD_NAMES)
     agent = QTableAgent(
         n_actions=n_actions,
-        alpha=0.2,
+        alpha=0.1,
         gamma=0.95,
         eps_start=0.1,
         eps_min=0.01,

@@ -8,6 +8,12 @@ from typing import Tuple
 from .base_agent import BaseAgent
 
 class QTableAgent(BaseAgent):
+    def _new_q_row(self):
+        return np.zeros(self.n_actions, dtype=np.float32)
+
+    def _new_count_row(self):
+        return np.zeros(self.n_actions, dtype=np.int32)
+
     def __init__(self,
                  n_actions: int ,
                  alpha: float = 0.1,
@@ -39,12 +45,12 @@ class QTableAgent(BaseAgent):
         self.use_ucb = use_ucb
         self.ucb_start_step = ucb_start_step
         self.total_steps = 0
-        self.counts = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.int32))   # N(s,a)
+        self.counts = defaultdict(self._new_count_row)   # N(s,a)
         self.state_counts = defaultdict(int)   
         self.ucb_c = ucb_c  
         
         # Q-table
-        self.Q = defaultdict(lambda: np.zeros(self.n_actions, dtype=np.float32))
+        self.Q = defaultdict(self._new_q_row)
 
     # discretization helper
     # we use semantic buckets not raw values, because we don't want the agent to memorize numbers, but recongnize situations

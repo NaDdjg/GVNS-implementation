@@ -75,7 +75,7 @@ if __name__ == "__main__":
         RESULTS_FOLDER=RESULTS_FOLDER,
         QTABLE_DIR=QTABLE_DIR,
         PARAMS=params,
-        agent=agent,
+        agent=None,
         first_improvement = True,
         N_RUNS=N_RUNS
     )

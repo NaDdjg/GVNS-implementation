@@ -5,6 +5,9 @@ import numpy as np # type: ignore
 import pandas as pd  # type: ignore
 import matplotlib.pyplot as plt # type: ignore
 
+import multiprocessing as mp
+from functools import partial
+
 from gvns.instance import Instance
 from gvns.gvns import run_gvns
 
@@ -166,6 +169,25 @@ def run_instance(
 # ============================================================
 # Run folder
 # ============================================================
+def _run_one_instance_mp(
+    path_full,
+    n_runs,
+    params,
+    agent,
+    first_improvement,
+    results_dir,
+    qtables_dir
+):
+    return run_instance(
+        path_full,
+        n_runs=n_runs,
+        params=params,
+        agent=agent,
+        first_improvement=first_improvement,
+        results_dir=results_dir,
+        qtables_dir=qtables_dir
+    )
+
 def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
@@ -193,17 +215,74 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
     print("\nBenchmark completed.")
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
+def run_folder_parallel(
+    folder,
+    n_runs=1,
+    params=None,
+    agent=None,
+    first_improvement=True,
+    results_dir="results",
+    qtables_dir=None,
+    n_processes=None  
+):
+    """Run all instances in parallel (one process per instance)."""
+
+    paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
+    if not paths:
+        print(f"No .txt instances found in {folder}")
+        return
+
+    os.makedirs(results_dir, exist_ok=True)
+    full_paths = [os.path.join(folder, p) for p in paths]
+
+    worker = partial(
+        _run_one_instance_mp,
+        n_runs=n_runs,
+        params=params,
+        agent=agent,
+        first_improvement=first_improvement,
+        results_dir=results_dir,
+        qtables_dir=qtables_dir,
+    )
+
+    n_proc = n_processes or mp.cpu_count()
+    print(f"Running {len(full_paths)} instances in parallel on {n_proc} processes")
+
+    pool = mp.Pool(processes=n_proc)
+
+    try:
+        all_results = pool.map(worker, full_paths)
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt received, terminating workers...")
+        pool.terminate()   # kill workers immediately
+        pool.join()
+        print("All worker processes terminated.")
+        return
+    else:
+        pool.close()       # normal shutdown
+        pool.join()
+
+    # combine all summaries into one global summary CSV
+    df_all = pd.concat(all_results, ignore_index=True)
+    df_all.to_csv(
+        os.path.join(results_dir, "all_instances_summary.csv"),
+        index=False
+    )
+
+    print("\nBenchmark completed.")
+    print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
 def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-    run_folder(
-        folder=INST_FOLDER, 
-        n_runs=N_RUNS, 
-        params=PARAMS, 
+    run_folder_parallel(
+        folder=INST_FOLDER,
+        n_runs=N_RUNS,
+        params=PARAMS,
         agent=agent,
-        first_improvement = first_improvement,
-        results_dir=RESULTS_FOLDER,
-        qtables_dir=QTABLE_DIR
+        first_improvement=first_improvement,
+        results_dir=RESULTS_FOLDER,            
+        qtables_dir=QTABLE_DIR,
+        n_processes=18
     )

@@ -178,12 +178,12 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         if accept:
             current = improved
             cont = 0
-            logger.log("accepted", step_counter := step_counter + 1, current,
-                       note=f"iter_{iteration}")
+            # logger.log("accepted", step_counter := step_counter + 1, current,
+            #            note=f"iter_{iteration}")
         else:
             cont += 1
-            logger.log("rejected", step_counter := step_counter + 1, improved,
-                       note=f"iter_{iteration}")
+            # logger.log("rejected", step_counter := step_counter + 1, improved,
+            #            note=f"iter_{iteration}")
 
         # ============================================================
         # 4. track best solutions
