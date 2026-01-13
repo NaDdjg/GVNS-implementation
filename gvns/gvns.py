@@ -159,9 +159,9 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             improved = env.current
 
             # logs for qtables
-            ts = time.strftime("%Y%m%d_%H%M%S")
-            save_path = f"{qtables_dir}/qtable_{ts}.pkl"
-            agent.save(save_path)
+            # ts = time.strftime("%Y%m%d_%H%M%S")
+            # save_path = f"{qtables_dir}/qtable_{ts}.pkl"
+            # agent.save(save_path)
 
         improved.eval()
 
