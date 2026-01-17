@@ -12,7 +12,7 @@ NEIGHBORHOODS = NEIGHBORHOOD_NAMES
 # local search utils 
 # ===================================================================
 def save_neighborhood_usage(counter, instance_name):
-    """
+    """                                                                                                                                                                                                            
     saves counts of usage of each neighborhood during the local search
     """
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
@@ -67,10 +67,7 @@ def save_neighborhood_heatmap(counter, instance_name):
     plt.savefig(path, bbox_inches="tight")
     plt.close()
 
-def save_suggested_order(counter, instance_name):
-    """
-    crates an order suggestion based on the usage counts of each neighborhood
-    """
+def save_suggested_order(counter, instance_name, neighborhoods):
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
     neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
     os.makedirs(neigh_folder, exist_ok=True)

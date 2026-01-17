@@ -5,3 +5,4 @@ pytest
 tqdm
 torch
 gymnasium 
+snakeviz
