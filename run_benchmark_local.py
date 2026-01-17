@@ -31,6 +31,7 @@ RESULTS_FOLDER = "results\\without RL\\predefined_order\\Best"
 # neigh_order can be: "default", "reverse", "suggested"
 # ============================================================
 params = {
+    "log_path": "result_summaries/debug/gvns_trace.jsonl",
     "Contmax": 100,
     "p_init": 1,
     "p_max": 10,

@@ -8,8 +8,8 @@ The results are written into a file: OUTPUT_FILE
 
 import json
 
-INPUT_FILE = "gvns_trace.jsonl"
-OUTPUT_FILE = "result_summaries/analysis_output.txt"
+INPUT_FILE = "result_summaries/debug/gvns_trace.jsonl"
+OUTPUT_FILE = "result_summaries/debug/analysis_output.txt"
 
 def format_visit(rec):
     node = rec["node"]

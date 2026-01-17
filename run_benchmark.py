@@ -46,7 +46,7 @@ parser.add_argument(
 parser.add_argument(
     "--results_dir",
     type=str,
-    default=None,
+    default="results/last_execution",
     help="optional custom results directory"
 )
 
@@ -60,6 +60,7 @@ N_RUNS = 1
 NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 
 params = {
+    "log_path": "result_summaries/debug/gvns_trace.jsonl",
     "Contmax": 100,
     "p_init": 1,
     "p_max": 10,
