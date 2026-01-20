@@ -6,3 +6,4 @@ tqdm
 torch
 gymnasium 
 snakeviz
+line_profiler
