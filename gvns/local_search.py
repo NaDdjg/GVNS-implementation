@@ -318,7 +318,10 @@ def b_vnd(
     usage_logger: dict = None,
     iteration: int = None,
     instance_name="unknown",
-    order_mode="default"
+    order_mode="default",
+
+    search_state=None,    
+    ls_logger=None, 
 ) -> Solution:
     
     # neighborhood list 
@@ -358,14 +361,31 @@ def b_vnd(
             if time_limit and (time.time() - start) > time_limit:
                 break
 
+            if search_state is not None:
+                search_state.before_ls(
+                    k=idx,
+                    iter_gvns=iteration
+                )
+
+            F_before = best.Fval
+            t0 = time.time()
+
             cand = explorer(
                 best, 
                 max_checks=max_checks_per_neigh, 
                 first_improve=first_improvement
             )
 
+            elapsed = time.time() - t0
+
+            improved = False
+            F_after = F_before
+
             if cand and is_better(cand, best):
+                cand.eval()
                 best = cand
+                improved = True
+                F_after = best.Fval
                 improved_any = True
 
                 # logging
@@ -376,9 +396,37 @@ def b_vnd(
                             "iteration": iteration,
                             "neighborhood_id": idx,
                             "neighborhood_name": NEIGHBORHOOD_NAMES[idx],
-                            "F_before": best.Fval,
-                            "F_after": cand.Fval,
+                            "F_before": F_before,
+                            "F_after": F_after,
                         })
+            
+            if search_state is not None:
+                search_state.after_ls(
+                    improved=improved,
+                    F_before=F_before,
+                    F_after=F_after,
+                    elapsed=elapsed,
+                    solution=best
+                )
+
+                features = search_state.get_features(
+                    k=idx,
+                    k_max=len(neighborhoods)
+                )
+
+                if ls_logger is not None:
+                    ls_logger.log(
+                        gvns_iter=iteration,
+                        neigh_id=idx,
+                        neigh_name=NEIGHBORHOOD_NAMES[idx],
+                        features=features,
+                        improved=improved,
+                        F_before=F_before,
+                        F_after=F_after,
+                        elapsed=elapsed,
+                    )
+                
+            if improved:
                 break  # restart from first neighborhood
 
         if not improved_any:

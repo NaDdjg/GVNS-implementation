@@ -1,6 +1,10 @@
+import os
 import time
 import random
+import numpy as np
 
+from gvns.data_generation.ls_logger import LSDecisionLogger
+from gvns.search_state.search_state import SearchState
 from gvns.solution import Solution
 from gvns.initializer import random_insertion
 import gvns.operators as ops
@@ -8,7 +12,7 @@ import gvns.local_search as ls
 from gvns.logger import GVNSLogger
 from gvns.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
 
-from gvns.rl_env import BVNDEnv
+from gvns.rl.rl_env import BVNDEnv
 
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
@@ -32,8 +36,16 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         cfg = DEFAULT_PARAMS.copy()
         cfg.update(params)
 
-    random.seed(cfg["seed"])
     Kmax = cfg["Kmax"]
+
+    base_seed = cfg["seed"]
+    # derive deterministic instance-specific seed
+    inst_seed = abs(hash(instance_name)) % (2**32)
+
+    final_seed = base_seed + inst_seed
+
+    random.seed(final_seed)
+    np.random.seed(final_seed)
 
     # ============================================================
     # logger
@@ -83,6 +95,24 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         "events": []
     }
 
+    search_state = SearchState(
+        instance=instance,
+        time_limit=time_limit
+    )
+    search_state.reset()
+
+    # LS decision logger
+    mode = "FI" if first_improvement else "BI"
+    output_dir = os.path.join("gvns", "ls_data", mode)
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"{instance_name}.csv")
+    
+    ls_logger = LSDecisionLogger(
+        output_path=output_path,
+        instance_name=instance_name,
+        mode=mode
+    )
+
     # ============================================================
     # GVNS iterating
     # ============================================================
@@ -119,7 +149,10 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 first_improvement=first_improvement,
                 order_mode=order_mode,
                 usage_logger=usage_logger,
-                instance_name=instance_name
+                instance_name=instance_name,
+                iteration=iteration,                   
+                search_state=search_state, 
+                ls_logger=ls_logger
             )
         else: 
             #  RL-DRIVEN BVND 
@@ -245,4 +278,5 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     best_aug.eval()
     best_aug.best_time = None
     logger.close()
+    ls_logger.close()
     return best_aug
