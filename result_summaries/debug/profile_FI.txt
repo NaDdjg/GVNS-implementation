@@ -1,0 +1,2229 @@
+Timer unit: 0.001 s
+
+Total time: 0 s
+
+Could not find file <string>
+Are you sure you are running this program from the same directory
+that you ran the profiler from?
+Continuing without the function's contents.
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+     2                                           
+
+Total time: 1.66823 s
+
+Could not find file <string>
+Are you sure you are running this program from the same directory
+that you ran the profiler from?
+Continuing without the function's contents.
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+     2                                           
+     3    104747        214.6      0.0     12.9  
+     4    104747        194.9      0.0     11.7  
+     5    104747        141.9      0.0      8.5  
+     6    104747        121.4      0.0      7.3  
+     7    104747        111.9      0.0      6.7  
+     8    104747        140.6      0.0      8.4  
+     9    104747        116.1      0.0      7.0  
+    10    104747        109.9      0.0      6.6  
+    11    104747        121.7      0.0      7.3  
+    12    104747        137.4      0.0      8.2  
+    13    104747        123.7      0.0      7.4  
+    14    104747        134.0      0.0      8.0  
+
+Total time: 659.324 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\benchmark.py
+Function: run_instance at line 16
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    16                                           def run_instance(
+    17                                                   path, 
+    18                                                   n_runs=1, 
+    19                                                   params=None, 
+    20                                                   agent=None,
+    21                                                   first_improvement = True,
+    22                                                   results_dir="results",
+    23                                                   qtables_dir=None
+    24                                               ):
+    25                                               """run GVNS multiple times on one instance, save traces and plots."""
+    26         1          0.1      0.1      0.0      name = os.path.basename(path).split(".")[0]
+    27         1          0.6      0.6      0.0      print(f"\n=== Running instance {name} ===")
+    28                                           
+    29         1          0.0      0.0      0.0      seed = params.get("seed", 42) if params else 42
+    30         1          0.0      0.0      0.0      random.seed(seed)
+    31         1          0.2      0.2      0.0      np.random.seed(seed)
+    32                                           
+    33         1         14.1     14.1      0.0      inst = Instance().load_liu_format(path)
+    34         1          0.0      0.0      0.0      best_overall = None
+    35         1          0.0      0.0      0.0      results = []
+    36                                           
+    37         2          0.0      0.0      0.0      for run_id in range(1, n_runs + 1):
+    38         1          0.5      0.5      0.0          print(f"\n[RUN {run_id}/{n_runs}] Starting GVNS on {name} ...")
+    39                                           
+    40                                                   # new agent per run (no leakage)
+    41         1          0.0      0.0      0.0          run_agent = None
+    42         1          0.0      0.0      0.0          if agent is not None:
+    43                                                       run_agent = agent.clone() if hasattr(agent, "clone") else agent
+    44                                           
+    45         1          0.0      0.0      0.0          start = time.time()
+    46         1          0.0      0.0      0.0          trace = []
+    47                                           
+    48                                                   # ============================================================
+    49                                                   # Run GVNS (classic or RL)
+    50                                                   # ============================================================
+    51         2     650105.1 325052.5     98.6          best = run_gvns(
+    52         1          0.0      0.0      0.0              inst, 
+    53         1          0.0      0.0      0.0              params=params, 
+    54         1          0.0      0.0      0.0              agent=run_agent, 
+    55         1          0.0      0.0      0.0              first_improvement = first_improvement,
+    56         1          0.0      0.0      0.0              verbose=True, 
+    57         1          0.0      0.0      0.0              trace_list=trace, 
+    58         1          0.0      0.0      0.0              instance_name = name,
+    59         1          0.0      0.0      0.0              qtables_dir=qtables_dir
+    60                                                   )
+    61         1          0.0      0.0      0.0          elapsed = time.time() - start
+    62                                           
+    63                                                   # ============================================================
+    64                                                   # Build trace DataFrame
+    65                                                   # ============================================================
+    66                                                   # if trace is empty, produce an empty DataFrame with canonical columns
+    67         1          0.0      0.0      0.0          if not trace:
+    68                                                       cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
+    69                                                       df = pd.DataFrame(columns=cols)
+    70                                                   else:
+    71                                                       # determine max row length
+    72         1          0.0      0.0      0.0              max_len = max(len(r) for r in trace)
+    73                                                       # pad shorter rows with None
+    74         1          0.0      0.0      0.0              normalized = [list(r) + [None] * (max_len - len(r)) for r in trace]
+    75                                           
+    76         1          0.0      0.0      0.0              if max_len == 7:
+    77         1          0.0      0.0      0.0                  cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
+    78                                                       elif max_len == 8:
+    79                                                           cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed", "best_feasible_f"]
+    80                                                       else:
+    81                                                           # fallback generic column names
+    82                                                           cols = [f"col{i}" for i in range(max_len)]
+    83         1         18.3     18.3      0.0              df = pd.DataFrame(normalized, columns=cols)
+    84                                           
+    85                                                   # save trace as CSV
+    86         1          1.0      1.0      0.0          os.makedirs(results_dir, exist_ok=True)
+    87         1          0.8      0.8      0.0          csv_path = os.path.join(results_dir, f"{name}_run{run_id}.csv")
+    88         1         44.0     44.0      0.0          df.to_csv(csv_path, index=False)
+    89                                           
+    90                                                   # attempt to extract best_feasible_f from trace if present
+    91         1          0.0      0.0      0.0          best_f_feasible = None
+    92         1          7.3      7.3      0.0          if "best_feasible_f" in df.columns:
+    93                                                       # take the last non-null value
+    94                                                       series = df["best_feasible_f"].dropna()
+    95                                                       if not series.empty:
+    96                                                           best_f_feasible = float(series.iloc[-1])
+    97                                           
+    98                                                   # record final stats (best returned object still used)
+    99         2          0.0      0.0      0.0          results.append({
+   100         1          0.0      0.0      0.0              "instance": name,
+   101         1          0.0      0.0      0.0              "run": run_id,
+   102         1          0.0      0.0      0.0              "best_f": best.travel_time,
+   103         1          0.0      0.0      0.0              "PenT": best.penT,
+   104         1          0.0      0.0      0.0              "PenH": best.penH,
+   105         1          0.0      0.0      0.0              "PenS": best.penS,
+   106         1          0.0      0.0      0.0              "time": best.best_time
+   107                                                   })
+   108                                           
+   109         1          0.0      0.0      0.0          if best_overall is None or best.travel_time < best_overall.travel_time:
+   110         1          0.2      0.2      0.0              best_overall = best.copy()
+   111                                           
+   112                                                   # plot evolution of f (travel cost) and best feasible f line
+   113         1       6500.9   6500.9      1.0          plt.figure(figsize=(8, 5))
+   114         1        167.7    167.7      0.0          plt.title(f"GVNS evolution for {name} (run {run_id})")
+   115         1          0.4      0.4      0.0          plt.xlabel("Iteration")
+   116         1          0.4      0.4      0.0          plt.ylabel("Objective f (travel distance)")
+   117                                           
+   118                                                   # raw f points
+   119         1          0.1      0.1      0.0          if "iter" in df.columns and "f" in df.columns and not df.empty:
+   120         1         12.6     12.6      0.0              feasible_df = df[(df["PenT"] == 0) & (df["PenH"] == 0) & (df["PenS"] == 0)]
+   121         1          0.0      0.0      0.0              if not feasible_df.empty:
+   122         2         13.0      6.5      0.0                  plt.scatter(feasible_df["iter"], feasible_df["f"], s=20,
+   123         1          0.0      0.0      0.0                              label="feasible f (raw accepted)", alpha=0.7)
+   124                                           
+   125                                                       # compute feasible-best series: only consider iterations where penalties are zero (if those columns exist)
+   126         1          0.0      0.0      0.0              best_series = []
+   127         1          0.0      0.0      0.0              best_val = float("inf")
+   128         5          2.0      0.4      0.0              for _, row in df.iterrows():
+   129         4          0.3      0.1      0.0                  f = row.get("f", None)
+   130         4          0.2      0.0      0.0                  PenT = row.get("PenT", None)
+   131         4          0.1      0.0      0.0                  PenH = row.get("PenH", None)
+   132         4          0.1      0.0      0.0                  PenS = row.get("PenS", None)
+   133                                                           # update best only when fully feasible (all penalties zero) and f is positive
+   134         4          0.0      0.0      0.0                  if (PenT in (0.0, 0, None) and PenH in (0.0, 0, None) and PenS in (0.0, 0, None)):
+   135                                                               # if penalties columns are None, we cannot rely on them; treat as unknown -> do not update best
+   136         4          0.0      0.0      0.0                      if (PenT is None) or (PenH is None) or (PenS is None):
+   137                                                                   best_series.append(best_val if best_val < float("inf") else float("nan"))
+   138                                                                   continue
+   139         4          0.0      0.0      0.0                      if f is not None and f > 0:
+   140         4          0.0      0.0      0.0                          if f < best_val:
+   141         2          0.0      0.0      0.0                              best_val = f
+   142         4          0.0      0.0      0.0                  best_series.append(best_val if best_val < float("inf") else float("nan"))
+   143                                           
+   144         1          3.6      3.6      0.0              plt.plot(df["iter"], best_series, label="best feasible f (so far)", linewidth=2)
+   145                                           
+   146         1         27.4     27.4      0.0          plt.legend()
+   147         1          2.6      2.6      0.0          plt.grid(True, linestyle="--", alpha=0.5)
+   148         1       1266.1   1266.1      0.2          plt.tight_layout()
+   149                                           
+   150         1          0.1      0.1      0.0          plot_path = os.path.join(results_dir, f"{name}_run{run_id}.png")
+   151         1        936.2    936.2      0.1          plt.savefig(plot_path, dpi=150)
+   152         1         44.0     44.0      0.0          plt.close()
+   153                                           
+   154         1          0.4      0.4      0.0          print(f"[RUN {run_id}] Done. Best f={best.travel_time:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
+   155                                           
+   156                                               # summary over all runs
+   157         1         21.8     21.8      0.0      df_res = pd.DataFrame(results)
+   158         1          0.1      0.1      0.0      summary_path = os.path.join(results_dir, f"{name}_summary.csv")
+   159         1         14.0     14.0      0.0      df_res.to_csv(summary_path, index=False)
+   160                                           
+   161         1          1.3      1.3      0.0      print(f"\n=== Summary for {name} ===")
+   162                                               # safe prints even if some keys missing
+   163         1          0.5      0.5      0.0      cols_to_show = [c for c in ["run", "best_f", "best_feasible_f", "PenS", "time"] if c in df_res.columns]
+   164         1        112.4    112.4      0.0      print(df_res[cols_to_show])
+   165         1          2.4      2.4      0.0  UnicodeEncodeError - help wanted for a fix
+   166                                           
+   167         1          0.0      0.0      0.0      return df_res
+
+Total time: 650.102 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\gvns.py
+Function: run_gvns at line 29
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    29                                           def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown", qtables_dir=None):
+    30                                               # ============================================================
+    31                                               # load parameters
+    32                                               # ============================================================
+    33         1          0.0      0.0      0.0      if params is None:
+    34                                                   cfg = DEFAULT_PARAMS.copy()
+    35                                               else:
+    36         1          0.0      0.0      0.0          cfg = DEFAULT_PARAMS.copy()
+    37         1          0.0      0.0      0.0          cfg.update(params)
+    38                                           
+    39         1          0.0      0.0      0.0      Kmax = cfg["Kmax"]
+    40                                           
+    41         1          0.0      0.0      0.0      base_seed = cfg["seed"]
+    42                                               # derive deterministic instance-specific seed
+    43         1          0.0      0.0      0.0      inst_seed = abs(hash(instance_name)) % (2**32)
+    44                                           
+    45         1          0.0      0.0      0.0      final_seed = base_seed + inst_seed
+    46                                           
+    47         1          0.0      0.0      0.0      random.seed(final_seed)
+    48         1          0.0      0.0      0.0      np.random.seed(final_seed)
+    49                                           
+    50                                               # ============================================================
+    51                                               # logger
+    52                                               # ============================================================
+    53         1          0.0      0.0      0.0      log_path = cfg.get("log_path", "gvns_trace.jsonl")
+    54         1          0.8      0.8      0.0      logger = GVNSLogger(path=log_path, console=True)
+    55         1          0.0      0.0      0.0      step_counter = 0
+    56                                           
+    57                                               # ============================================================
+    58                                               # initial solution
+    59                                               # ============================================================
+    60         1         31.8     31.8      0.0      current = random_insertion(instance, seed=cfg["seed"])
+    61         1          0.0      0.0      0.0      current.w1 = cfg["w1"]
+    62         1          0.0      0.0      0.0      current.w2 = cfg["w2"]
+    63         1          0.0      0.0      0.0      current.alpha = cfg["alpha"]
+    64         1          0.0      0.0      0.0      current.M = cfg["M"]
+    65         1          7.9      7.9      0.0      current.eval()
+    66                                           
+    67         1          0.4      0.4      0.0      best_aug = current.copy()
+    68         1         12.6     12.6      0.0      best_aug.eval()
+    69                                           
+    70         1          0.0      0.0      0.0      best_feasible = None
+    71         1          0.0      0.0      0.0      best_feasible_f = float("inf")
+    72         1          0.0      0.0      0.0      best_feasible_time = None
+    73                                           
+    74         1          0.0      0.0      0.0      if current.penS == 0 and current.penT == 0 and current.penH == 0:
+    75                                                   best_feasible = current.copy()
+    76                                                   best_feasible_f = current.travel_time
+    77                                           
+    78         1          0.0      0.0      0.0      if verbose:
+    79         4          0.4      0.1      0.0          print(f"[GVNS] Init: F={current.Fval:.3f}, f={current.travel_time:.3f}, "
+    80         3          0.0      0.0      0.0                f"PenS={current.penS}, PenT={current.penT}, PenH={current.penH}")
+    81                                           
+    82                                               # ============================================================
+    83                                               # main GVNS loop
+    84                                               # ============================================================
+    85         1          0.0      0.0      0.0      cont = 0
+    86         1          0.0      0.0      0.0      iteration = 0
+    87         1          0.0      0.0      0.0      start = time.time()
+    88         1          0.0      0.0      0.0      time_limit = cfg["Tmax"]
+    89         1          0.0      0.0      0.0      delta = cfg["delta"]
+    90         1          0.0      0.0      0.0      Dp = cfg["Dp"]
+    91         1          0.0      0.0      0.0      order_mode=cfg.get("neigh_order", "default")
+    92                                           
+    93         1          0.0      0.0      0.0      usage_logger = {
+    94         1          0.3      0.3      0.0          "counter": [0] * len(ls.NEIGHBORHOOD_FUNCS), # usage counts per neighborhood 
+    95         1          0.0      0.0      0.0          "events": []
+    96                                               }
+    97                                           
+    98         2          0.4      0.2      0.0      search_state = SearchState(
+    99         1          0.0      0.0      0.0          instance=instance,
+   100         1          0.0      0.0      0.0          time_limit=time_limit
+   101                                               )
+   102         1          0.0      0.0      0.0      search_state.reset()
+   103                                           
+   104                                               # LS decision logger
+   105         1          0.0      0.0      0.0      mode = "FI" if first_improvement else "BI"
+   106         1          0.1      0.1      0.0      output_dir = os.path.join("gvns", "ls_data", mode)
+   107         1          0.5      0.5      0.0      os.makedirs(output_dir, exist_ok=True)
+   108         1          0.0      0.0      0.0      output_path = os.path.join(output_dir, f"{instance_name}.csv")
+   109                                               
+   110         2          1.6      0.8      0.0      ls_logger = LSDecisionLogger(
+   111         1          0.0      0.0      0.0          output_path=output_path,
+   112         1          0.0      0.0      0.0          instance_name=instance_name,
+   113         1          0.0      0.0      0.0          mode=mode
+   114                                               )
+   115                                           
+   116                                               # ============================================================
+   117                                               # GVNS iterating
+   118                                               # ============================================================
+   119         5          0.0      0.0      0.0      while True:
+   120         5          0.0      0.0      0.0          iteration += 1
+   121         5          0.0      0.0      0.0          elapsed = time.time() - start
+   122                                           
+   123         5          0.0      0.0      0.0          if time_limit and elapsed >= time_limit:
+   124         1          0.3      0.3      0.0              print("[GVNS] Time limit reached.")
+   125         1          0.0      0.0      0.0              break
+   126         4          0.0      0.0      0.0          if cont >= cfg["Contmax"]:
+   127                                                       print("[GVNS] Non-improvement limit reached.")
+   128                                                       break
+   129                                           
+   130                                                   # ============================================================
+   131                                                   # 1. progressive shaking
+   132                                                   # ============================================================
+   133         4          0.0      0.0      0.0          k = 1 + (iteration % Kmax)
+   134         4         29.4      7.3      0.0          shaken = ops.random_shake(current, k=k, Dp=Dp)
+   135         4          0.0      0.0      0.0          shaken.w1 = current.w1
+   136         4          0.0      0.0      0.0          shaken.w2 = current.w2
+   137         4          0.0      0.0      0.0          shaken.alpha = current.alpha
+   138         4          0.0      0.0      0.0          shaken.M = current.M
+   139         4         46.4     11.6      0.0          shaken.eval()
+   140                                           
+   141                                                   # ============================================================
+   142                                                   # 2. BVND (classic local search/RL)
+   143                                                   # ============================================================
+   144         4          0.0      0.0      0.0          if agent is None:
+   145                                                       #  CLASSIC BVND 
+   146         8     649901.1  81237.6    100.0              improved = ls.b_vnd(
+   147         4          0.0      0.0      0.0                  shaken,
+   148         4          0.0      0.0      0.0                  max_no_improve=1,
+   149         4          0.0      0.0      0.0                  first_improvement=first_improvement,
+   150         4          0.0      0.0      0.0                  order_mode=order_mode,
+   151         4          0.0      0.0      0.0                  usage_logger=usage_logger,
+   152         4          0.0      0.0      0.0                  instance_name=instance_name,
+   153         4          0.0      0.0      0.0                  iteration=iteration,                   
+   154         4          0.0      0.0      0.0                  search_state=search_state, 
+   155         4          0.0      0.0      0.0                  ls_logger=ls_logger
+   156                                                       )
+   157                                                   else: 
+   158                                                       #  RL-DRIVEN BVND 
+   159                                                       env = BVNDEnv(
+   160                                                           inst=instance,
+   161                                                           initial_sol=shaken,
+   162                                                           w1=cfg["w1"],
+   163                                                           w2=cfg["w2"],
+   164                                                           M=cfg["M"],
+   165                                                           Tmax=cfg["Tmax"] or 1e9,
+   166                                                       )
+   167                                           
+   168                                                       obs = env.reset()
+   169                                                       done = False
+   170                                           
+   171                                                       new_sol, action, improved = ls.rl_bvnd_step(
+   172                                                           sol=env.current,
+   173                                                           agent=agent,
+   174                                                           obs=obs,
+   175                                                           neighborhoods=ls.NEIGHBORHOOD_FUNCS,
+   176                                                           first_improvement=first_improvement,
+   177                                                           iteration=iteration, 
+   178                                                           usage_logger=usage_logger
+   179                                                       )
+   180                                           
+   181                                                       next_obs, reward, done, info = env.step(
+   182                                                           action=action,
+   183                                                           improved=improved,
+   184                                                           new_sol=new_sol if improved else None,
+   185                                                           elapsed=elapsed
+   186                                                       )
+   187                                           
+   188                                                       # Q update
+   189                                                       agent.update(obs, action, reward, next_obs, done)
+   190                                           
+   191                                                       obs = next_obs
+   192                                                       improved = env.current
+   193                                           
+   194                                                       # logs for qtables
+   195                                                       # ts = time.strftime("%Y%m%d_%H%M%S")
+   196                                                       # save_path = f"{qtables_dir}/qtable_{ts}.pkl"
+   197                                                       # agent.save(save_path)
+   198                                           
+   199         4         29.6      7.4      0.0          improved.eval()
+   200                                           
+   201                                                   # ============================================================
+   202                                                   # 3. acceptance criterion (Move-or-Not)
+   203                                                   # ============================================================
+   204         4          0.0      0.0      0.0          if (improved.penS < current.penS or
+   205         4          0.0      0.0      0.0              improved.penT < current.penT or
+   206         3          0.0      0.0      0.0              improved.penH < current.penH):
+   207         1          0.0      0.0      0.0              accept = True
+   208                                                   else:
+   209         3          0.0      0.0      0.0              accept = improved.Fval <= (1.0 + delta) * current.Fval
+   210                                           
+   211         4          0.0      0.0      0.0          if accept:
+   212         4          0.1      0.0      0.0              current = improved
+   213         4          0.0      0.0      0.0              cont = 0
+   214                                                       # logger.log("accepted", step_counter := step_counter + 1, current,
+   215                                                       #            note=f"iter_{iteration}")
+   216                                                   else:
+   217                                                       cont += 1
+   218                                                       # logger.log("rejected", step_counter := step_counter + 1, improved,
+   219                                                       #            note=f"iter_{iteration}")
+   220                                           
+   221                                                   # ============================================================
+   222                                                   # 4. track best solutions
+   223                                                   # ============================================================
+   224         4          0.0      0.0      0.0          if improved.Fval < best_aug.Fval:
+   225         2          0.5      0.3      0.0              best_aug = improved.copy()
+   226                                           
+   227         4          0.0      0.0      0.0          if improved.penS == 0 and improved.penT == 0 and improved.penH == 0:
+   228         4          0.0      0.0      0.0              if improved.travel_time < best_feasible_f:
+   229         2          0.0      0.0      0.0                  best_feasible_f = improved.travel_time
+   230         2          0.4      0.2      0.0                  best_feasible = improved.copy()
+   231         2          0.0      0.0      0.0                  best_feasible_time = elapsed
+   232         4          0.9      0.2      0.0                  print(f"[GVNS][iter {iteration}] New best feasible: "
+   233         2          0.0      0.0      0.0                        f"f={best_feasible_f:.3f}")
+   234                                           
+   235                                                   # ============================================================
+   236                                                   # 5. penalty Adaptation
+   237                                                   # ============================================================
+   238         4          0.1      0.0      0.0          current.self_adjust_penalties()
+   239                                           
+   240                                                   # ============================================================
+   241                                                   # 6. print iteration summary
+   242                                                   # ============================================================
+   243        40         30.7      0.8      0.0          print(f"[GVNS][iter {iteration}] "
+   244         8          0.0      0.0      0.0                f"F={improved.Fval:.3f} f={improved.travel_time:.3f} "
+   245        12          0.0      0.0      0.0                f"| PenS={improved.penS} PenT={improved.penT} PenH={improved.penH} "
+   246        16          0.0      0.0      0.0                f"| accepted={accept}, cont={cont}, k={k}, elapsed={elapsed:.2f}s")
+   247                                           
+   248         4          0.0      0.0      0.0          if trace_list is not None:
+   249         8          0.1      0.0      0.0              trace_list.append([
+   250         4          0.0      0.0      0.0                  iteration, current.Fval, current.travel_time,
+   251         4          0.0      0.0      0.0                  current.penT, current.penH, current.penS, elapsed
+   252                                                       ])
+   253                                           
+   254                                               # save neighborhood statistics
+   255                                               # if order_mode != "suggested":
+   256                                               #     save_neighborhood_usage(
+   257                                               #         usage_logger["counter"],
+   258                                               #         instance_name
+   259                                               #     )
+   260                                                   
+   261                                               #     save_neighborhood_improvement_log(
+   262                                               #         usage_logger["events"],
+   263                                               #         instance_name,
+   264                                               #         suffix="rl" if agent is not None else "bvnd"
+   265                                               #     )
+   266                                                   
+   267                                               #     save_suggested_order(
+   268                                               #         usage_logger["counter"],
+   269                                               #         instance_name,
+   270                                               #         list(enumerate(ls.NEIGHBORHOOD_FUNCS))
+   271                                               #     )
+   272                                           
+   273         1          0.0      0.0      0.0      if best_feasible is not None:
+   274         1          5.5      5.5      0.0          best_feasible.eval()
+   275         1          0.0      0.0      0.0          best_feasible.best_time = best_feasible_time
+   276         1          0.0      0.0      0.0          return best_feasible
+   277                                           
+   278                                               best_aug.eval()
+   279                                               best_aug.best_time = None
+   280                                               logger.close()
+   281                                               ls_logger.close()
+   282                                               return best_aug
+
+Total time: 0.99122 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: is_better at line 11
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    11                                           def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
+    12                                               """
+    13                                               lexicographic comparison:
+    14                                                 1) penS
+    15                                                 2) penT
+    16                                                 3) penH
+    17                                                 4) F travel time
+    18                                               worsening enalties is done by shaking, and controlled by acceptance and penalty adaptation
+    19                                               the role of bvnd is to find the best feasible solution possible
+    20                                               """
+    21                                               # no violation in synch allowed
+    22    104909        321.8      0.0     32.5      if new.penS < old.penS - 1e-12: return True
+    23    104909        241.5      0.0     24.4      if new.penS > old.penS + 1e-12: return False
+    24                                           
+    25                                               # among solutions with same penS, prefer lower penT
+    26     99993        186.9      0.0     18.9      if new.penT < old.penT - 1e-12: return True
+    27     99819        160.2      0.0     16.2      if new.penT > old.penT + 1e-12: return False
+    28                                           
+    29                                               # among solutions with same penS and penT, prefer lower penH
+    30     18318         26.8      0.0      2.7      if new.penH < old.penH - 1e-12: return True
+    31     18318         26.4      0.0      2.7      if new.penH > old.penH + 1e-12: return False
+    32                                           
+    33                                               # finally, among solutions with same penS, penT, penH, prefer lower Fval
+    34     18318         27.6      0.0      2.8      return new.Fval < old.Fval - eps_f
+
+Total time: 182.531 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_intra_insertion at line 39
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    39                                           def explore_intra_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+    40                                               """N1 - intra-route insertion."""
+    41       192          0.4      0.0      0.0      m = sol.instance.m
+    42                                           
+    43       192          0.2      0.0      0.0      checks = 0
+    44       192          0.2      0.0      0.0      improved = None
+    45                                           
+    46      1340          2.3      0.0      0.0      for r in range(m):
+    47      1251          1.8      0.0      0.0          route = sol.tours[r]
+    48      1251          2.0      0.0      0.0          L = len(route)
+    49      1251          1.4      0.0      0.0          if L < 2: continue
+    50                                           
+    51      4532          5.2      0.0      0.0          for i in range(L):
+    52     39132         62.6      0.0      0.0              for j in range(L + 1):
+    53     35239         43.2      0.0      0.0                  if i == j: continue
+    54     31263         38.4      0.0      0.0                  checks += 1
+    55     31263         33.5      0.0      0.0                  if max_checks and checks > max_checks: return improved
+    56                                           
+    57     31263       7632.7      0.2      4.2                  cand = ops.intra_insertion(sol, r, i, j)
+    58     31263         43.9      0.0      0.0                  if not cand: continue
+    59     31263     174097.4      5.6     95.4                  cand.eval()
+    60                                           
+    61     31263         32.2      0.0      0.0                  if first_improve:
+    62     31263        534.0      0.0      0.3                      if is_better(cand, sol):
+    63       103          0.1      0.0      0.0                          return cand
+    64                                                           else:
+    65                                                               if improved is None or is_better(cand, improved):
+    66                                                                   improved = cand
+    67                                           
+    68        89          0.1      0.0      0.0      return improved
+
+Total time: 227.22 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_inter_insertion at line 71
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    71                                           def explore_inter_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+    72                                               """N2 - inter-route insertion."""
+    73        89          0.1      0.0      0.0      m = sol.instance.m
+    74        89          0.1      0.0      0.0      checks = 0
+    75        89          0.1      0.0      0.0      improved = None
+    76                                           
+    77       404          0.6      0.0      0.0      for r1 in range(m):
+    78       397          0.7      0.0      0.0          L1 = len(sol.tours[r1])
+    79       397          0.4      0.0      0.0          if L1 == 0: continue
+    80                                           
+    81      1900          2.1      0.0      0.0          for r2 in range(m):
+    82      1763          2.2      0.0      0.0              if r1 == r2: continue
+    83                                           
+    84      1571          3.5      0.0      0.0              L2 = len(sol.tours[r2])
+    85     11972         12.9      0.0      0.0              for pos1 in range(L1):
+    86     50785         71.5      0.0      0.0                  for pos2 in range(L2+1):
+    87                                           
+    88     40384         61.5      0.0      0.0                      checks += 1
+    89     40384         38.9      0.0      0.0                      if max_checks and checks > max_checks: return improved
+    90                                           
+    91     40384       9481.4      0.2      4.2                      cand = ops.inter_insertion(sol, r1, pos1, r2, pos2)
+    92     40384         49.6      0.0      0.0                      if not cand: continue
+    93     40384     216752.5      5.4     95.4                      cand.eval()
+    94                                           
+    95     40384         43.0      0.0      0.0                      if first_improve:
+    96     40384        698.4      0.0      0.3                          if is_better(cand, sol):
+    97        82          0.1      0.0      0.0                              return cand
+    98                                                               else:
+    99                                                                   if improved is None or is_better(cand, improved):
+   100                                                                       improved = cand
+   101                                           
+   102                                           
+   103         7          0.0      0.0      0.0      return improved
+
+Total time: 5.7417 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_intra_swap at line 105
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   105                                           def explore_intra_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+   106                                               """N3 - intra-route swap."""
+   107         7          0.0      0.0      0.0      m = sol.instance.m
+   108         7          0.0      0.0      0.0      improved = None
+   109         7          0.0      0.0      0.0      checks = 0
+   110                                           
+   111        77          0.1      0.0      0.0      for r in range(m):
+   112        70          0.1      0.0      0.0          L = len(sol.tours[r])
+   113        70          0.1      0.0      0.0          if L < 2: continue
+   114                                           
+   115       263          0.3      0.0      0.0          for i in range(L):
+   116      1102          1.7      0.0      0.0              for j in range(i+1, L):
+   117       871          1.2      0.0      0.0                  checks += 1
+   118       871          1.1      0.0      0.0                  if max_checks and checks > max_checks: return improved
+   119                                           
+   120       871        236.3      0.3      4.1                  cand = ops.intra_swap(sol, r, i, j)
+   121       871          1.3      0.0      0.0                  if not cand: continue
+   122       871       5481.8      6.3     95.5                  cand.eval()
+   123                                           
+   124       871          1.1      0.0      0.0                  if first_improve:
+   125       871         16.6      0.0      0.3                      if is_better(cand, sol):
+   126                                                                   return cand
+   127                                                           else:
+   128                                                               if improved is None or is_better(cand, improved):
+   129                                                                   improved = cand
+   130                                           
+   131         7          0.0      0.0      0.0      return improved
+
+Total time: 20.1092 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_inter_swap at line 134
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   134                                           def explore_inter_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+   135                                               """N4 - inter-route swap."""
+   136         7          0.0      0.0      0.0      m = sol.instance.m
+   137         7          0.0      0.0      0.0      improved = None
+   138         7          0.0      0.0      0.0      checks = 0
+   139                                           
+   140        77          0.1      0.0      0.0      for r1 in range(m):
+   141       385          0.5      0.0      0.0          for r2 in range(r1+1, m):
+   142       315          0.5      0.0      0.0              L1 = len(sol.tours[r1])
+   143       315          0.4      0.0      0.0              L2 = len(sol.tours[r2])
+   144       315          0.4      0.0      0.0              if L1 == 0 or L2 == 0: continue
+   145                                           
+   146       554          0.7      0.0      0.0              for i in range(L1):
+   147      3321          5.3      0.0      0.0                  for j in range(L2):
+   148      2825          4.3      0.0      0.0                      checks += 1
+   149      2825          3.4      0.0      0.0                      if max_checks and checks > max_checks: return improved
+   150                                           
+   151      2825        769.7      0.3      3.8                      cand = ops.inter_swap(sol, r1, i, r2, j)
+   152      2825          4.8      0.0      0.0                      if not cand: continue
+   153      2825      19261.9      6.8     95.8                      cand.eval()
+   154                                                               
+   155      2825          4.4      0.0      0.0                      if first_improve:
+   156      2825         52.8      0.0      0.3                          if is_better(cand, sol):
+   157                                                                       return cand
+   158                                                               else:
+   159                                                                   if improved is None or is_better(cand, improved):
+   160                                                                       improved = cand
+   161                                           
+   162         7          0.0      0.0      0.0      return improved
+
+Total time: 5.38441 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_two_opt at line 165
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   165                                           def explore_two_opt(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+   166                                               """N5 - intra-route 2-opt"""
+   167         7          0.0      0.0      0.0      m = sol.instance.m
+   168         7          0.0      0.0      0.0      improved = None
+   169         7          0.0      0.0      0.0      checks = 0
+   170                                           
+   171        77          0.1      0.0      0.0      for r in range(m):
+   172        70          0.1      0.0      0.0          L = len(sol.tours[r])
+   173        70          0.1      0.0      0.0          if L < 4: continue
+   174                                           
+   175       185          0.3      0.0      0.0          for i in range(L-2):
+   176       825          1.7      0.0      0.0              for j in range(i+2, L):
+   177       665          1.3      0.0      0.0                  checks += 1
+   178       665          0.7      0.0      0.0                  if max_checks and checks > max_checks: return improved
+   179                                           
+   180       665        205.9      0.3      3.8                  cand = ops.two_opt(sol, r, i, j)
+   181       665          1.2      0.0      0.0                  if not cand: continue
+   182       665       5158.4      7.8     95.8                  cand.eval()
+   183                                           
+   184       665          1.0      0.0      0.0                  if first_improve:
+   185       665         13.5      0.0      0.3                      if is_better(cand, sol):
+   186                                                                   return cand
+   187                                                           else:
+   188                                                               if improved is None or is_better(cand, improved):
+   189                                                                   improved = cand
+   190                                           
+   191         7          0.0      0.0      0.0      return improved
+
+Total time: 13.9019 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_two_opt_star at line 194
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   194                                           def explore_two_opt_star(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+   195                                               """N6 - two-opt*"""
+   196         7          0.0      0.0      0.0      m = sol.instance.m
+   197         7          0.0      0.0      0.0      improved = None
+   198         7          0.0      0.0      0.0      checks = 0
+   199                                           
+   200        58          0.1      0.0      0.0      for r1 in range(m):
+   201       323          0.5      0.0      0.0          for r2 in range(r1+1, m):
+   202       272          0.5      0.0      0.0              L1 = len(sol.tours[r1])
+   203       272          0.4      0.0      0.0              L2 = len(sol.tours[r2])
+   204       272          0.3      0.0      0.0              if L1 < 2 or L2 < 2: continue
+   205                                           
+   206       439          0.6      0.0      0.0              for i in range(1, L1):
+   207      2237          4.1      0.0      0.0                  for j in range(1, L2):
+   208      1849          3.3      0.0      0.0                      checks += 1
+   209      1849          2.4      0.0      0.0                      if max_checks and checks > max_checks: return improved
+   210                                           
+   211      1849        612.5      0.3      4.4                      cand = ops.two_opt_star(sol, r1, i, r2, j)
+   212      1849          2.7      0.0      0.0                      if not cand: continue
+   213      1849      13226.3      7.2     95.1                      cand.eval()
+   214                                           
+   215      1849          2.7      0.0      0.0                      if first_improve:
+   216      1849         45.6      0.0      0.3                          if is_better(cand, sol):
+   217         3          0.0      0.0      0.0                              return cand
+   218                                                               else:
+   219                                                                   if improved is None or is_better(cand, improved):
+   220                                                                       improved = cand
+   221                                           
+   222                                           
+   223         4          0.0      0.0      0.0      return improved
+
+Total time: 110.914 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_cross_exchange at line 226
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   226                                           def explore_cross_exchange(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+   227                                               """N7 - cross exchange"""
+   228         4          0.0      0.0      0.0      m = sol.instance.m
+   229         4          0.0      0.0      0.0      improved = None
+   230         4          0.0      0.0      0.0      checks = 0
+   231                                           
+   232        44          0.0      0.0      0.0      for r1 in range(m):
+   233       220          0.3      0.0      0.0          for r2 in range(r1+1, m):
+   234       180          0.3      0.0      0.0              L1 = len(sol.tours[r1])
+   235       180          0.2      0.0      0.0              L2 = len(sol.tours[r2])
+   236       180          0.2      0.0      0.0              if L1 < 2 or L2 < 2: continue
+   237                                           
+   238       345          0.4      0.0      0.0              for a1 in range(L1):
+   239      1329          2.7      0.0      0.0                  for b1 in range(a1+1, min(a1+4, L1)+1):  # limit segment size
+   240      6428          8.5      0.0      0.0                      for a2 in range(L2):
+   241     20920         53.6      0.0      0.0                          for b2 in range(a2+1, min(a2+4, L2)+1):
+   242                                           
+   243     15512         25.6      0.0      0.0                              checks += 1
+   244     15512         20.8      0.0      0.0                              if max_checks and checks > max_checks: return improved
+   245                                           
+   246     15512       4723.9      0.3      4.3                              cand = ops.cross_exchange(sol, r1, a1, b1, r2, a2, b2)
+   247     15512         22.5      0.0      0.0                              if not cand: continue
+   248     15512     105724.0      6.8     95.3                              cand.eval()
+   249                                           
+   250     15512         21.6      0.0      0.0                              if first_improve:
+   251     15512        309.1      0.0      0.3                                  if is_better(cand, sol):
+   252                                                                               return cand
+   253                                                                       else:
+   254                                                                           if improved is None or is_better(cand, improved):
+   255                                                                               improved = cand
+   256         4          0.0      0.0      0.0      return improved
+
+Total time: 81.9961 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: explore_k_relocate at line 258
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   258                                           def explore_k_relocate(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
+   259                                               """N8 - k-relocate (move small segments between routes)"""
+   260         4          0.0      0.0      0.0      m = sol.instance.m
+   261         4          0.0      0.0      0.0      improved = None
+   262         4          0.0      0.0      0.0      checks = 0
+   263                                           
+   264        44          0.1      0.0      0.0      for r1 in range(m):
+   265        40          0.2      0.0      0.0          L1 = len(sol.tours[r1])
+   266        40          0.1      0.0      0.0          if L1 < 2: continue
+   267                                           
+   268       209          0.3      0.0      0.0          for r2 in range(m):
+   269       190          0.2      0.0      0.0              if r1 == r2: continue
+   270       171          0.5      0.0      0.0              L2 = len(sol.tours[r2])
+   271                                           
+   272      1359          1.8      0.0      0.0              for start in range(L1):
+   273      4752          9.2      0.0      0.0                  for length in [1, 2, 3]:
+   274      3564          5.2      0.0      0.0                      if start + length > L1: continue
+   275                                           
+   276     14403         27.6      0.0      0.0                      for pos in range(L2+1):
+   277                                           
+   278     11352         18.1      0.0      0.0                          checks += 1
+   279     11352         13.4      0.0      0.0                          if max_checks and checks > max_checks: return improved
+   280                                           
+   281     11352       3582.4      0.3      4.4                          cand = ops.k_relocate(sol, r1, start, length, r2, pos)
+   282     11352         17.7      0.0      0.0                          if not cand: continue
+   283     11352      78030.9      6.9     95.2                          cand.eval()
+   284                                           
+   285     11352         16.0      0.0      0.0                          if first_improve:
+   286     11352        272.3      0.0      0.3                              if is_better(cand, sol):
+   287                                                                           return cand
+   288                                                                   else:
+   289                                                                       if improved is None or is_better(cand, improved):
+   290                                                                           improved = cand
+   291                                           
+   292         4          0.0      0.0      0.0      return improved
+
+Total time: 649.887 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: b_vnd at line 311
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   311                                           def b_vnd(
+   312                                               sol: Solution,
+   313                                               time_limit: Optional[float] = None,
+   314                                               max_no_improve=1,
+   315                                               first_improvement: bool = False,
+   316                                               max_checks_per_neigh: int = None,
+   317                                               
+   318                                               usage_logger: dict = None,
+   319                                               iteration: int = None,
+   320                                               instance_name="unknown",
+   321                                               order_mode="default",
+   322                                           
+   323                                               search_state=None,    
+   324                                               ls_logger=None, 
+   325                                           ) -> Solution:
+   326                                               
+   327                                               # neighborhood list 
+   328         4          0.0      0.0      0.0      if order_mode == "reverse":
+   329                                                   neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
+   330                                           
+   331         4          0.0      0.0      0.0      elif order_mode == "suggested":
+   332                                                   from gvns.utils import load_suggested_order
+   333                                           
+   334                                                   order = load_suggested_order(instance_name)
+   335                                                   neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
+   336                                           
+   337         4          0.0      0.0      0.0      elif order_mode == "random":
+   338                                                   rng = random.Random(iteration)  # for a different order for each iteration
+   339                                                   indices = list(range(len(NEIGHBORHOOD_FUNCS)))
+   340                                                   rng.shuffle(indices)
+   341                                                   neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in indices]
+   342                                           
+   343                                               else:  # "default"
+   344         4          0.0      0.0      0.0          neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))
+   345                                           
+   346         4          0.0      0.0      0.0      best = sol
+   347         4         52.9     13.2      0.0      best.eval()
+   348                                           
+   349         4          0.0      0.0      0.0      start = time.time()
+   350         4          0.0      0.0      0.0      no_improve = 0
+   351                                           
+   352       192          0.3      0.0      0.0      while True:
+   353       192          0.2      0.0      0.0          if time_limit and (time.time() - start) > time_limit:
+   354                                                       break
+   355                                           
+   356       192          0.2      0.0      0.0          improved_any = False
+   357                                           
+   358                                                   # sequential neighborhoods
+   359       321          0.5      0.0      0.0          for idx, explorer in neighborhoods:
+   360                                           
+   361       317          0.4      0.0      0.0              if time_limit and (time.time() - start) > time_limit:
+   362                                                           break
+   363                                           
+   364       317          0.3      0.0      0.0              if search_state is not None:
+   365       634          3.1      0.0      0.0                  search_state.before_ls(
+   366       317          0.3      0.0      0.0                      k=idx,
+   367       317          0.2      0.0      0.0                      iter_gvns=iteration
+   368                                                           )
+   369                                           
+   370       317          0.4      0.0      0.0              F_before = best.Fval
+   371       317          1.0      0.0      0.0              t0 = time.time()
+   372                                           
+   373       634     648625.4   1023.1     99.8              cand = explorer(
+   374       317          0.2      0.0      0.0                  best, 
+   375       317          0.2      0.0      0.0                  max_checks=max_checks_per_neigh, 
+   376       317          0.2      0.0      0.0                  first_improve=first_improvement
+   377                                                       )
+   378                                           
+   379       317          1.4      0.0      0.0              elapsed = time.time() - t0
+   380                                           
+   381       317          0.4      0.0      0.0              improved = False
+   382       317          0.4      0.0      0.0              F_after = F_before
+   383                                           
+   384       317          2.7      0.0      0.0              if cand and is_better(cand, best):
+   385       188       1048.0      5.6      0.2                  cand.eval()
+   386       188          0.2      0.0      0.0                  best = cand
+   387       188          0.2      0.0      0.0                  improved = True
+   388       188          0.4      0.0      0.0                  F_after = best.Fval
+   389       188          0.2      0.0      0.0                  improved_any = True
+   390                                           
+   391                                                           # logging
+   392       188          0.3      0.0      0.0                  if usage_logger is not None and order_mode != "suggested":
+   393       188          0.4      0.0      0.0                      usage_logger["counter"][idx] += 1
+   394       188          0.2      0.0      0.0                      if iteration is not None:
+   395       376          0.9      0.0      0.0                          usage_logger["events"].append({
+   396       188          0.2      0.0      0.0                              "iteration": iteration,
+   397       188          0.2      0.0      0.0                              "neighborhood_id": idx,
+   398       188          0.4      0.0      0.0                              "neighborhood_name": NEIGHBORHOOD_NAMES[idx],
+   399       188          0.2      0.0      0.0                              "F_before": F_before,
+   400       188          0.2      0.0      0.0                              "F_after": F_after,
+   401                                                                   })
+   402                                                       
+   403       317          0.5      0.0      0.0              if search_state is not None:
+   404       634         11.4      0.0      0.0                  search_state.after_ls(
+   405       317          0.4      0.0      0.0                      improved=improved,
+   406       317          0.3      0.0      0.0                      F_before=F_before,
+   407       317          0.3      0.0      0.0                      F_after=F_after,
+   408       317          0.3      0.0      0.0                      elapsed=elapsed,
+   409       317          0.2      0.0      0.0                      solution=best
+   410                                                           )
+   411                                           
+   412       634         31.4      0.0      0.0                  features = search_state.get_features(
+   413       317          0.4      0.0      0.0                      k=idx,
+   414       317          0.4      0.0      0.0                      k_max=len(neighborhoods)
+   415                                                           )
+   416                                           
+   417       317          0.5      0.0      0.0                  if ls_logger is not None:
+   418       634         94.2      0.1      0.0                      ls_logger.log(
+   419       317          0.3      0.0      0.0                          gvns_iter=iteration,
+   420       317          0.4      0.0      0.0                          neigh_id=idx,
+   421       317          0.5      0.0      0.0                          neigh_name=NEIGHBORHOOD_NAMES[idx],
+   422       317          0.3      0.0      0.0                          features=features,
+   423       317          0.3      0.0      0.0                          improved=improved,
+   424       317          0.3      0.0      0.0                          F_before=F_before,
+   425       317          0.3      0.0      0.0                          F_after=F_after,
+   426       317          0.2      0.0      0.0                          elapsed=elapsed,
+   427                                                               )
+   428                                                           
+   429       317          0.4      0.0      0.0              if improved:
+   430       188          0.2      0.0      0.0                  break  # restart from first neighborhood
+   431                                           
+   432       192          0.3      0.0      0.0          if not improved_any:
+   433         4          0.0      0.0      0.0              no_improve += 1
+   434         4          0.0      0.0      0.0              if no_improve >= max_no_improve:
+   435         4          0.0      0.0      0.0                  break
+   436                                                   else:
+   437       188          0.2      0.0      0.0              no_improve = 0
+   438                                               
+   439         4          0.0      0.0      0.0      return best
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: rl_bvnd_step at line 445
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   445                                           def rl_bvnd_step(sol: Solution,
+   446                                                            agent,
+   447                                                            obs,
+   448                                                            neighborhoods,
+   449                                                            first_improvement=False,
+   450                                                            time_limit=None,
+   451                                                            max_checks_per_neigh=None,
+   452                                                            iteration: int = None,
+   453                                                            usage_logger: dict = None,
+   454                                                            verbose=False):
+   455                                               """
+   456                                               its one bvnd step using RL:
+   457                                               - agent proposes neighborhoods
+   458                                               - we try it and save it if it improves
+   459                                               """
+   460                                               action = agent.select_action(obs) # call a neighborhood
+   461                                           
+   462                                               cand = b_vnd_single_neigh(
+   463                                                   sol,
+   464                                                   neighborhoods[action],
+   465                                                   time_limit=time_limit,
+   466                                                   first_improvement=first_improvement,
+   467                                                   max_checks_per_neigh=max_checks_per_neigh
+   468                                               )
+   469                                           
+   470                                               if cand and is_better(cand, sol):
+   471                                                   # logging 
+   472                                                   if usage_logger is not None:
+   473                                                       usage_logger["counter"][action] += 1
+   474                                                       if iteration is not None:
+   475                                                           usage_logger["events"].append({
+   476                                                               "iteration": iteration,
+   477                                                               "neighborhood_id": action,
+   478                                                               "neighborhood_name": NEIGHBORHOOD_NAMES[action],
+   479                                                               "F_before": sol.Fval,
+   480                                                               "F_after": cand.Fval,
+   481                                                           })     
+   482                                                   return cand, action, True
+   483                                               else:
+   484                                                   if verbose:
+   485                                                       print(f"[RL-BVND] Neighborhood {action} did not improve (F={sol.Fval})")
+   486                                                   return sol, action, False
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py
+Function: b_vnd_single_neigh at line 488
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   488                                           def b_vnd_single_neigh(sol: Solution,
+   489                                                                  neighborhood,
+   490                                                                  time_limit=None,
+   491                                                                  max_no_improve=1,
+   492                                                                  first_improvement=False,
+   493                                                                  max_checks_per_neigh=None):
+   494                                               """
+   495                                               same logic as b_vnd, but restricted to ONE neighborhood.
+   496                                               """
+   497                                               assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
+   498                                           
+   499                                               best = sol
+   500                                               best.eval()
+   501                                           
+   502                                               start = time.time()
+   503                                               no_improve = 0
+   504                                           
+   505                                               while True:
+   506                                                   if time_limit and (time.time() - start) > time_limit:
+   507                                                       return best
+   508                                           
+   509                                                   cand = neighborhood(
+   510                                                       best,
+   511                                                       max_checks=max_checks_per_neigh,
+   512                                                       first_improve=first_improvement
+   513                                                   )
+   514                                           
+   515                                                   if cand and is_better(cand, best):
+   516                                                       best = cand
+   517                                                       no_improve = 0
+   518                                                   else:
+   519                                                       no_improve += 1
+   520                                                       if no_improve >= max_no_improve:
+   521                                                           return best
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: multiset_of_tours at line 13
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    13                                           def multiset_of_tours(tours: List[List[int]]) -> Counter:
+    14                                               """
+    15                                               returns a counter of totsl occurences of each customer across all tours
+    16                                               used to check that moves preserve the multiset of visits (no lost/duplicated visits)
+    17                                               """
+    18                                               c = Counter()
+    19                                               for rt in tours:
+    20                                                   for v in rt:
+    21                                                       c[v] += 1
+    22                                               return c
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: diagnostic_print at line 24
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    24                                           def diagnostic_print(op_name: str, before, after, details=""):
+    25                                               if not DEBUG_OPERATORS:
+    26                                                   return
+    27                                               print("[OPERATORS][DIAG]", op_name)
+    28                                               print("  before total_visits:", sum(before.values()), "distinct:", len(before))
+    29                                               print("  after  total_visits:", sum(after.values()), "distinct:", len(after))
+    30                                               if details:
+    31                                                   print("  details:", details)
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: safe_tt at line 33
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    33                                           def safe_tt(TT, i, j):
+    34                                               """safe travel time access - mirrors solution.safe_tt behavior"""
+    35                                               try:
+    36                                                   if isinstance(TT, dict):
+    37                                                       return TT.get(i, {}).get(j, 0.0)
+    38                                                   else:
+    39                                                       return TT[i][j]
+    40                                               except Exception:
+    41                                                   return 0.0
+
+Total time: 0.359547 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: _ensure_m_tours at line 43
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    43                                           def _ensure_m_tours(tours: List[List[int]], m: int):
+    44                                               # modify list in-place to have exactly m inner-lists
+    45    104759        196.6      0.0     54.7      if len(tours) < m:
+    46                                                   tours.extend([[] for _ in range(m - len(tours))])
+    47    104759        163.0      0.0     45.3      elif len(tours) > m:
+    48                                                   del tours[m:]
+
+Total time: 0.896224 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: safe_move_wrapper at line 50
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    50                                           def safe_move_wrapper(sol: Solution, new_sol: Solution, op_name: str, extra_info: str="") -> Optional[Solution]:
+    51                                               """
+    52                                               allow temporary violations (do not check multisets).
+    53                                               this function pads/truncates new_sol.tours to m and returns new_sol.
+    54                                               """
+    55    104736        159.1      0.0     17.8      inst = sol.instance
+    56    104736        126.8      0.0     14.1      m = inst.m
+    57                                           
+    58                                               # pad/truncate inplace
+    59    104736        171.0      0.0     19.1      if len(new_sol.tours) < m:
+    60                                                   new_sol.tours.extend([[] for _ in range(m - len(new_sol.tours))])
+    61    104736        167.4      0.0     18.7      elif len(new_sol.tours) > m:
+    62                                                   new_sol.tours = new_sol.tours[:m]
+    63                                           
+    64    104736        166.6      0.0     18.6      if DEBUG_OPERATORS:
+    65                                                   before = multiset_of_tours([list(r) for r in sol.tours])
+    66                                                   after = multiset_of_tours([list(r) for r in new_sol.tours])
+    67                                                   if before != after:
+    68                                                       diagnostic_print(op_name, before, after, details=extra_info)
+    69                                           
+    70    104736        105.3      0.0     11.7      return new_sol
+
+Total time: 6.92698 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: intra_insertion at line 76
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    76                                           def intra_insertion(sol: Solution, route_idx: int, from_pos: int, to_pos: int) -> Optional[Solution]:
+    77                                               """
+    78                                               move an item inside the same route from from_pos to to_pos
+    79                                               returns None if invalid indices or positions equal 
+    80                                               """
+    81     31266         46.7      0.0      0.7      if from_pos == to_pos:
+    82                                                   return None
+    83                                           
+    84     31266         54.3      0.0      0.8      m = sol.instance.m
+    85     31266         47.2      0.0      0.7      if route_idx < 0 or route_idx >= m:
+    86                                                   return None
+    87                                               
+    88     31266         66.3      0.0      1.0      route = sol.tours[route_idx] if route_idx < len(sol.tours) else []
+    89     31266         46.6      0.0      0.7      if from_pos < 0 or from_pos >= len(route):
+    90                                                   return None
+    91     31266         43.8      0.0      0.6      if to_pos < 0 or to_pos > len(route):
+    92                                                   return None
+    93                                           
+    94     31266       5486.2      0.2     79.2      new = sol.copy()
+    95     31266        260.3      0.0      3.8      _ensure_m_tours(new.tours, m)
+    96     31266         31.8      0.0      0.5      try:
+    97     31266         90.6      0.0      1.3          val = new.tours[route_idx].pop(from_pos)
+    98     31266         60.1      0.0      0.9          insert_pos = to_pos if to_pos <= len(new.tours[route_idx]) else len(new.tours[route_idx])
+    99     31266         76.2      0.0      1.1          new.tours[route_idx].insert(insert_pos, val)
+   100                                               except Exception as e:
+   101                                                   if DEBUG_OPERATORS:
+   102                                                       print("[OPERATORS] intra_insertion exception:", e)
+   103                                                   return None
+   104                                           
+   105     31266        616.8      0.0      8.9      return safe_move_wrapper(sol, new, "intra_insertion", f"r{route_idx} {from_pos}->{to_pos}")
+
+Total time: 8.67409 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: inter_insertion at line 107
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   107                                           def inter_insertion(sol: Solution, from_route_idx: int, from_pos: int, to_route_idx: int, to_pos: int) -> Optional[Solution]:
+   108                                               """
+   109                                               remove an element from route A and insert it into route B
+   110                                               added a check for synchronized elements: 
+   111                                                   - if the customer is synchronized, it checks occs = [rt.count(cust) for rt in new.tours] and total_occ
+   112                                                   - If after the move all required occurrences end up on a single vehicle (route) it rejects the move
+   113                                               it will prevents putting both occurrences on the same vehicle
+   114                                               """
+   115     40385         50.2      0.0      0.6      if from_route_idx == to_route_idx:
+   116                                                   return None
+   117                                               
+   118     40385         60.0      0.0      0.7      m = sol.instance.m
+   119     40385         69.9      0.0      0.8      if from_route_idx < 0 or to_route_idx < 0 or from_route_idx >= m or to_route_idx >= m:
+   120                                                   return None
+   121                                               # ensure source route exists
+   122     40385         95.9      0.0      1.1      if from_route_idx >= len(sol.tours) or from_pos < 0 or from_pos >= len(sol.tours[from_route_idx]):
+   123                                                   return None
+   124                                           
+   125     40385       6876.2      0.2     79.3      new = sol.copy()
+   126     40385        328.8      0.0      3.8      _ensure_m_tours(new.tours, m)
+   127     40385         38.6      0.0      0.4      try:
+   128     40385        118.1      0.0      1.4          val = new.tours[from_route_idx].pop(from_pos)
+   129     40385         70.9      0.0      0.8          insert_pos = to_pos if to_pos <= len(new.tours[to_route_idx]) else len(new.tours[to_route_idx])
+   130     40385        105.0      0.0      1.2          new.tours[to_route_idx].insert(insert_pos, val)
+   131                                               except Exception as e:
+   132                                                   if DEBUG_OPERATORS:
+   133                                                       print("[OPERATORS] inter_insertion exception:", e)
+   134                                                   return None
+   135                                           
+   136     40385        860.4      0.0      9.9      return safe_move_wrapper(sol, new, "inter_insertion", f"{from_route_idx}:{from_pos} -> {to_route_idx}:{to_pos}")
+
+Total time: 0.217576 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: intra_swap at line 138
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   138                                           def intra_swap(sol: Solution, route_idx: int, pos_a: int, pos_b: int) -> Optional[Solution]:
+   139                                               """
+   140                                               swap two positions inside a route
+   141                                               returns None if invalid indices
+   142                                               """
+   143       873          1.9      0.0      0.9      m = sol.instance.m
+   144       873          1.5      0.0      0.7      if route_idx < 0 or route_idx >= m:
+   145                                                   return None
+   146       873          2.6      0.0      1.2      rt = sol.tours[route_idx] if route_idx < len(sol.tours) else []
+   147       873          1.2      0.0      0.6      if pos_a == pos_b:
+   148                                                   return None
+   149       873          2.4      0.0      1.1      if pos_a < 0 or pos_b < 0 or pos_a >= len(rt) or pos_b >= len(rt):
+   150                                                   return None
+   151                                               
+   152       873        174.5      0.2     80.2      new = sol.copy()
+   153       873          8.8      0.0      4.0      _ensure_m_tours(new.tours, m)
+   154       873          0.9      0.0      0.4      try:
+   155       873          3.3      0.0      1.5          new.tours[route_idx][pos_a], new.tours[route_idx][pos_b] = new.tours[route_idx][pos_b], new.tours[route_idx][pos_a]
+   156                                               except Exception as e:
+   157                                                   if DEBUG_OPERATORS:
+   158                                                       print("[OPERATORS] intra_swap exception:", e)
+   159                                                   return None
+   160       873         20.6      0.0      9.5      return safe_move_wrapper(sol, new, "intra_swap", f"r{route_idx} p{pos_a}<->{pos_b}")
+
+Total time: 0.705331 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: inter_swap at line 162
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   162                                           def inter_swap(sol: Solution, r1: int, p1: int, r2: int, p2: int) -> Optional[Solution]:
+   163                                               """
+   164                                               swap an item from route r1 with an item from r2
+   165                                               added safety for synchronized ones: for both swapped customers it recomputes occurrences per route 
+   166                                                   and rejects if the swap concentrates all required occs on a single route
+   167                                               """
+   168      2826          6.4      0.0      0.9      m = sol.instance.m
+   169      2826          4.3      0.0      0.6      if r1 == r2:
+   170                                                   return None
+   171      2826          5.5      0.0      0.8      if r1 < 0 or r2 < 0 or r1 >= m or r2 >= m:
+   172                                                   return None
+   173      2826          7.0      0.0      1.0      if r1 >= len(sol.tours) or r2 >= len(sol.tours):
+   174                                                   return None
+   175      2826          8.2      0.0      1.2      if p1 < 0 or p2 < 0 or p1 >= len(sol.tours[r1]) or p2 >= len(sol.tours[r2]):
+   176                                                   return None
+   177                                           
+   178      2826        565.5      0.2     80.2      new = sol.copy()
+   179      2826         27.7      0.0      3.9      _ensure_m_tours(new.tours, m)
+   180      2826          3.2      0.0      0.5      try:
+   181      2826          9.6      0.0      1.4          new.tours[r1][p1], new.tours[r2][p2] = new.tours[r2][p2], new.tours[r1][p1]
+   182                                               except Exception as e:
+   183                                                   if DEBUG_OPERATORS:
+   184                                                       print("[OPERATORS] inter_swap exception:", e)
+   185                                                   return None
+   186                                           
+   187      2826         67.8      0.0      9.6      return safe_move_wrapper(sol, new, "inter_swap", f"r{r1}p{p1}<->{r2}p{p2}")
+
+Total time: 3.23904 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: k_relocate at line 189
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   189                                           def k_relocate(sol: Solution, r_from: int, start: int, length: int, r_to: int, pos: int) -> Optional[Solution]:
+   190                                               """
+   191                                               move a contiguous segment of `length` from r_from[start:start+length] into r_to at position pos.
+   192                                               """
+   193     11357         26.6      0.0      0.8      m = sol.instance.m
+   194     11357         24.9      0.0      0.8      if r_from < 0 or r_to < 0 or r_from >= m or r_to >= m:
+   195                                                   return None
+   196     11357         34.5      0.0      1.1      if r_from >= len(sol.tours):
+   197                                                   return None
+   198     11357         26.9      0.0      0.8      if start < 0 or start >= len(sol.tours[r_from]):
+   199                                                   return None
+   200     11357         27.3      0.0      0.8      if length <= 0 or start + length > len(sol.tours[r_from]):
+   201                                                   return None
+   202     11357         16.1      0.0      0.5      if pos < 0:
+   203                                                   return None
+   204     11357       2500.9      0.2     77.2      new = sol.copy()
+   205     11357        123.5      0.0      3.8      _ensure_m_tours(new.tours, m)
+   206                                           
+   207     11357         42.9      0.0      1.3      segment = new.tours[r_from][start:start+length]
+   208     11357         32.5      0.0      1.0      del new.tours[r_from][start:start+length]
+   209     11357         17.6      0.0      0.5      if r_from == r_to and pos > start:
+   210                                                   pos -= length
+   211     11357         23.6      0.0      0.7      if pos > len(new.tours[r_to]):
+   212                                                   pos = len(new.tours[r_to])
+   213     11357         33.8      0.0      1.0      new.tours[r_to][pos:pos] = segment
+   214                                           
+   215     11357        307.9      0.0      9.5      return safe_move_wrapper(sol, new, "k_relocate", f"{r_from}[{start}:{start+length}] -> {r_to}@{pos}")
+
+Total time: 0.19194 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: two_opt at line 217
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   217                                           def two_opt(sol: Solution, r: int, i: int, j: int):
+   218                                               """
+   219                                               reverse segment [i..j] inside route r.
+   220                                               """
+   221       667          1.5      0.0      0.8      m = sol.instance.m
+   222       667          1.1      0.0      0.6      if r < 0 or r >= m:
+   223                                                   return None
+   224       667          2.3      0.0      1.2      rt = sol.tours[r]
+   225       667          2.3      0.0      1.2      if i < 0 or j < 0 or i >= len(rt) or j >= len(rt) or i >= j:
+   226                                                   return None
+   227                                               
+   228       667        150.9      0.2     78.6      new = sol.copy()
+   229       667          9.8      0.0      5.1      _ensure_m_tours(new.tours, m)
+   230                                           
+   231       667          6.7      0.0      3.5      new.tours[r][i:j+1] = reversed(new.tours[r][i:j+1])
+   232                                           
+   233       667         17.4      0.0      9.0      return safe_move_wrapper(sol, new, "2-opt", f"r{r} {i}-{j}")
+
+Total time: 0.5589 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: two_opt_star at line 235
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   235                                           def two_opt_star(sol: Solution, r1: int, i: int, r2: int, j: int):
+   236                                               """
+   237                                               2-opt* between two routes: swap suffixes.
+   238                                               """
+   239      1849          3.1      0.0      0.6      if r1 == r2:
+   240                                                   return None
+   241      1849          3.6      0.0      0.6      m = sol.instance.m
+   242      1849          4.2      0.0      0.8      if r1 < 0 or r1 >= m or r2 < 0 or r2 >= m:
+   243                                                   return None
+   244                                               
+   245      1849          5.6      0.0      1.0      rt1 = sol.tours[r1]
+   246      1849          2.8      0.0      0.5      rt2 = sol.tours[r2]
+   247                                               
+   248      1849          3.8      0.0      0.7      if i <= 0 or j <= 0:
+   249                                                   return None
+   250      1849          4.9      0.0      0.9      if i > len(rt1) or j > len(rt2):
+   251                                                   return None
+   252                                           
+   253      1849        433.3      0.2     77.5      new = sol.copy()
+   254      1849         20.0      0.0      3.6      _ensure_m_tours(new.tours, m)
+   255      1849          3.4      0.0      0.6      A = new.tours[r1]
+   256      1849          2.5      0.0      0.5      B = new.tours[r2]
+   257                                           
+   258      1849          7.6      0.0      1.4      newA = A[:i] + B[j:]
+   259      1849          4.7      0.0      0.8      newB = B[:j] + A[i:]
+   260                                           
+   261      1849          3.1      0.0      0.6      new.tours[r1] = newA
+   262      1849          3.2      0.0      0.6      new.tours[r2] = newB
+   263                                           
+   264      1849         52.9      0.0      9.5      return safe_move_wrapper(sol, new, "2-opt*", f"{r1}:{i} <-> {r2}:{j}")
+
+Total time: 4.30043 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: cross_exchange at line 266
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   266                                           def cross_exchange(sol: Solution, r1: int, a1: int, b1: int, r2: int, a2: int, b2: int) -> Optional[Solution]:
+   267                                               """
+   268                                               exchange segments A[a1:b1] with B[a2:b2]. 
+   269                                               inclusive-exclusive: [a1:b1), [a2:b2)
+   270                                               """
+   271     15513         32.4      0.0      0.8      m = sol.instance.m
+   272     15513         36.2      0.0      0.8      if r1 < 0 or r2 < 0 or r1 >= m or r2 >= m:
+   273                                                   return None
+   274     15513         38.4      0.0      0.9      if r1 >= len(sol.tours) or r2 >= len(sol.tours):
+   275                                                   return None
+   276     15513         27.8      0.0      0.6      A = sol.tours[r1]
+   277     15513         21.4      0.0      0.5      B = sol.tours[r2]
+   278     15513         53.9      0.0      1.3      if not (0 <= a1 < b1 <= len(A)) or not (0 <= a2 < b2 <= len(B)):
+   279                                                   return None
+   280                                           
+   281     15513       3353.3      0.2     78.0      new = sol.copy()
+   282     15513        175.7      0.0      4.1      _ensure_m_tours(new.tours, m)
+   283     15513         51.0      0.0      1.2      segA = new.tours[r1][a1:b1]
+   284     15513         32.6      0.0      0.8      segB = new.tours[r2][a2:b2]
+   285     15513         41.4      0.0      1.0      new.tours[r1][a1:b1] = segB
+   286     15513         30.9      0.0      0.7      new.tours[r2][a2:b2] = segA
+   287                                           
+   288     15513        405.6      0.0      9.4      return safe_move_wrapper(sol, new, "cross_exchange", f"r{r1}[{a1}:{b1}] <-> r{r2}[{a2}:{b2}]")
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: relocate_sync_pair at line 290
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   290                                           def relocate_sync_pair(sol: Solution, cust: int, attempts: int = 20) -> Optional[Solution]:
+   291                                               """
+   292                                               remove both occurrences of a synchronized customer and reinsert them randomly
+   293                                               into two (distinct) vehicles at (random) positions. this helps realign synchronization.
+   294                                               attempts up to `attempts` random trials and returns the first valid candidate (does not enforce feasibility).
+   295                                               """
+   296                                               inst = sol.instance
+   297                                               if cust not in getattr(inst, "sync_customers", set()):
+   298                                                   return None
+   299                                           
+   300                                               occ = [(r, pos) for r, rt in enumerate(sol.tours) for pos, v in enumerate(rt) if v == cust]
+   301                                               if len(occ) < 1:
+   302                                                   return None
+   303                                           
+   304                                               # if more than two occurrences exist, handle all occurrences: remove them then reinsert req times
+   305                                               req = inst.sync_requirements.get(cust, 2)
+   306                                               # create base copy
+   307                                               for _ in range(attempts):
+   308                                                   new = sol.copy()
+   309                                                   _ensure_m_tours(new.tours, inst.m)
+   310                                                   # remove up to all occurrences
+   311                                                   removed = 0
+   312                                                   for r, pos in sorted(occ, key=lambda x: (x[0], -x[1]), reverse=True):
+   313                                                       try:
+   314                                                           # if route may have shifted due to previous removals, attempt safe removal
+   315                                                           if r < len(new.tours) and (pos < len(new.tours[r]) and new.tours[r][pos] == cust):
+   316                                                               new.tours[r].pop(pos)
+   317                                                               removed += 1
+   318                                                           else:
+   319                                                               # try to remove any occurrence from that route
+   320                                                               if r < len(new.tours) and cust in new.tours[r]:
+   321                                                                   new.tours[r].remove(cust)
+   322                                                                   removed += 1
+   323                                                       except Exception:
+   324                                                           pass
+   325                                           
+   326                                                   # now reinsert req occurrences into random distinct vehicles
+   327                                                   vehicles = list(range(inst.m))
+   328                                                   random.shuffle(vehicles)
+   329                                                   chosen = []
+   330                                                   for v in vehicles:
+   331                                                       if len(chosen) >= req:
+   332                                                           break
+   333                                                       chosen.append(v)
+   334                                           
+   335                                                   if len(chosen) < req:
+   336                                                       continue
+   337                                           
+   338                                                   for idx, v in enumerate(chosen):
+   339                                                       pos = random.randrange(len(new.tours[v]) + 1)
+   340                                                       new.tours[v].insert(pos, cust)
+   341                                           
+   342                                                   return safe_move_wrapper(sol, new, "relocate_sync_pair", f"cust {cust}")
+   343                                           
+   344                                               return None
+
+Total time: 0.0288143 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\operators.py
+Function: random_shake at line 349
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   349                                           def random_shake(sol: Solution, k: int, allow_dup_moves: bool = True, Dp: int = 0.3) -> Solution:
+   350                                               """
+   351                                               - performs up to `k` "accepted" random moves (tries many times).
+   352                                               - after candidate creation we check soft sync-safety:
+   353                                                   reject candidate if any synchronized customer ends up with all its occurrences
+   354                                                   placed on a single vehicle (concentrates all occurrences on one route).
+   355                                               - returns a new Solution after applied accepted moves.
+   356                                               """
+   357         4          1.5      0.4      5.2      new = sol.copy()
+   358         4          0.0      0.0      0.0      inst = sol.instance
+   359         4          0.0      0.0      0.0      m = inst.m
+   360         4          0.1      0.0      0.2      _ensure_m_tours(new.tours, m)
+   361                                           
+   362                                               # helper: check whether a candidate breaks sync "soft" protection:
+   363         4          0.3      0.1      1.0      def breaks_sync_soft(tours: List[List[int]]) -> bool:
+   364                                                   syncs = getattr(inst, "sync_customers", set())
+   365                                                   if not syncs:
+   366                                                       return False
+   367                                                   # compute occurrences per customer
+   368                                                   from collections import Counter, defaultdict
+   369                                                   total = Counter()
+   370                                                   per_route = defaultdict(lambda: Counter())
+   371                                                   for r_idx, rt in enumerate(tours):
+   372                                                       for v in rt:
+   373                                                           total[v] += 1
+   374                                                           per_route[r_idx][v] += 1
+   375                                                   for cust in syncs:
+   376                                                       req = inst.sync_requirements.get(cust, 1)
+   377                                                       tot = total.get(cust, 0)
+   378                                                       if tot < req:
+   379                                                           # missing occurrences — allow (initializer/repair may add later) but prefer not to create missing
+   380                                                           continue
+   381                                                       # if all occurrences are concentrated into one route and that route has >= req, reject
+   382                                                       for r_idx in range(len(tours)):
+   383                                                           if per_route[r_idx].get(cust, 0) >= req and per_route[r_idx].get(cust, 0) == tot and tot >= req:
+   384                                                               return True
+   385                                                   return False
+   386                                           
+   387         4          0.0      0.0      0.0      attempts = 0
+   388         4          0.0      0.0      0.0      accepted = 0
+   389                                           
+   390                                               # helper to accept candidate if it passes sync check
+   391         4          0.1      0.0      0.2      def try_accept(candidate: Optional[Solution]) -> Optional[Solution]:
+   392                                                   nonlocal attempts, accepted
+   393                                                   if candidate is None:
+   394                                                       return None
+   395                                                   # ensure candidate.tours padded
+   396                                                   _ensure_m_tours(candidate.tours, m)
+   397                                                   # quick sync safety check
+   398                                                   if breaks_sync_soft(candidate.tours):
+   399                                                       return None
+   400                                                   accepted += 1
+   401                                                   return candidate
+   402                                           
+   403        21          0.1      0.0      0.4      while accepted < max(1, k):
+   404        17          0.0      0.0      0.1          attempts += 1
+   405        17          0.1      0.0      0.3          r = random.random()
+   406                                           
+   407                                                   # family selection
+   408        17          0.0      0.0      0.1          if r <= Dp:
+   409                                                       # swap/exchange family (30%)
+   410         6          0.2      0.0      0.6              move = random.choice([
+   411                                                           "intra_swap",
+   412                                                           "inter_swap",
+   413                                                           "two_opt",
+   414                                                           "two_opt_star",
+   415                                                           "cross_exchange"
+   416                                                       ])
+   417                                           
+   418         6          0.0      0.0      0.0              if move == "intra_swap":
+   419         2          0.1      0.1      0.4                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+   420         2          0.0      0.0      0.0                  if not candidates:
+   421                                                               continue
+   422         2          0.0      0.0      0.1                  r = random.choice(candidates)
+   423         2          0.0      0.0      0.0                  L = len(new.tours[r])
+   424         2          0.2      0.1      0.6                  p1, p2 = random.sample(range(L), 2)
+   425         2          0.5      0.3      1.9                  cand = intra_swap(new, r, p1, p2)
+   426                                           
+   427         4          0.0      0.0      0.0              elif move == "inter_swap":
+   428         1          0.0      0.0      0.1                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+   429         1          0.0      0.0      0.0                  if not candidates:
+   430                                                               continue
+   431         1          0.0      0.0      0.1                  r1, r2 = random.sample(candidates, 2)
+   432         1          0.0      0.0      0.1                  p1 = random.randrange(len(new.tours[r1]))
+   433         1          0.0      0.0      0.1                  p2 = random.randrange(len(new.tours[r2]))
+   434         1          0.7      0.7      2.4                  cand = inter_swap(new, r1, p1, r2, p2)
+   435                                           
+   436         3          0.0      0.0      0.0              elif move == "two_opt":
+   437         2          0.1      0.0      0.3                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 4]
+   438         2          0.0      0.0      0.0                  if not candidates:
+   439                                                               continue
+   440         2          0.0      0.0      0.1                  r = random.choice(candidates)
+   441         2          0.0      0.0      0.0                  L = len(new.tours[r])
+   442         2          0.1      0.0      0.3                  i = random.randint(0, L - 3)
+   443         2          0.1      0.0      0.3                  j = random.randint(i + 2, L - 1)
+   444         2          0.8      0.4      2.7                  cand = two_opt(new, r, i, j)
+   445                                           
+   446         1          0.0      0.0      0.0              elif move == "two_opt_star":
+   447                                                           candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 2]
+   448                                                           if len(candidates) < 2:
+   449                                                               continue
+   450                                                           r1, r2 = random.sample(candidates, 2)
+   451                                                           i = random.randint(1, min(3, len(new.tours[r1]) - 1))
+   452                                                           j = random.randint(1, min(3, len(new.tours[r2]) - 1))
+   453                                                           cand = two_opt_star(new, r1, i, r2, j)
+   454                                           
+   455                                                       else:  # cross_exchange
+   456         1          0.0      0.0      0.1                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 1]
+   457         1          0.0      0.0      0.0                  if len(candidates) < 2:
+   458                                                               continue
+   459         1          0.1      0.1      0.2                  r1, r2 = random.sample(candidates, 2)
+   460         1          0.0      0.0      0.0                  A, B = new.tours[r1], new.tours[r2]
+   461         1          0.0      0.0      0.1                  a1 = random.randint(0, len(A) - 1)
+   462         1          0.0      0.0      0.1                  a2 = min(len(A), a1 + random.randint(1, min(3, len(A) - a1)))
+   463         1          0.0      0.0      0.1                  b1 = random.randint(0, len(B) - 1)
+   464         1          0.0      0.0      0.1                  b2 = min(len(B), b1 + random.randint(1, min(3, len(B) - b1)))
+   465         1          0.0      0.0      0.0                  if a1 < a2 and b1 < b2:
+   466         1          0.2      0.2      0.8                      cand = cross_exchange(new, r1, a1, a2, r2, b1, b2)
+   467                                                   else: 
+   468                                                       # insertion family (70%))
+   469        11          0.2      0.0      0.8              move = random.choice([
+   470                                                           "intra_insertion",
+   471                                                           "inter_insertion",
+   472                                                           "k_relocate",
+   473                                                       ])
+   474                                           
+   475        11          0.0      0.0      0.1              if move == "intra_insertion":
+   476         4          0.2      0.1      0.7                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 1]
+   477         4          0.0      0.0      0.0                  if not candidates:
+   478                                                               continue
+   479         4          0.1      0.0      0.3                  r_idx = random.choice(candidates)
+   480         4          0.0      0.0      0.0                  L = len(new.tours[r_idx])
+   481         4          0.1      0.0      0.3                  from_pos = random.randrange(L)
+   482         4          0.1      0.0      0.4                  to_pos = random.randrange(L + 1)
+   483         4          0.0      0.0      0.0                  if from_pos == to_pos:
+   484         1          0.0      0.0      0.0                      continue
+   485         3          1.2      0.4      4.2                  cand = intra_insertion(new, r_idx, from_pos, to_pos)
+   486                                           
+   487         7          0.0      0.0      0.0              elif move == "inter_insertion":
+   488         2          0.1      0.1      0.4                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) > 0]
+   489         2          0.0      0.0      0.0                  if not candidates:
+   490                                                               continue
+   491         2          0.0      0.0      0.1                  a = random.choice(candidates)
+   492         2          0.0      0.0      0.2                  b = random.randrange(m)
+   493         2          0.0      0.0      0.0                  if a == b:
+   494         1          0.0      0.0      0.0                      continue
+   495         1          0.0      0.0      0.1                  from_pos = random.randrange(len(new.tours[a]))
+   496         1          0.0      0.0      0.1                  to_pos = random.randrange(len(new.tours[b]) + 1)
+   497         1          0.4      0.4      1.4                  cand = inter_insertion(new, a, from_pos, b, to_pos)
+   498                                           
+   499                                                       else: #k_relocate"
+   500         5          0.1      0.0      0.5                  candidates = [i for i in range(m) if i < len(new.tours) and len(new.tours[i]) >= 1]
+   501         5          0.0      0.0      0.0                  if not candidates:
+   502                                                               continue
+   503         5          0.1      0.0      0.2                  r_from = random.choice(candidates)
+   504         5          0.0      0.0      0.1                  max_len = min(3, max(1, len(new.tours[r_from]) // 4))
+   505         5          0.1      0.0      0.5                  length = random.randint(1, max_len)
+   506         5          0.1      0.0      0.4                  start = random.randint(0, len(new.tours[r_from]) - length)
+   507         5          0.1      0.0      0.3                  r_to = random.randrange(m)
+   508         5          0.1      0.0      0.3                  pos = random.randrange(len(new.tours[r_to]) + 1)
+   509         5          1.5      0.3      5.2                  cand = k_relocate(new, r_from, start, length, r_to, pos)
+   510                                                           
+   511        15         11.2      0.7     38.9          cand = try_accept(cand)
+   512        15          0.0      0.0      0.1          if cand:
+   513        14          7.1      0.5     24.7              new = cand
+   514                                           
+   515                                               # final pad/truncate and return
+   516         4          0.1      0.0      0.2      _ensure_m_tours(new.tours, m)
+   517         4          0.0      0.0      0.0      return new
+
+Total time: 0.0004253 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\search_state\search_state.py
+Function: __init__ at line 11
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    11                                               def __init__(
+    12                                                   self,
+    13                                                   instance,
+    14                                                   time_limit: float,
+    15                                                   window_size: int = 20  # parameter that answers "what has ls been doing recently?"
+    16                                               ):
+    17         1          0.0      0.0      0.9          self.instance = instance
+    18         1          0.0      0.0      1.1          self.time_limit = float(time_limit)
+    19         1          0.0      0.0      0.8          self.W = int(window_size)
+    20                                           
+    21                                                   #  static (instance-level) 
+    22         1          0.4      0.4     92.8          self._extract_instance_features()
+    23                                           
+    24                                                   #  dynamic (search-level) 
+    25         1          0.0      0.0      0.5          self.start_time = None
+    26         1          0.0      0.0      0.4          self.iter_gvns = 0
+    27         1          0.0      0.0      0.2          self.ls_calls_since_improvement = 0
+    28                                           
+    29                                                   # rolling LS history
+    30         1          0.0      0.0      1.8          self.improved_hist = deque(maxlen=self.W)
+    31         1          0.0      0.0      0.5          self.delta_hist = deque(maxlen=self.W)
+    32         1          0.0      0.0      0.6          self.elapsed_hist = deque(maxlen=self.W)
+    33                                           
+    34                                                   # current solution snapshot (for penalties)
+    35         1          0.0      0.0      0.4          self.current_solution = None
+
+Total time: 0.0002691 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\search_state\search_state.py
+Function: _extract_instance_features at line 40
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    40                                               def _extract_instance_features(self):
+    41                                                   """Compute all instance-level features once."""
+    42                                           
+    43         1          0.0      0.0      0.6          inst = self.instance
+    44         1          0.0      0.0      0.8          nodes = inst.nodes
+    45                                           
+    46         1          0.0      0.0      0.7          self.inst_features = {}
+    47                                           
+    48                                                   # core
+    49         1          0.0      0.0      0.9          self.inst_features["n_customers"] = inst.n
+    50         1          0.0      0.0      0.6          self.inst_features["n_vehicles"] = inst.m
+    51         1          0.0      0.0      0.6          self.inst_features["horizon"] = inst.horizon
+    52         1          0.0      0.0      0.6          self.inst_features["sync_ratio"] = (
+    53         1          0.0      0.0      1.7              len(inst.sync_customers) / inst.n if inst.n > 0 else 0.0
+    54                                                   )
+    55                                           
+    56                                                   # time window structure
+    57         1          0.0      0.0      0.5          tw_widths = []
+    58         1          0.0      0.0      0.4          early = 0
+    59         1          0.0      0.0      0.7          late = 0
+    60                                           
+    61        32          0.0      0.0     10.7          for i, node in nodes.items():
+    62        31          0.0      0.0      8.6              ready = node["ready"]
+    63        31          0.0      0.0     15.2              due = node["due"]
+    64        31          0.0      0.0     15.1              width = max(0.0, due - ready)
+    65        31          0.0      0.0      9.8              tw_widths.append(width)
+    66                                           
+    67        31          0.0      0.0      9.7              if ready < 0.2 * inst.horizon:
+    68                                                           # early time window , first 20% of horizon
+    69        15          0.0      0.0      3.8                  early += 1
+    70        31          0.0      0.0      9.7              if due > 0.8 * inst.horizon:
+    71                                                           # late time window , last 20% of horizon
+    72         9          0.0      0.0      2.4                  late += 1
+    73                                           
+    74         1          0.0      0.0      0.3          if tw_widths:
+    75         1          0.0      0.0      1.5              avg_tw = sum(tw_widths) / len(tw_widths)
+    76         1          0.0      0.0      1.2              min_tw = min(tw_widths)
+    77                                                   else:
+    78                                                       avg_tw = 0.0
+    79                                                       min_tw = 0.0
+    80                                           
+    81         2          0.0      0.0      2.0          self.inst_features.update({
+    82         1          0.0      0.0      0.3              "avg_tw_width": avg_tw,
+    83         1          0.0      0.0      0.2              "min_tw_width": min_tw,
+    84         1          0.0      0.0      0.5              "tw_tightness": avg_tw / inst.horizon if inst.horizon > 0 else 0.0,
+    85         1          0.0      0.0      0.5              "early_tw_ratio": early / inst.n if inst.n > 0 else 0.0,
+    86         1          0.0      0.0      0.3              "late_tw_ratio": late / inst.n if inst.n > 0 else 0.0,
+    87                                                   })
+
+Total time: 3.18e-05 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\search_state\search_state.py
+Function: reset at line 92
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    92                                               def reset(self):
+    93                                                   """reset all dynamic search-level statistics."""
+    94         1          0.0      0.0     10.1          self.start_time = time.time()
+    95         1          0.0      0.0      4.1          self.iter_gvns = 0
+    96         1          0.0      0.0      3.5          self.ls_calls_since_improvement = 0
+    97                                           
+    98         1          0.0      0.0     67.6          self.improved_hist.clear()
+    99         1          0.0      0.0      7.9          self.delta_hist.clear()
+   100         1          0.0      0.0      3.8          self.elapsed_hist.clear()
+   101                                           
+   102         1          0.0      0.0      3.1          self.current_solution = None
+
+Total time: 0.0009645 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\search_state\search_state.py
+Function: before_ls at line 107
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   107                                               def before_ls(self, k: int, iter_gvns: int):
+   108                                                   """
+   109                                                   called immediately before a local search call.
+   110                                                   """
+   111       317          0.6      0.0     59.9          self.iter_gvns = iter_gvns
+   112       317          0.4      0.0     40.1          self.current_k = k
+
+Total time: 0.0070034 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\search_state\search_state.py
+Function: after_ls at line 114
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   114                                               def after_ls(
+   115                                                   self,
+   116                                                   improved: bool,
+   117                                                   F_before: float,
+   118                                                   F_after: float,
+   119                                                   elapsed: float,
+   120                                                   solution
+   121                                               ):
+   122       317          1.1      0.0     15.5          delta = max(0.0, F_before - F_after)
+   123                                           
+   124                                                   # update rolling history
+   125       317          1.2      0.0     17.5          self.improved_hist.append(1 if improved else 0)
+   126       317          0.5      0.0      7.6          self.delta_hist.append(delta)
+   127       317          0.5      0.0      7.8          self.elapsed_hist.append(elapsed)
+   128                                           
+   129                                                   # stagnation counter
+   130       317          0.4      0.0      5.2          if improved:
+   131       188          0.5      0.0      7.2              self.ls_calls_since_improvement = 0
+   132                                                   else:
+   133       129          0.4      0.0      6.1              self.ls_calls_since_improvement += 1
+   134                                           
+   135                                                   # update current solution snapshot
+   136       317          2.3      0.0     32.9          self.current_solution = solution
+
+Total time: 0.0203787 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\search_state\search_state.py
+Function: get_features at line 141
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   141                                               def get_features(self, k: int, k_max: int) -> Dict[str, Any]:
+   142                                                   """
+   143                                                   return full feature dictionary:
+   144                                                   [instance] + [search] + [neighborhood context]
+   145                                                   """
+   146                                           
+   147       317          0.4      0.0      2.1          feats = {}
+   148                                                   # ---------- instance ----------
+   149       317          1.1      0.0      5.3          feats.update(self.inst_features)
+   150                                           
+   151                                                   # ---------- search ----------
+   152       317          0.8      0.0      3.8          now = time.time()
+   153       317          0.7      0.0      3.5          elapsed = now - self.start_time if self.start_time else 0.0
+   154                                           
+   155       317          0.4      0.0      1.8          time_elapsed_ratio = (
+   156       317          0.6      0.0      3.1              elapsed / self.time_limit if self.time_limit > 0 else 0.0
+   157                                                   )
+   158                                           
+   159       634          1.6      0.0      7.8          feats.update({
+   160       317          0.4      0.0      1.9              "iter_gvns": self.iter_gvns,
+   161       317          0.3      0.0      1.6              "stagnation_ls": self.ls_calls_since_improvement,
+   162       317          0.7      0.0      3.4              "time_elapsed_ratio": min(1.0, time_elapsed_ratio),
+   163       317          0.5      0.0      2.3              "time_left_ratio": max(0.0, 1.0 - time_elapsed_ratio),
+   164                                                   })
+   165                                           
+   166                                                   # rolling-window stats
+   167       317          0.6      0.0      3.1          W_eff = len(self.improved_hist)
+   168       317          0.4      0.0      1.8          if W_eff > 0:
+   169       317          1.1      0.0      5.5              improv_rate = sum(self.improved_hist) / W_eff
+   170       317          0.9      0.0      4.5              avg_delta = sum(self.delta_hist) / W_eff
+   171       317          0.9      0.0      4.4              max_delta = max(self.delta_hist)
+   172                                                   else:
+   173                                                       improv_rate = 0.0
+   174                                                       avg_delta = 0.0
+   175                                                       max_delta = 0.0
+   176                                           
+   177       634          1.1      0.0      5.3          feats.update({
+   178       317          0.3      0.0      1.5              "improv_rate_W": improv_rate,
+   179       317          0.3      0.0      1.3              "avg_delta_W": avg_delta,
+   180       317          0.3      0.0      1.5              "max_delta_W": max_delta,
+   181       317          0.3      0.0      1.5              "ls_fail_ratio_W": 1.0 - improv_rate,
+   182                                                   })
+   183                                           
+   184                                                   #  penalty structure 
+   185       317          0.4      0.0      2.0          sol = self.current_solution
+   186       317          0.6      0.0      2.8          if sol is None or sol.Fval == 0:
+   187                                                       feats.update({
+   188                                                           "PV": 0,
+   189                                                           "pen_ratio": 0.0,
+   190                                                           "penT_ratio": 0.0,
+   191                                                           "penS_ratio": 0.0,
+   192                                                       })
+   193                                                   else:
+   194       317          0.7      0.0      3.6              total_pen = sol.penT + sol.penH + sol.penS
+   195       634          1.1      0.0      5.2              feats.update({
+   196       317          0.3      0.0      1.6                  "PV": sol.PV,
+   197       317          0.5      0.0      2.4                  "pen_ratio": total_pen / sol.Fval,
+   198       317          0.4      0.0      2.1                  "penT_ratio": sol.penT / sol.Fval,
+   199       317          0.4      0.0      2.0                  "penS_ratio": sol.penS / sol.Fval,
+   200                                                       })
+   201                                           
+   202                                                   #  neighborhood context 
+   203       634          1.3      0.0      6.3          feats.update({
+   204       317          0.3      0.0      1.5              "k": k,
+   205       317          0.4      0.0      1.9              "k_norm": k / k_max if k_max > 0 else 0.0,
+   206                                                   })
+   207                                           
+   208       317          0.3      0.0      1.4          return feats
+
+Total time: 32.8917 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py
+Function: safe_tt at line 7
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+     7                                           def safe_tt(TT, i, j):
+     8                                               """safe access to travel-time matrix supporting list or dict form"""
+     9   8527415       9020.7      0.0     27.4      try:
+    10   8527415      12210.7      0.0     37.1          if isinstance(TT, dict):
+    11                                                       return TT.get(i, {}).get(j, 0.0)
+    12                                                   else:
+    13   8527415      11660.3      0.0     35.5              return TT[i][j]
+    14                                               except Exception:
+    15                                                   return 0.0
+
+Total time: 17.5835 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py
+Function: copy at line 34
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    34                                               def copy(self):
+    35    209492       3618.1      0.0     20.6          new = Solution(
+    36    104746        130.2      0.0      0.7              instance=self.instance,
+    37    104746       1895.6      0.0     10.8              tours=[list(t) for t in self.tours],
+    38    104746        134.2      0.0      0.8              w1=self.w1,
+    39    104746        127.4      0.0      0.7              w2=self.w2,
+    40    104746        141.0      0.0      0.8              alpha=self.alpha,
+    41    104746        114.5      0.0      0.7              M=self.M,
+    42                                                   )
+    43    104746        198.6      0.0      1.1          new.travel_time = self.travel_time
+    44    104746        130.9      0.0      0.7          new.penT = self.penT
+    45    104746        150.7      0.0      0.9          new.penH = self.penH
+    46    104746        149.8      0.0      0.9          new.penS = self.penS
+    47    104746        129.5      0.0      0.7          new.Fval = self.Fval
+    48    104746        136.5      0.0      0.8          new.PV = self.PV
+    49                                           
+    50    104746        191.5      0.0      1.1          if hasattr(self, "_last_vehicle_visits"):
+    51    209492      10106.2      0.0     57.5              new._last_vehicle_visits = [
+    52    104746        110.0      0.0      0.6                  [dict(rec) for rec in vehicle] for vehicle in self._last_vehicle_visits
+    53                                                       ]
+    54                                           
+    55    104746        119.0      0.0      0.7          return new
+
+Total time: 486.617 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py
+Function: eval at line 58
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    58                                               def eval(self):
+    59                                                   """
+    60                                                   Canonical evaluation: run a single event-driven simulation that:
+    61                                                    - records per-vehicle visits (travel legs, arrival/start/depart)
+    62                                                    - uses those records to compute travel_total, penT, penH, penS and Fval
+    63                                                    - exactly mirrors the synchronization rules (required vehicles, eps alignment)
+    64                                                   """
+    65                                                   # enforce occurrence counts first
+    66    104924     149505.6      1.4     30.7          self.repair()
+    67                                           
+    68    104924        183.5      0.0      0.0          inst = self.instance
+    69    104924        153.4      0.0      0.0          TT = inst.travel_time
+    70    104924        137.3      0.0      0.0          nodes = inst.nodes
+    71    104924        109.6      0.0      0.0          m = inst.m
+    72    104924        121.9      0.0      0.0          horizon = inst.horizon
+    73    104924        321.6      0.0      0.1          sync_customers = getattr(inst, "sync_customers", set())
+    74    104924        207.1      0.0      0.0          sync_requirements = getattr(inst, "sync_requirements", {})
+    75                                           
+    76                                                   # detect depot id (same logic you already used)
+    77    104924        527.4      0.0      0.1          depot_id = min(nodes.keys())
+    78    104924        240.4      0.0      0.0          for nid, info in nodes.items():
+    79    104924        331.5      0.0      0.1              if info.get("ready", None) == 0 and info.get("service", None) == 0:
+    80    104924        115.5      0.0      0.0                  depot_id = nid
+    81    104924        134.9      0.0      0.0                  break
+    82                                           
+    83                                                   # prepare per-vehicle state
+    84    104924       1849.0      0.0      0.4          tours = [list(t) for t in self.tours]  # copy
+    85    104924        195.1      0.0      0.0          if len(tours) < m:
+    86                                                       tours = tours + [[] for _ in range(m - len(tours))]
+    87    104924        146.8      0.0      0.0          elif len(tours) > m:
+    88                                                       tours = tours[:m]
+    89                                           
+    90                                                   # assign back because later functions use self.tours!
+    91    104924        299.2      0.0      0.1          self.tours = tours
+    92                                                   
+    93    104924        279.1      0.0      0.1          vehicle_time = [0.0] * m
+    94    104924        167.2      0.0      0.0          vehicle_pos = [0] * m
+    95    104924        155.4      0.0      0.0          vehicle_done = [False] * m
+    96                                           
+    97                                                   # initialize first arrival times (depot -> first node)
+    98   1154164       1449.7      0.0      0.3          for k in range(m):
+    99   1049240       1912.2      0.0      0.4              if k < len(tours) and len(tours[k]) > 0:
+   100    564771       5337.5      0.0      1.1                  vehicle_time[k] = safe_tt(TT, depot_id, tours[k][0])
+   101                                                       else:
+   102    484469        602.4      0.0      0.1                  vehicle_done[k] = True
+   103                                           
+   104                                                   # storage for recorded visits (the canonical timeline)
+   105    104924       1450.6      0.0      0.3          vehicle_visits = [[] for _ in range(m)]
+   106    104924        773.8      0.0      0.2          sync_arrivals = {cid: [] for cid in sync_customers}
+   107    104924        156.2      0.0      0.0          sync_served = set()
+   108                                           
+   109                                                   # simulation loop (event-driven style similar to previous logic)
+   110    104924        122.7      0.0      0.0          progress = True
+   111    104924         98.7      0.0      0.0          iter_guard = 0
+   112    104924       2438.1      0.0      0.5          max_iter = sum(len(t) for t in tours) * 10 + 500
+   113    104924        114.4      0.0      0.0          eps_sync = 1e-3
+   114                                           
+   115   1354898       2384.3      0.0      0.5          while progress and iter_guard < max_iter:
+   116   1249974       1251.1      0.0      0.3              progress = False
+   117   1249974       1424.4      0.0      0.3              iter_guard += 1
+   118                                           
+   119  13749714      18592.3      0.0      3.8              for k in range(m):
+   120  12499740      13728.2      0.0      2.8                  if vehicle_done[k]:
+   121   7856138       7045.9      0.0      1.4                      continue
+   122   4643602       7467.9      0.0      1.5                  if vehicle_pos[k] >= len(tours[k]):
+   123    557305        604.5      0.0      0.1                      vehicle_done[k] = True
+   124    557305        492.8      0.0      0.1                      continue
+   125                                           
+   126   4086297       5233.3      0.0      1.1                  i = tours[k][vehicle_pos[k]]
+   127   4086297       4828.7      0.0      1.0                  node_info = nodes[i]
+   128   4086297       4951.4      0.0      1.0                  ready = node_info["ready"]
+   129   4086297       4354.7      0.0      0.9                  due = node_info["due"]
+   130   4086297       4209.9      0.0      0.9                  service = node_info["service"]
+   131                                           
+   132                                                           # vehicle waits for ready if necessary
+   133   4086297       5526.1      0.0      1.1                  if vehicle_time[k] < ready:
+   134    731676        812.0      0.0      0.2                      vehicle_time[k] = ready
+   135    731676        658.0      0.0      0.1                      progress = True
+   136                                           
+   137                                                           # SYNC customer
+   138   4086297       5867.0      0.0      1.2                  if i in sync_customers:
+   139   1281258       1752.5      0.0      0.4                      if k not in sync_arrivals[i]:
+   140    621792       1103.8      0.0      0.2                          sync_arrivals[i].append(k)
+   141    621792        594.2      0.0      0.1                          progress = True
+   142                                           
+   143   1281258       2160.0      0.0      0.4                      req = sync_requirements.get(i, 2)
+   144                                           
+   145                                                               # not enough vehicles yet, wait
+   146   1281258       2124.3      0.0      0.4                      if len(sync_arrivals[i]) < req:
+   147    974095        982.5      0.0      0.2                          continue
+   148                                           
+   149                                                               # we have required vehicles -> check alignment
+   150    307163       2543.9      0.0      0.5                      arrival_times = [vehicle_time[v] for v in sync_arrivals[i]]
+   151                                           
+   152                                                               # synchronized -> start at latest arrival
+   153    307163        807.6      0.0      0.2                      start_time = max(arrival_times)
+   154                                           
+   155                                                               # record a visit for each arriving vehicle
+   156    921489       1550.0      0.0      0.3                      for v in list(sync_arrivals[i]):
+   157    614326       1156.9      0.0      0.2                          prev = depot_id if vehicle_pos[v] == 0 else tours[v][vehicle_pos[v] - 1]
+   158    614326       5301.0      0.0      1.1                          travel_leg = safe_tt(TT, prev, i)
+   159   1228652       2242.9      0.0      0.5                          vehicle_visits[v].append({
+   160    614326        558.0      0.0      0.1                              "node": i,
+   161    614326        656.7      0.0      0.1                              "prev": prev,
+   162    614326        730.0      0.0      0.2                              "travel": float(travel_leg),
+   163    614326        783.1      0.0      0.2                              "arrival": float(vehicle_time[v]),
+   164    614326        655.2      0.0      0.1                              "start": float(start_time),
+   165    614326        740.7      0.0      0.2                              "service": float(service),
+   166    614326        820.6      0.0      0.2                              "depart": float(start_time + service),
+   167    614326        633.6      0.0      0.1                              "ready": float(ready),
+   168    614326        596.1      0.0      0.1                              "due": float(due)
+   169                                                                   })
+   170                                                                   # advance vehicle state
+   171    614326        887.9      0.0      0.2                          vehicle_pos[v] += 1
+   172                                                                   # set next arrival time = depart + travel(i,next) or return to depot
+   173    614326        805.1      0.0      0.2                          depart = start_time + service
+   174    614326       1059.5      0.0      0.2                          if vehicle_pos[v] < len(tours[v]):
+   175    342215        441.6      0.0      0.1                              nxt = tours[v][vehicle_pos[v]]
+   176    342215       3158.8      0.0      0.6                              vehicle_time[v] = depart + safe_tt(TT, i, nxt)
+   177                                                                   else:
+   178    272111       2525.4      0.0      0.5                              vehicle_time[v] = depart + safe_tt(TT, i, depot_id)
+   179                                           
+   180    307163        599.6      0.0      0.1                      sync_served.add(i)
+   181    307163        540.3      0.0      0.1                      sync_arrivals[i] = []
+   182    307163        397.9      0.0      0.1                      progress = True
+   183                                           
+   184                                                           # NON-SYNC customer
+   185                                                           else:
+   186   2805039       3131.7      0.0      0.6                      arrival = vehicle_time[k]
+   187   2805039       3414.0      0.0      0.7                      start = arrival if arrival >= ready else ready
+   188   2805039       3344.1      0.0      0.7                      depart = start + service
+   189                                           
+   190   2805039       5077.3      0.0      1.0                      prev = depot_id if vehicle_pos[k] == 0 else tours[k][vehicle_pos[k] - 1]
+   191   2805039      24604.1      0.0      5.1                      travel_leg = safe_tt(TT, prev, i)
+   192   5610078      10240.8      0.0      2.1                      vehicle_visits[k].append({
+   193   2805039       2530.6      0.0      0.5                          "node": i,
+   194   2805039       2555.0      0.0      0.5                          "prev": prev,
+   195   2805039       3294.8      0.0      0.7                          "travel": float(travel_leg),
+   196   2805039       2938.0      0.0      0.6                          "arrival": float(arrival),
+   197   2805039       2880.4      0.0      0.6                          "start": float(start),
+   198   2805039       2869.7      0.0      0.6                          "service": float(service),
+   199   2805039       2741.8      0.0      0.6                          "depart": float(depart),
+   200   2805039       2710.7      0.0      0.6                          "ready": float(ready),
+   201   2805039       2815.1      0.0      0.6                          "due": float(due)
+   202                                                               })
+   203                                           
+   204   2805039       4043.7      0.0      0.8                      vehicle_pos[k] += 1
+   205   2805039       4942.7      0.0      1.0                      if vehicle_pos[k] < len(tours[k]):
+   206   2519845       3372.7      0.0      0.7                          nxt = tours[k][vehicle_pos[k]]
+   207   2519845      23565.9      0.0      4.8                          vehicle_time[k] = depart + safe_tt(TT, i, nxt)
+   208                                                               else:
+   209    285194       2506.2      0.0      0.5                          vehicle_time[k] = depart + safe_tt(TT, i, depot_id)
+   210   2805039       3888.9      0.0      0.8                      progress = True
+   211                                           
+   212                                                   # Now compute global aggregates *from the recorded timeline* (single canonical source)
+   213    104924        118.6      0.0      0.0          travel_total = 0.0
+   214   1154164       1341.7      0.0      0.3          for k in range(m):
+   215   1049240       1175.2      0.0      0.2              visits = vehicle_visits[k]
+   216   4468605       4620.8      0.0      0.9              for rec in visits:
+   217   3419365       6081.4      0.0      1.2                  travel_total += float(rec.get("travel", 0.0))
+   218   1049240       1138.2      0.0      0.2              if visits:
+   219                                                           # add return to depot
+   220    561957        726.0      0.0      0.1                  last_node = visits[-1]["node"]
+   221    561957       5090.0      0.0      1.0                  travel_total += safe_tt(TT, last_node, depot_id)
+   222                                           
+   223                                                   # compute penT from recorded visits: lateness = max(0, start - due)
+   224    104924        124.9      0.0      0.0          penT = 0.0
+   225   1154164       1273.4      0.0      0.3          for k in range(m):
+   226   4468605       5001.9      0.0      1.0              for rec in vehicle_visits[k]:
+   227   3419365       6951.8      0.0      1.4                  late = max(0.0, rec["start"] - rec["due"])
+   228   3419365       3916.3      0.0      0.8                  penT += late
+   229                                           
+   230                                                   # compute penH (horizon) from end_time per vehicle
+   231    104924        115.9      0.0      0.0          penH = 0.0
+   232   1154164       1426.0      0.0      0.3          for k in range(m):
+   233   1049240       1146.3      0.0      0.2              visits = vehicle_visits[k]
+   234   1049240       1114.7      0.0      0.2              if visits:
+   235    561957        906.6      0.0      0.2                  last_depart = float(visits[-1]["depart"])
+   236    561957        648.1      0.0      0.1                  last_node = visits[-1]["node"]
+   237    561957       5175.0      0.0      1.1                  end_time = last_depart + safe_tt(TT, last_node, depot_id)
+   238    561957        649.8      0.0      0.1                  if end_time > horizon:
+   239     62069         88.6      0.0      0.0                      penH += (end_time - horizon)
+   240                                           
+   241                                                   # synchronization penalty for any sync customers that never got served
+   242    104924        118.0      0.0      0.0          n = 0
+   243   3357568       3786.1      0.0      0.8          for cid in nodes.keys():
+   244   3252644       3384.0      0.0      0.7              if cid == depot_id:
+   245    104924         96.8      0.0      0.0                  continue
+   246                                                       # each non-sync customer requires 1 occurrence,
+   247                                                       # a sync customer requires sync_requirements[cid]
+   248   3147720       4790.8      0.0      1.0              n += sync_requirements.get(cid, 1)
+   249    104924       2726.0      0.0      0.6          PV = sum(len(visits) for visits in vehicle_visits)
+   250    104924        439.1      0.0      0.1          self.PV = int(PV)
+   251                                                   
+   252    104924        273.6      0.0      0.1          penS = max(0, n - PV)
+   253                                           
+   254                                                   # final objective
+   255    104924        119.6      0.0      0.0          fixed_sum = 0.0
+   256    104924        260.8      0.0      0.1          if hasattr(inst, 'fixed_cost'):
+   257   1154164       1320.2      0.0      0.3              for k in range(m):
+   258   1049240       1958.3      0.0      0.4                  if k < len(tours) and len(tours[k]) > 0:
+   259    564771        841.7      0.0      0.2                      fixed_sum += float(inst.fixed_cost)
+   260                                           
+   261    104924        182.1      0.0      0.0          self.travel_time = travel_total
+   262    104924        130.3      0.0      0.0          self.penT = penT
+   263    104924        128.8      0.0      0.0          self.penH = penH
+   264    104924        164.2      0.0      0.0          self.penS = penS
+   265    104924        474.2      0.0      0.1          self.Fval = (travel_total + fixed_sum) + self.w1 * penT + self.w2 * penH + self.M * penS
+   266                                           
+   267                                                   # canonical timeline on the object for inspection
+   268    104924       1001.7      0.0      0.2          self._last_vehicle_visits = vehicle_visits
+   269                                           
+   270    104924        141.1      0.0      0.0          return self.Fval
+
+Total time: 127.34 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py
+Function: repair at line 273
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   273                                               def repair(self):
+   274                                                   """
+   275                                                   ensures each customer appears the correct number of times:
+   276                                                   - normal customers: 1 occurrence
+   277                                                   - synchronized customers: required # occurrences (will be 2 in our case)
+   278                                                   - removes extras, reinserts missing ones randomly
+   279                                                   """
+   280    104924        174.7      0.0      0.1          inst = self.instance
+   281    104924        250.0      0.0      0.2          sync_customers = getattr(inst, "sync_customers", [])
+   282    104924        187.6      0.0      0.1          sync_req = getattr(inst, "sync_requirements", {})
+   283    104924        539.2      0.0      0.4          depot_id = min(inst.nodes.keys())
+   284    104924       3650.5      0.0      2.9          non_depot_nodes = [nid for nid in inst.nodes.keys() if nid != depot_id]
+   285                                           
+   286    104924        279.7      0.0      0.2          m = getattr(inst, "m", len(self.tours))
+   287    104924        162.4      0.0      0.1          if len(self.tours) < m:
+   288                                                       for _ in range(m - len(self.tours)):
+   289                                                           self.tours.append([])
+   290                                           
+   291    104924       1713.0      0.0      1.3          from collections import Counter
+   292    104924       1717.3      0.0      1.3          counter = Counter()
+   293   1154164       1192.7      0.0      0.9          for rt in self.tours:
+   294   4511732       4579.0      0.0      3.6              for v in rt:
+   295   3462492      12300.9      0.0      9.7                  counter[v] += 1
+   296                                           
+   297                                                   # remove duplicates beyond allowed count
+   298   3252644       4091.5      0.0      3.2          for node, count in list(counter.items()):
+   299   3147720       4924.9      0.0      3.9              allowed = sync_req.get(node, 2 if node in sync_customers else 1)
+   300   3147720       3509.1      0.0      2.8              if count > allowed:
+   301                                                           excess = count - allowed
+   302                                                           for rt in self.tours:
+   303                                                               while node in rt and excess > 0:
+   304                                                                   rt.remove(node)
+   305                                                                   excess -= 1
+   306                                           
+   307                                                   # insert missing customers
+   308   3252644       3391.5      0.0      2.7          for node in non_depot_nodes:
+   309   3147720       5411.5      0.0      4.2              allowed = sync_req.get(node, 2 if node in sync_customers else 1)
+   310   3147720      74516.7      0.0     58.5              current = sum(rt.count(node) for rt in self.tours)
+   311   3147720       4643.9      0.0      3.6              if current < allowed:
+   312                                                           for _ in range(allowed - current):
+   313                                                               best_v = None
+   314                                                               best_pos = None
+   315                                                               best_cost = float('inf')
+   316                                                               for v in range(len(self.tours)):
+   317                                                                   if self.tours[v].count(node) > 0:
+   318                                                                       continue
+   319                                                                   for pos in range(len(self.tours[v]) + 1):
+   320                                                                       prev = depot_id if pos == 0 else self.tours[v][pos-1]
+   321                                                                       nxt = depot_id if pos == len(self.tours[v]) else self.tours[v][pos]
+   322                                                                       delta = safe_tt(inst.travel_time, prev, node) + safe_tt(inst.travel_time, node, nxt) - safe_tt(inst.travel_time, prev, nxt)
+   323                                                                       if delta < best_cost:
+   324                                                                           best_cost = delta; best_v = v; best_pos = pos
+   325                                                               if best_v is None:
+   326                                                                   chosen_route = random.randrange(len(self.tours))
+   327                                                                   pos = random.randint(0, len(self.tours[chosen_route]))
+   328                                                                   self.tours[chosen_route].insert(pos, node)
+   329                                                               else:
+   330                                                                   self.tours[best_v].insert(best_pos, node)
+   331                                           
+   332    104924        103.9      0.0      0.1          return self
+
+Total time: 5.19e-05 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py
+Function: self_adjust_penalties at line 334
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   334                                               def self_adjust_penalties(self):
+   335                                                   """
+   336                                                   dynamically adjust penalty weights 
+   337                                                   """
+   338         4          0.0      0.0     26.8          if self.penT > 0:
+   339                                                       self.w1 *= (1.0 + self.alpha)
+   340                                                   else:
+   341         4          0.0      0.0     31.2              self.w1 *= (1.0 - self.alpha)
+   342         4          0.0      0.0     12.5          if self.penH > 0:
+   343                                                       self.w2 *= (1.0 + self.alpha)
+   344                                                   else:
+   345         4          0.0      0.0     15.6              self.w2 *= (1.0 - self.alpha)
+   346                                           
+   347         4          0.0      0.0     13.9          return self.w1, self.w2
+
+Total time: 0 s
+File: C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py
+Function: compute_timeline_postsync at line 349
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   349                                               def compute_timeline_postsync(self):
+   350                                                   """
+   351                                                   Return the per-vehicle timeline produced by the canonical eval() run.
+   352                                                   If eval() wasn't called, run the canonical simulation once.
+   353                                                   """
+   354                                                   if not hasattr(self, "_last_vehicle_visits"):
+   355                                                       # run canonical eval (it will produce and store _last_vehicle_visits)
+   356                                                       self.eval()
+   357                                                   # return a results list in the same structure as before (route, visits, travel, end_time)
+   358                                                   inst = self.instance
+   359                                                   TT = inst.travel_time
+   360                                                   depot_id = min(inst.nodes.keys())
+   361                                                   results = []
+   362                                                   tours = [list(t) for t in self.tours]
+   363                                                   for k, visits in enumerate(self._last_vehicle_visits):
+   364                                                       travel_sum = 0.0
+   365                                                       last_depart = 0.0
+   366                                                       for rec in visits:
+   367                                                           travel_sum += float(rec.get("travel", 0.0))
+   368                                                           last_depart = float(rec.get("depart", last_depart))
+   369                                                       if visits:
+   370                                                           last_node = visits[-1]["node"]
+   371                                                           travel_sum += safe_tt(TT, last_node, depot_id)
+   372                                                           end_time = last_depart + safe_tt(TT, last_node, depot_id)
+   373                                                       else:
+   374                                                           end_time = 0.0
+   375                                                       results.append({"route": list(tours[k]) if k < len(tours) else [], "visits": visits, "travel": float(travel_sum), "end_time": float(end_time)})
+   376                                                   return results
+
+Total time: 0 s
+File: C:\Users\HP\miniforge3\envs\gvns-pypy\lib\dataclasses.py
+Function: wrapper at line 232
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   232                                               @functools.wraps(user_function)
+   233                                               def wrapper(self):
+   234                                                   key = id(self), _thread.get_ident()
+   235                                                   if key in repr_running:
+   236                                                       return '...'
+   237                                                   repr_running.add(key)
+   238                                                   try:
+   239                                                       result = user_function(self)
+   240                                                   finally:
+   241                                                       repr_running.discard(key)
+   242                                                   return result
+
