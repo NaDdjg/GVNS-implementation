@@ -52,7 +52,6 @@ gvns/
 Before introducing RL, some classical GVNS configurations are evaluated:
 
 - Neighborhood orders:
-
   - default
   - reverse
   - random

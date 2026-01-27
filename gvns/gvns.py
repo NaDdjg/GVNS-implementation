@@ -12,14 +12,14 @@ from gvns.rl_env import BVNDEnv
 
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
-    "Kmax": 12,           # max shaking strength
+    "p_max": 12,           # max shaking strength
     "delta": 0.4,         # acceptance threshold factor
     "w1": 0.5,
     "w2": 0.1,
     "alpha": 0.1,
     "M": 1e6,
-    "seed": 0,
-    "Tmax": None,
+    "seed": 42,
+    "Tmax": 500,
 }
 
 def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown", qtables_dir=None):
@@ -33,7 +33,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         cfg.update(params)
 
     random.seed(cfg["seed"])
-    Kmax = cfg["Kmax"]
+    Kmax = cfg["p_max"]
 
     # ============================================================
     # logger

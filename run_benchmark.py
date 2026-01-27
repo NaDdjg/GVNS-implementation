@@ -46,7 +46,7 @@ parser.add_argument(
 parser.add_argument(
     "--results_dir",
     type=str,
-    default="results/last_execution",
+    default="results/last_execution_default",
     help="optional custom results directory"
 )
 
@@ -63,7 +63,7 @@ params = {
     "log_path": "result_summaries/debug/gvns_trace.jsonl",
     "Contmax": 100,
     "p_init": 1,
-    "p_max": 10,
+    "p_max": 12,
     "Dp": 0.3,
     "w1": 0.5,    
     "w2": 0.1,
@@ -93,7 +93,7 @@ if args.mode == "first":
 
     RESULTS_FOLDER = (
         args.results_dir
-        or f"results-first-{args.neigh_order}"
+        or f"results/last_execution_first_{args.neigh_order}"
     )
 
 #  Best improvement GVNS
@@ -104,14 +104,14 @@ elif args.mode == "best":
 
     RESULTS_FOLDER = (
         args.results_dir
-        or f"results-{args.neigh_order}"
+        or f"results/last_execution_best_{args.neigh_order}"
     )
 
 #  RL based GVNS
 elif args.mode == "rl":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
-    RESULTS_FOLDER = args.results_dir or "results-rl"
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
 
     n_actions = len(NEIGHBORHOOD_NAMES)
     agent = QTableAgent(
