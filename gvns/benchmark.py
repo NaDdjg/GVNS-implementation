@@ -11,6 +11,11 @@ from functools import partial
 from gvns.instance import Instance
 from gvns.gvns import run_gvns
 
+# profiling 
+import cProfile
+import pstats
+from line_profiler import LineProfiler
+
 # run GVNS on one instance
 def run_instance(
         path, 
@@ -44,9 +49,7 @@ def run_instance(
         start = time.time()
         trace = []
 
-        # ============================================================
         # Run GVNS (classic or RL)
-        # ============================================================
         best = run_gvns(
             inst, 
             params=params, 
@@ -59,9 +62,7 @@ def run_instance(
         )
         elapsed = time.time() - start
 
-        # ============================================================
         # Build trace DataFrame
-        # ============================================================
         # if trace is empty, produce an empty DataFrame with canonical columns
         if not trace:
             cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
@@ -165,10 +166,95 @@ def run_instance(
 
     return df_res
 
+# ============================================================
+# Profiling functions
+# ============================================================
+def profile_run_instance(*args, **kwargs):
+    lp = LineProfiler()
+
+    # Entry points
+    lp.add_function(run_instance)
+
+    from gvns.gvns import run_gvns
+    lp.add_function(run_gvns)
+
+    import gvns.local_search as ls
+    import gvns.operators as ops
+    import gvns.solution as solution
+    import gvns.search_state.search_state as ss
+
+    lp.add_module(ls)
+    lp.add_module(ops)
+    lp.add_module(solution)
+    lp.add_module(ss)
+
+    lp.runctx(
+        "run_instance(*args, **kwargs)",
+        globals(),
+        locals()
+    )
+
+    out_dir = os.path.join("result_summaries", "debug")
+    os.makedirs(out_dir, exist_ok=True)
+
+    # optional: nice filename
+    path = kwargs.get("path")
+    instance_name = os.path.basename(path).split(".")[0]
+
+    mode = "FI" if kwargs.get("first_improvement", True) else "BI"
+    out_path = os.path.join(out_dir, f"line_profile_{instance_name}_{mode}.txt")
+
+    with open(out_path, "w") as f:
+        lp.print_stats(stream=f, output_unit=1e-3)  # ms
+
+def profile_run_instance_cprofile(*args, **kwargs):
+    """
+    Function-level profiler using cProfile + pstats.
+    Profiles the full GVNS execution path.
+    """
+
+    # Prepare output directory
+    out_dir = os.path.join("result_summaries", "debug")
+    os.makedirs(out_dir, exist_ok=True)
+
+    path = kwargs.get("path")
+    instance_name = os.path.basename(path).split(".")[0]
+
+    mode = "FI" if kwargs.get("first_improvement", True) else "BI"
+
+    prof_path = os.path.join(out_dir, f"cprofile_{instance_name}_{mode}.prof")
+    txt_path  = os.path.join(out_dir, f"cprofile_{instance_name}_{mode}.txt")
+
+    # Run profiler
+    profiler = cProfile.Profile()
+    profiler.enable()
+
+    result = run_instance(*args, **kwargs)
+
+    profiler.disable()
+
+    # Save binary profile 
+    profiler.dump_stats(prof_path)
+
+    # Save summary
+    with open(txt_path, "w") as f:
+        stats = pstats.Stats(profiler, stream=f)
+
+        stats.sort_stats("cumulative")   
+        stats.print_stats(50)           
+
+        f.write("\n\nCALLERS (who calls expensive functions)\n")
+        stats.print_callers(20)
+
+        f.write("\n\nCALLEES (what expensive functions call)\n")
+        stats.print_callees(20)
+
+    return result
 
 # ============================================================
 # Run folder
 # ============================================================
+# helper for multiprocessing
 def _run_one_instance_mp(
     path_full,
     n_runs,
@@ -188,6 +274,7 @@ def _run_one_instance_mp(
         qtables_dir=qtables_dir
     )
 
+# classic sequential runner
 def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
@@ -215,6 +302,42 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
     print("\nBenchmark completed.")
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
+# profiling version for one instance only
+def run_folder_profiling(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
+    """Run all instances in the specified folder sequentially."""
+    paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
+    if not paths:
+        print(f"No .txt instances found in {folder}")
+        return
+
+    all_results = []
+    # res = profile_run_instance(
+    #     path="instances\\30\\C102_30_3.txt", 
+    #     n_runs=n_runs, 
+    #     params=params,             
+    #     agent=agent,
+    #     first_improvement = first_improvement,
+    #     results_dir=results_dir,
+    #     qtables_dir=qtables_dir
+    # )
+    res = profile_run_instance_cprofile(
+        path="instances\\30\\C102_30_3.txt", 
+        n_runs=n_runs, 
+        params=params,             
+        agent=agent,
+        first_improvement = first_improvement,
+        results_dir=results_dir,
+        qtables_dir=qtables_dir,
+    )
+    all_results.append(res)
+
+    # combine all summaries into one global summary CSV
+    df_all = pd.concat(all_results, ignore_index=True)
+    df_all.to_csv(os.path.join(results_dir, "all_instances_summary.csv"), index=False)
+    print("\nBenchmark completed.")
+    print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
+
+# multiprocessing version
 def run_folder_parallel(
     folder,
     n_runs=1,
@@ -272,11 +395,15 @@ def run_folder_parallel(
     print("\nBenchmark completed.")
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
+# ============================================================
+# Main benchmark function
+# ============================================================
 def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-    run_folder_parallel(
+    # profiler version for one instance only
+    run_folder(
         folder=INST_FOLDER,
         n_runs=N_RUNS,
         params=PARAMS,
@@ -284,5 +411,16 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,
-        n_processes=18
     )
+
+    # parallel version
+    # run_folder_parallel(
+    #     folder=INST_FOLDER,
+    #     n_runs=N_RUNS,
+    #     params=PARAMS,
+    #     agent=agent,
+    #     first_improvement=first_improvement,
+    #     results_dir=RESULTS_FOLDER,            
+    #     qtables_dir=QTABLE_DIR,
+    #     n_processes=18
+    # )
