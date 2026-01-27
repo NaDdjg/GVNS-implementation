@@ -10,7 +10,6 @@ from functools import partial
 
 from gvns.instance import Instance
 from gvns.gvns import run_gvns
-from line_profiler import LineProfiler
 
 # run GVNS on one instance
 def run_instance(
@@ -166,41 +165,6 @@ def run_instance(
 
     return df_res
 
-def profile_run_instance(*args, **kwargs):
-    lp = LineProfiler()
-
-    # Entry points
-    lp.add_function(run_instance)
-
-    from gvns.gvns import run_gvns
-    lp.add_function(run_gvns)
-
-    import gvns.local_search as ls
-    import gvns.operators as ops
-    import gvns.solution as solution
-    import gvns.search_state.search_state as ss
-
-    lp.add_module(ls)
-    lp.add_module(ops)
-    lp.add_module(solution)
-    lp.add_module(ss)
-
-    lp.runctx(
-        "run_instance(*args, **kwargs)",
-        globals(),
-        locals()
-    )
-
-    out_dir = os.path.join("result_summaries", "debug")
-    os.makedirs(out_dir, exist_ok=True)
-
-    # optional: nice filename
-    instance_name = kwargs.get("instance_name", "unknown")
-    mode = "FI" if kwargs.get("first_improvement", True) else "BI"
-    out_path = os.path.join(out_dir, f"profile_{instance_name}_{mode}.txt")
-
-    with open(out_path, "w") as f:
-        lp.print_stats(stream=f, output_unit=1e-3)  # ms
 
 # ============================================================
 # Run folder
@@ -224,33 +188,6 @@ def _run_one_instance_mp(
         qtables_dir=qtables_dir
     )
 
-# def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
-#     """Run all instances in the specified folder sequentially."""
-#     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
-#     if not paths:
-#         print(f"No .txt instances found in {folder}")
-#         return
-
-#     all_results = []
-#     for p in paths:
-#         path_full = os.path.join(folder, p)
-#         res = run_instance(
-#             path_full, 
-#             n_runs=n_runs, 
-#             params=params, 
-#             agent=agent,
-#             first_improvement = first_improvement,
-#             results_dir=results_dir,
-#             qtables_dir=qtables_dir
-#         )
-#         all_results.append(res)
-
-#     # combine all summaries into one global summary CSV
-#     df_all = pd.concat(all_results, ignore_index=True)
-#     df_all.to_csv(os.path.join(results_dir, "all_instances_summary.csv"), index=False)
-#     print("\nBenchmark completed.")
-#     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
-
 def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
     """Run all instances in the specified folder sequentially."""
     paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
@@ -259,17 +196,18 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
         return
 
     all_results = []
-    # path_full = os.path.join(folder, p)
-    res = profile_run_instance(
-        "instances\\30\\C102_30_3.txt", 
-        n_runs=n_runs, 
-        params=params,             
-        agent=agent,
-        first_improvement = first_improvement,
-        results_dir=results_dir,
-        qtables_dir=qtables_dir
-    )
-    all_results.append(res)
+    for p in paths:
+        path_full = os.path.join(folder, p)
+        res = run_instance(
+            path_full, 
+            n_runs=n_runs, 
+            params=params, 
+            agent=agent,
+            first_improvement = first_improvement,
+            results_dir=results_dir,
+            qtables_dir=qtables_dir
+        )
+        all_results.append(res)
 
     # combine all summaries into one global summary CSV
     df_all = pd.concat(all_results, ignore_index=True)
@@ -338,7 +276,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-    run_folder(
+    run_folder_parallel(
         folder=INST_FOLDER,
         n_runs=N_RUNS,
         params=PARAMS,
@@ -346,5 +284,5 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,
-        # n_processes=18
+        n_processes=18
     )
