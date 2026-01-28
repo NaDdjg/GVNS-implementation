@@ -62,9 +62,6 @@ class Solution:
          - uses those records to compute travel_total, penT, penH, penS and Fval
          - exactly mirrors the synchronization rules (required vehicles, eps alignment)
         """
-        # enforce occurrence counts first
-        self.repair()
-
         inst = self.instance
         TT = inst.travel_time
         nodes = inst.nodes
@@ -268,68 +265,6 @@ class Solution:
         self._last_vehicle_visits = vehicle_visits
 
         return self.Fval
-
-    # repair and penalty adaptation
-    def repair(self):
-        """
-        ensures each customer appears the correct number of times:
-        - normal customers: 1 occurrence
-        - synchronized customers: required # occurrences (will be 2 in our case)
-        - removes extras, reinserts missing ones randomly
-        """
-        inst = self.instance
-        sync_customers = getattr(inst, "sync_customers", [])
-        sync_req = getattr(inst, "sync_requirements", {})
-        depot_id = min(inst.nodes.keys())
-        non_depot_nodes = [nid for nid in inst.nodes.keys() if nid != depot_id]
-
-        m = getattr(inst, "m", len(self.tours))
-        if len(self.tours) < m:
-            for _ in range(m - len(self.tours)):
-                self.tours.append([])
-
-        from collections import Counter
-        counter = Counter()
-        for rt in self.tours:
-            for v in rt:
-                counter[v] += 1
-
-        # remove duplicates beyond allowed count
-        for node, count in list(counter.items()):
-            allowed = sync_req.get(node, 2 if node in sync_customers else 1)
-            if count > allowed:
-                excess = count - allowed
-                for rt in self.tours:
-                    while node in rt and excess > 0:
-                        rt.remove(node)
-                        excess -= 1
-
-        # insert missing customers
-        for node in non_depot_nodes:
-            allowed = sync_req.get(node, 2 if node in sync_customers else 1)
-            current = sum(rt.count(node) for rt in self.tours)
-            if current < allowed:
-                for _ in range(allowed - current):
-                    best_v = None
-                    best_pos = None
-                    best_cost = float('inf')
-                    for v in range(len(self.tours)):
-                        if self.tours[v].count(node) > 0:
-                            continue
-                        for pos in range(len(self.tours[v]) + 1):
-                            prev = depot_id if pos == 0 else self.tours[v][pos-1]
-                            nxt = depot_id if pos == len(self.tours[v]) else self.tours[v][pos]
-                            delta = safe_tt(inst.travel_time, prev, node) + safe_tt(inst.travel_time, node, nxt) - safe_tt(inst.travel_time, prev, nxt)
-                            if delta < best_cost:
-                                best_cost = delta; best_v = v; best_pos = pos
-                    if best_v is None:
-                        chosen_route = random.randrange(len(self.tours))
-                        pos = random.randint(0, len(self.tours[chosen_route]))
-                        self.tours[chosen_route].insert(pos, node)
-                    else:
-                        self.tours[best_v].insert(best_pos, node)
-
-        return self
 
     def self_adjust_penalties(self):
         """
