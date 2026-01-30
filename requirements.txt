@@ -7,3 +7,5 @@ torch
 gymnasium 
 snakeviz
 line_profiler
+joblib
+scikit-learn

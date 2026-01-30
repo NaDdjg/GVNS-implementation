@@ -29,6 +29,7 @@ required_cols = {
     "strategy",   # 0 = FI, 1 = BI
     "delta",      # improvement magnitude
     "improved",   # binary flag
+    "F_before",
 }
 
 missing = required_cols - set(df.columns)
@@ -44,16 +45,29 @@ df = df[df["improved"] == 1].copy()
 
 print(f"Remaining rows after filtering: {len(df)}")
 
+# =========================================================
+# Create relative improvement target
+# =========================================================
+print("\nCreating rel_delta target...")
+df["rel_delta"] = df["delta"] / (df["F_before"] + 1e-6)
+
+print("rel_delta statistics:")
+print(df["rel_delta"].describe())
 
 # =========================================================
 # Drop non-learning columns
 # =========================================================
-# These are identifiers or logs, not learning features
 DROP_COLUMNS = [
-    "instance_name",
+    "source_file",   # will just keep instance_name
     "mode",          # FI / BI string version (strategy is numeric)
-    "neigh_name",
     "improved",      # already filtered
+    "neigh_name",
+    "ls_call_id"
+
+    "F_before",
+    "F_after",
+
+    "iter_gvns"      # redundant
 ]
 
 existing_drop = [c for c in DROP_COLUMNS if c in df.columns]
@@ -77,6 +91,8 @@ print(df["strategy"].value_counts())
 print("\nDelta statistics:")
 print(df["delta"].describe())
 
+print("\nFinal feature overview:")
+print(df.describe().T[["min", "mean", "max"]])
 
 # =========================================================
 # Save learning dataset

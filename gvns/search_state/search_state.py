@@ -145,10 +145,10 @@ class SearchState:
         """
 
         feats = {}
-        # ---------- instance ----------
+        # instance 
         feats.update(self.inst_features)
 
-        # ---------- search ----------
+        # search 
         now = time.time()
         elapsed = now - self.start_time if self.start_time else 0.0
 
@@ -156,9 +156,15 @@ class SearchState:
             elapsed / self.time_limit if self.time_limit > 0 else 0.0
         )
 
+        ls_phase_norm = (
+            self.ls_calls_since_improvement /
+            (self.ls_calls_since_improvement + self.W)
+        )
+
         feats.update({
             "iter_gvns": self.iter_gvns,
             "stagnation_ls": self.ls_calls_since_improvement,
+            "ls_phase_norm": ls_phase_norm,
             "time_elapsed_ratio": min(1.0, time_elapsed_ratio),
             "time_left_ratio": max(0.0, 1.0 - time_elapsed_ratio),
         })
