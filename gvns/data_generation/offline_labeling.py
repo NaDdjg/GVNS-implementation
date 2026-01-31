@@ -36,7 +36,6 @@ missing = required_cols - set(df.columns)
 if missing:
     raise ValueError(f"Missing required columns: {missing}")
 
-
 # =========================================================
 # filter, to keep only improving LS calls
 # =========================================================
@@ -51,6 +50,9 @@ print(f"Remaining rows after filtering: {len(df)}")
 print("\nCreating rel_delta target...")
 df["rel_delta"] = df["delta"] / (df["F_before"] + 1e-6)
 
+# df["delta"] = df["delta"].clip(lower=0.0)
+# df["rel_delta"] = df["rel_delta"].clip(lower=0.0)
+
 print("rel_delta statistics:")
 print(df["rel_delta"].describe())
 
@@ -62,7 +64,7 @@ DROP_COLUMNS = [
     "mode",          # FI / BI string version (strategy is numeric)
     "improved",      # already filtered
     "neigh_name",
-    "ls_call_id"
+    "ls_call_id",
 
     "F_before",
     "F_after",

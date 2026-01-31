@@ -1,6 +1,5 @@
 [
   "gvns_iter",
-  "ls_call_id",
   "neigh_id",
   "n_customers",
   "n_vehicles",
@@ -11,7 +10,6 @@
   "tw_tightness",
   "early_tw_ratio",
   "late_tw_ratio",
-  "iter_gvns",
   "stagnation_ls",
   "time_elapsed_ratio",
   "time_left_ratio",
@@ -26,7 +24,5 @@
   "k",
   "k_norm",
   "elapsed",
-  "F_before",
-  "F_after",
   "strategy"
 ]

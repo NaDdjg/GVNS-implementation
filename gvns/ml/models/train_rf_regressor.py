@@ -37,16 +37,10 @@ RF_PARAMS = dict(
 df = pd.read_csv(DATA_PATH)
 
 # sanity checks
-required_cols = {"delta", "strategy"}
+required_cols = {"delta", "rel_delta", "strategy"}
 missing = required_cols - set(df.columns)
 if missing:
     raise ValueError(f"Missing required columns: {missing}")
-
-# -----------------------------
-# Target transformation
-# -----------------------------
-# Log-transform delta
-df["log_delta"] = np.log1p(df["delta"].clip(lower=0))
 
 # -----------------------------
 # Group split (by instance)
@@ -62,12 +56,12 @@ groups = df["instance_name"]
 # Features: drop targets and non-feature columns
 DROP_COLS = [
     "delta",
-    "log_delta",
+    "rel_delta",
     "instance_name",  # used only for grouping
 ]
 
 X = df.drop(columns=DROP_COLS)
-y = df["log_delta"]
+y = df["rel_delta"]
 
 feature_names = X.columns.tolist()
 
