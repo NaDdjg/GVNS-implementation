@@ -37,8 +37,9 @@ if missing:
     raise ValueError(f"Missing required columns: {missing}")
 
 # =========================================================
-# filter, to keep only improving LS calls
-# =========================================================
+# Filter extremely uninformative LS calls (long stagnation)
+# Keep BOTH improving and non-improving decisions
+# # =========================================================
 MAX_STAGNATION = 10 # remove very long useless failure streaks
 df = df[df["stagnation_ls"] <= MAX_STAGNATION].copy()
 
@@ -50,11 +51,10 @@ print(f"Remaining rows after filtering: {len(df)}")
 print("\nCreating rel_delta target...")
 df["rel_delta"] = df["delta"] / (df["F_before"] + 1e-6)
 
-# df["delta"] = df["delta"].clip(lower=0.0)
-# df["rel_delta"] = df["rel_delta"].clip(lower=0.0)
-
 print("rel_delta statistics:")
 print(df["rel_delta"].describe())
+
+df["success"] = (df["delta"] > 0).astype(int)
 
 # =========================================================
 # Drop non-learning columns

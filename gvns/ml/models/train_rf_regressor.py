@@ -113,10 +113,10 @@ metrics = {
 # -----------------------------
 joblib.dump(model, OUTPUT_DIR / "rf_delta_regressor.pkl")
 
-with open(OUTPUT_DIR / "rf_features.json", "w") as f:
+with open(OUTPUT_DIR / "rf_regressor_features.json", "w") as f:
     json.dump(feature_names, f, indent=2)
 
-with open(OUTPUT_DIR / "rf_train_report.txt", "w") as f:
+with open(OUTPUT_DIR / "rf_regressor_report.txt", "w") as f:
     f.write("RandomForestRegressor – log(delta)\n")
     f.write("=" * 40 + "\n\n")
     for split in ["train", "test"]:
