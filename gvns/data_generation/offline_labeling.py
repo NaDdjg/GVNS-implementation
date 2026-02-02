@@ -39,8 +39,8 @@ if missing:
 # =========================================================
 # filter, to keep only improving LS calls
 # =========================================================
-print("Filtering to improving LS decisions only...")
-df = df[df["improved"] == 1].copy()
+MAX_STAGNATION = 10 # remove very long useless failure streaks
+df = df[df["stagnation_ls"] <= MAX_STAGNATION].copy()
 
 print(f"Remaining rows after filtering: {len(df)}")
 
