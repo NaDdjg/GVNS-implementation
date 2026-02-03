@@ -87,7 +87,7 @@ class SearchState:
         })
 
     # =========================================================
-    # Reset / lifecycle
+    # Reset 
     # =========================================================
     def reset(self):
         """reset all dynamic search-level statistics."""
@@ -102,12 +102,9 @@ class SearchState:
         self.current_solution = None
 
     # =========================================================
-    # Update hooks (called by local search)
+    # Update functions (called by local search)
     # =========================================================
     def before_ls(self, k: int, iter_gvns: int):
-        """
-        called immediately before a local search call.
-        """
         self.iter_gvns = iter_gvns
         self.current_k = k
 
@@ -143,7 +140,6 @@ class SearchState:
         return full feature dictionary:
         [instance] + [search] + [neighborhood context]
         """
-
         feats = {}
         # instance 
         feats.update(self.inst_features)

@@ -12,9 +12,9 @@ from sklearn.metrics import (
     r2_score
 )
 
-# -----------------------------
+# =========================================================
 # Configuration
-# -----------------------------
+# =========================================================
 DATA_PATH = Path("gvns/ls_data/learning_dataset.csv")
 OUTPUT_DIR = Path("gvns/ml/models")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,9 +31,9 @@ RF_PARAMS = dict(
     random_state=RANDOM_STATE,
 )
 
-# -----------------------------
+# =========================================================
 # Load data
-# -----------------------------
+# =========================================================
 df = pd.read_csv(DATA_PATH)
 
 # sanity checks
@@ -42,9 +42,9 @@ missing = required_cols - set(df.columns)
 if missing:
     raise ValueError(f"Missing required columns: {missing}")
 
-# -----------------------------
+# =========================================================
 # Group split (by instance)
-# -----------------------------
+# =========================================================
 if "instance_name" not in df.columns:
     raise ValueError(
         "instance_name column is required for grouped split "
@@ -65,9 +65,9 @@ y = df["rel_delta"]
 
 feature_names = X.columns.tolist()
 
-# -----------------------------
+# =========================================================
 # Train / Test split
-# -----------------------------
+# =========================================================
 gss = GroupShuffleSplit(
     n_splits=1,
     test_size=TEST_SIZE,
@@ -79,15 +79,15 @@ train_idx, test_idx = next(gss.split(X, y, groups=groups))
 X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
 y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-# -----------------------------
+# =========================================================
 # Train model
-# -----------------------------
+# =========================================================
 model = RandomForestRegressor(**RF_PARAMS)
 model.fit(X_train, y_train)
 
-# -----------------------------
+# =========================================================
 # Evaluation
-# -----------------------------
+# =========================================================
 y_pred_train = model.predict(X_train)
 y_pred_test = model.predict(X_test)
 
@@ -108,9 +108,9 @@ metrics = {
     "rf_params": RF_PARAMS,
 }
 
-# -----------------------------
+# =========================================================
 # Save artifacts
-# -----------------------------
+# =========================================================
 joblib.dump(model, OUTPUT_DIR / "rf_delta_regressor.pkl")
 
 with open(OUTPUT_DIR / "rf_regressor_features.json", "w") as f:
@@ -131,10 +131,9 @@ with open(OUTPUT_DIR / "rf_regressor_report.txt", "w") as f:
     for k, v in RF_PARAMS.items():
         f.write(f"{k}: {v}\n")
 
-# -----------------------------
+# =========================================================
 # Console summary
-# -----------------------------
-
+# =========================================================
 print("Training completed.")
 print(f"Train R²: {metrics['train']['R2']:.4f}")
 print(f"Test  R²: {metrics['test']['R2']:.4f}")

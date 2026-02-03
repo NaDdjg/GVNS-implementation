@@ -95,6 +95,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         "events": []
     }
 
+    # search state for LS
     search_state = SearchState(
         instance=instance,
         time_limit=time_limit

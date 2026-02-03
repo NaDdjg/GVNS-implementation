@@ -6,7 +6,7 @@ class LSDecisionLogger:
     """
     Logs one row per Local Search (LS) call inside BVND.
 
-    Each row corresponds to:
+    each row corresponds to:
     - one neighborhood attempt
     - at a specific GVNS iteration
     - with a full feature vector
@@ -38,11 +38,10 @@ class LSDecisionLogger:
         self.writer = None
 
         # header will be written lazily on first log,
-        # because feature keys are not known beforehand
         self.header_written = header_exists
 
     # =========================================================
-    # Core logging method
+    # core logging method
     # =========================================================
     def log(
         self,
@@ -58,7 +57,7 @@ class LSDecisionLogger:
     ):
         """
         Log one LS decision.
-        will be called AFTER search_state.after_ls() and after features are extracted.
+        will be called after search_state.after_ls() and after features are extracted.
         """
         self.ls_call_id += 1
 

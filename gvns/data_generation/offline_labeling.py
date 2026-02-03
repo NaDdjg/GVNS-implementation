@@ -38,9 +38,9 @@ if missing:
 
 # =========================================================
 # Filter extremely uninformative LS calls (long stagnation)
-# Keep BOTH improving and non-improving decisions
+# Keep both improving and non-improving decisions
 # # =========================================================
-MAX_STAGNATION = 10 # remove very long useless failure streaks
+MAX_STAGNATION = 10 
 df = df[df["stagnation_ls"] <= MAX_STAGNATION].copy()
 
 print(f"Remaining rows after filtering: {len(df)}")
@@ -62,7 +62,7 @@ df["success"] = (df["delta"] > 0).astype(int)
 DROP_COLUMNS = [
     "source_file",   # will just keep instance_name
     "mode",          # FI / BI string version (strategy is numeric)
-    "improved",      # already filtered
+    # "improved",      # already filtered
     "neigh_name",
     "ls_call_id",
 
@@ -76,20 +76,20 @@ existing_drop = [c for c in DROP_COLUMNS if c in df.columns]
 df.drop(columns=existing_drop, inplace=True)
 
 # =========================================================
-# Final checks
+# final checks
 # =========================================================
-# 1. No NaNs
+# No NaNs
 nan_counts = df.isna().sum()
 if nan_counts.any():
     print("WARNING: NaNs detected:")
     print(nan_counts[nan_counts > 0])
     raise ValueError("Dataset contains NaNs. Fix before training.")
 
-# 2. Strategy sanity
+# Strategy sanity
 print("\nRows per strategy:")
 print(df["strategy"].value_counts())
 
-# 3. Delta sanity
+# Delta sanity
 print("\nDelta statistics:")
 print(df["delta"].describe())
 

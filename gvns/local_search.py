@@ -361,6 +361,7 @@ def b_vnd(
             if time_limit and (time.time() - start) > time_limit:
                 break
 
+            # logging before LS
             if search_state is not None:
                 search_state.before_ls(
                     k=idx,
@@ -400,6 +401,7 @@ def b_vnd(
                             "F_after": F_after,
                         })
             
+            # logging after LS
             if search_state is not None:
                 search_state.after_ls(
                     improved=improved,
@@ -409,11 +411,13 @@ def b_vnd(
                     solution=best
                 )
 
+                # save decision data
                 features = search_state.get_features(
                     k=idx,
                     k_max=len(neighborhoods)
                 )
 
+                # log LS decision
                 if ls_logger is not None:
                     ls_logger.log(
                         gvns_iter=iteration,
