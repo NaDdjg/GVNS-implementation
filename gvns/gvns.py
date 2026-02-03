@@ -219,23 +219,23 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             ])
 
     # save neighborhood statistics
-    # if order_mode != "suggested":
-    #     save_neighborhood_usage(
-    #         usage_logger["counter"],
-    #         instance_name
-    #     )
+    if order_mode != "suggested":
+        save_neighborhood_usage(
+            usage_logger["counter"],
+            instance_name
+        )
         
-    #     save_neighborhood_improvement_log(
-    #         usage_logger["events"],
-    #         instance_name,
-    #         suffix="rl" if agent is not None else "bvnd"
-    #     )
+        save_neighborhood_improvement_log(
+            usage_logger["events"],
+            instance_name,
+            suffix="rl" if agent is not None else "bvnd"
+        )
         
-    #     save_suggested_order(
-    #         usage_logger["counter"],
-    #         instance_name,
-    #         list(enumerate(ls.NEIGHBORHOOD_FUNCS))
-    #     )
+        save_suggested_order(
+            usage_logger["counter"],
+            instance_name,
+            list(enumerate(ls.NEIGHBORHOOD_FUNCS))
+        )
 
     if best_feasible is not None:
         best_feasible.eval()
