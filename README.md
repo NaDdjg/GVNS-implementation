@@ -115,6 +115,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -132,6 +133,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -151,6 +153,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -168,6 +171,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -184,6 +188,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
