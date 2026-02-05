@@ -3,16 +3,21 @@ import time
 import random
 import numpy as np
 
-from gvns.data_generation.ls_logger import LSDecisionLogger
-from gvns.search_state.search_state import SearchState
-from gvns.solution import Solution
-from gvns.initializer import random_insertion
+# GVNS main module
 import gvns.operators as ops
 import gvns.local_search as ls
+from gvns.solution import Solution
+from gvns.initializer import random_insertion
+
+# loggers
+from gvns.data_generation.ls_logger import LSDecisionLogger
+from gvns.search_state.search_state import SearchState
 from gvns.logger import GVNSLogger
 from gvns.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
 
+# RL/ ML
 from gvns.rl.rl_env import BVNDEnv
+from gvns.ml.strategy_policy import MLStrategyPolicy
 
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
@@ -103,16 +108,31 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     search_state.reset()
 
     # LS decision logger
-    mode = "FI" if first_improvement else "BI"
-    output_dir = os.path.join("gvns", "ls_data", mode)
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{instance_name}.csv")
-    
-    ls_logger = LSDecisionLogger(
-        output_path=output_path,
-        instance_name=instance_name,
-        mode=mode
-    )
+    log_data = cfg.get("log_ls_data", False)
+
+    if log_data:
+        mode = "FI" if first_improvement else "BI"
+        output_dir = os.path.join("gvns", "ls_data", mode)
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{instance_name}.csv")
+        
+        ls_logger = LSDecisionLogger(
+            output_path=output_path,
+            instance_name=instance_name,
+            mode=mode
+        )
+
+    # ML strategy policy
+    use_ml = cfg.get("use_ml", False)
+    verbose_ml = cfg.get("verbose_ml", False)
+
+    ml_policy = None
+    if use_ml:
+        ml_policy = MLStrategyPolicy(
+            clf_path="gvns/ml/models/rf_strategy_classifier.pkl",
+            reg_path="gvns/ml/models/rf_delta_regressor.pkl",
+            features_path="gvns/ml/models/rf_features.json",
+        )
 
     # ============================================================
     # GVNS iterating
@@ -153,7 +173,9 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 instance_name=instance_name,
                 iteration=iteration,                   
                 search_state=search_state, 
-                ls_logger=ls_logger
+                ls_logger=ls_logger,
+                ml_policy=ml_policy,
+                verbose_ml=verbose_ml
             )
         else: 
             #  RL-DRIVEN BVND 

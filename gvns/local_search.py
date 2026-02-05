@@ -322,6 +322,9 @@ def b_vnd(
 
     search_state=None,    
     ls_logger=None, 
+
+    ml_policy=None,   
+    verbose_ml=False,
 ) -> Solution:
     
     # neighborhood list 
@@ -357,7 +360,7 @@ def b_vnd(
 
         # sequential neighborhoods
         for idx, explorer in neighborhoods:
-
+            # if any time limit reached, stop
             if time_limit and (time.time() - start) > time_limit:
                 break
 
@@ -368,13 +371,38 @@ def b_vnd(
                     iter_gvns=iteration
                 )
 
+            # ML-based strategy decision
+            use_fi = first_improvement # default
+            if ml_policy is not None and search_state is not None:
+                # build feature vector
+                features = search_state.get_features(
+                    k=idx,
+                    k_max=len(neighborhoods)
+                )
+
+                # decide strategy based on features
+                decision = ml_policy.decide(features)
+                use_fi = (decision["decision"] == "FI") # final decision
+
+                if verbose_ml:
+                    print(
+                        f"[ML][iter {iteration}][neigh {idx}] "
+                        f"P(BI)={decision['p_bi']:.3f} "
+                        f"P(FI)={decision['p_fi']:.3f} | "
+                        f"G(BI)={decision['gain_bi']:.5f} "
+                        f"G(FI)={decision['gain_fi']:.5f} | "
+                        f"Score(BI)={decision['score_bi']:.5f} "
+                        f"Score(FI)={decision['score_fi']:.5f} "
+                        f"=> {decision['decision']}"
+                    )
+
             F_before = best.Fval
             t0 = time.time()
 
             cand = explorer(
                 best, 
                 max_checks=max_checks_per_neigh, 
-                first_improve=first_improvement
+                first_improve=use_fi
             )
 
             elapsed = time.time() - t0
@@ -411,14 +439,14 @@ def b_vnd(
                     solution=best
                 )
 
-                # save decision data
-                features = search_state.get_features(
-                    k=idx,
-                    k_max=len(neighborhoods)
-                )
-
                 # log LS decision
                 if ls_logger is not None:
+                    # save decision data
+                    features = search_state.get_features(
+                        k=idx,
+                        k_max=len(neighborhoods)
+                    )
+
                     ls_logger.log(
                         gvns_iter=iteration,
                         neigh_id=idx,

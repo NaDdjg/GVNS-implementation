@@ -19,6 +19,9 @@ DATA_PATH = Path("gvns/ls_data/learning_dataset.csv")
 OUTPUT_DIR = Path("gvns/ml/models")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+REPORTS_DIR = Path("gvns/ml/training/training_reports")
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
 
@@ -110,7 +113,7 @@ joblib.dump(model, OUTPUT_DIR / "rf_success_classifier.pkl")
 with open(OUTPUT_DIR / "rf_classifier_features.json", "w") as f:
     json.dump(feature_names, f, indent=2)
 
-with open(OUTPUT_DIR / "rf_classifier_report.txt", "w") as f:
+with open(REPORTS_DIR / "rf_classifier_report.txt", "w") as f:
     f.write("RandomForestClassifier – Success Prediction\n")
     f.write("=" * 50 + "\n\n")
 
