@@ -375,7 +375,7 @@ def b_vnd(
             use_fi = first_improvement # default
             if ml_policy is not None and search_state is not None:
                 # build feature vector
-                features = search_state.get_features(
+                features = search_state.get_model_features(
                     k=idx,
                     k_max=len(neighborhoods)
                 )

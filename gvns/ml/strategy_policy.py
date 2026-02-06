@@ -16,13 +16,28 @@ class MLStrategyPolicy:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         with open(features_path) as f:
-            self.feature_names = json.load(f)
+            self.feature_names_full = json.load(f)
+
+        # features used for decision making (exclude strategy label)
+        self.feature_names_state = [
+            f for f in self.feature_names_full if f != "strategy"
+        ]
+        self.strategy_idx = self.feature_names_full.index("strategy")
 
     def decide(self, features_dict):
-        # build feature vector
-        X = np.array([[features_dict[f] for f in self.feature_names]])
+        assert "strategy" not in features_dict, (
+            "Inference features must NOT include 'strategy'"
+        )
 
-        # head 1: classifier
+        # build full feature vector (strategy left unset for now)
+        X = np.zeros((1, len(self.feature_names_full)))
+
+        for i, fname in enumerate(self.feature_names_full):
+            if fname == "strategy":
+                continue
+            X[0, i] = features_dict[fname]
+
+        # head 1: classifier (strategy-agnostic)
         p_bi = self.clf.predict_proba(X)[0, 1]
         p_fi = 1.0 - p_bi
 
@@ -30,9 +45,8 @@ class MLStrategyPolicy:
         X_bi = X.copy()
         X_fi = X.copy()
 
-        idx = self.feature_names.index("strategy")
-        X_bi[0, idx] = 1
-        X_fi[0, idx] = 0
+        X_bi[0, self.strategy_idx] = 1
+        X_fi[0, self.strategy_idx] = 0
 
         gain_bi = self.reg.predict(X_bi)[0]
         gain_fi = self.reg.predict(X_fi)[0]

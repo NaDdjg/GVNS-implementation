@@ -208,3 +208,48 @@ class SearchState:
         })
 
         return feats
+
+    def get_model_features(self, k: int, k_max: int) -> Dict[str, Any]:
+        raw = self.get_features(k, k_max)
+        mapped = {}
+
+        FEATURE_MAP = {
+            # direct
+            "gvns_iter": "iter_gvns",
+            "stagnation_ls": "stagnation_ls",
+            "time_elapsed_ratio": "time_elapsed_ratio",
+            "time_left_ratio": "time_left_ratio",
+            "improv_rate_W": "improv_rate_W",
+            "avg_delta_W": "avg_delta_W",
+            "max_delta_W": "max_delta_W",
+            "ls_fail_ratio_W": "ls_fail_ratio_W",
+            "PV": "PV",
+            "pen_ratio": "pen_ratio",
+            "penT_ratio": "penT_ratio",
+            "penS_ratio": "penS_ratio",
+            "k": "k",
+            "k_norm": "k_norm",
+
+            # instance
+            "n_customers": "n_customers",
+            "n_vehicles": "n_vehicles",
+            "horizon": "horizon",
+            "sync_ratio": "sync_ratio",
+            "avg_tw_width": "avg_tw_width",
+            "min_tw_width": "min_tw_width",
+            "tw_tightness": "tw_tightness",
+            "early_tw_ratio": "early_tw_ratio",
+            "late_tw_ratio": "late_tw_ratio",
+        }
+
+        for model_name, raw_name in FEATURE_MAP.items():
+            mapped[model_name] = raw.get(raw_name, 0.0)
+
+        # features that must exist but are not decision-time known
+        mapped["elapsed"] = raw.get("time_elapsed_ratio", 0.0) * self.time_limit
+        mapped["neigh_id"] = k
+
+        # strategy MUST NOT be included (it is the label, not input)
+        # neigh_id must be passed externally if needed
+
+        return mapped

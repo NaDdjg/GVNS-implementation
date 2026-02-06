@@ -109,6 +109,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
 
     # LS decision logger
     log_data = cfg.get("log_ls_data", False)
+    ls_logger = None # will remain None if logging is disabled
 
     if log_data:
         mode = "FI" if first_improvement else "BI"
