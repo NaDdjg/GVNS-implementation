@@ -133,6 +133,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             clf_path="gvns/ml/models/rf_strategy_classifier.pkl",
             reg_path="gvns/ml/models/rf_delta_regressor.pkl",
             features_path="gvns/ml/models/rf_features.json",
+            log_decisions=True,
         )
 
     # ============================================================
@@ -293,6 +294,9 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     #         instance_name,
     #         list(enumerate(ls.NEIGHBORHOOD_FUNCS))
     #     )
+
+    if ml_policy is not None:
+        ml_policy.plot_decisions(show=False)
 
     if best_feasible is not None:
         best_feasible.eval()

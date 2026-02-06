@@ -78,7 +78,20 @@ class MLStrategyPolicy:
 
         return result
     
-    def plot_decisions(self, show=False):  # call it with ml_policy.plot_decisions()
+    def _plot_path(self, name: str) -> Path:
+        safe_inst = (
+            self.instance_name
+            .replace("/", "_")
+            .replace("\\", "_")
+            .replace(".txt", "")
+        )
+        return self.output_dir / f"{safe_inst}__{name}"
+    
+    def plot_decisions(self, show=False):  
+        if self.log_decisions is False:
+           print("[ML] Decision logging is disabled. No plots to show.")
+           return 
+        
         if not self.decision_log:
             raise RuntimeError("No decisions logged.")
 
@@ -94,7 +107,7 @@ class MLStrategyPolicy:
         plt.ylabel("Frequency")
         plt.tight_layout()
 
-        path = self.output_dir / "fi_vs_bi_usage.png"
+        path = self._plot_path("fi_vs_bi_usage.png")
         plt.savefig(path, dpi=150)
         if show:
             plt.show()
@@ -108,7 +121,7 @@ class MLStrategyPolicy:
         plt.ylabel("LS calls since improvement")
         plt.tight_layout()
 
-        path = self.output_dir / "decision_vs_stagnation.png"
+        path = self._plot_path("decision_vs_stagnation.png")
         plt.savefig(path, dpi=150)
         if show:
             plt.show()
@@ -130,7 +143,7 @@ class MLStrategyPolicy:
         plt.title("ML decision boundary over time")
         plt.tight_layout()
 
-        path = self.output_dir / "decision_boundary_over_time.png"
+        path = self._plot_path("decision_boundary_over_time.png")
         plt.savefig(path, dpi=150)
         if show:
             plt.show()
