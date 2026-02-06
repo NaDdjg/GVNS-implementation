@@ -249,7 +249,4 @@ class SearchState:
         mapped["elapsed"] = raw.get("time_elapsed_ratio", 0.0) * self.time_limit
         mapped["neigh_id"] = k
 
-        # strategy MUST NOT be included (it is the label, not input)
-        # neigh_id must be passed externally if needed
-
         return mapped
