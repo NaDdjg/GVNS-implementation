@@ -39,7 +39,6 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 def explore_intra_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N1 - intra-route insertion."""
     m = sol.instance.m
-
     checks = 0
     improved = None
 
@@ -332,7 +331,7 @@ def b_vnd(
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
 
     elif order_mode == "suggested":
-        from gvns.utils import load_suggested_order
+        from gvns.utils.utils import load_suggested_order
 
         order = load_suggested_order(instance_name)
         neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
@@ -411,7 +410,7 @@ def b_vnd(
             F_after = F_before
 
             if cand and is_better(cand, best):
-                cand.eval()
+                # cand.eval()
                 best = cand
                 improved = True
                 F_after = best.Fval

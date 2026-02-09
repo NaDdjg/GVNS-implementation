@@ -8,7 +8,7 @@ from collections import deque, namedtuple
 from typing import Tuple, Any
 
 from .base_agent import BaseAgent
-from gvns.utils import RunningMeanStd
+from gvns.utils.utils import RunningMeanStd
 
 Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
 

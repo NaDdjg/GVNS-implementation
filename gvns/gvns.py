@@ -13,7 +13,7 @@ from gvns.initializer import random_insertion
 from gvns.data_generation.ls_logger import LSDecisionLogger
 from gvns.search_state.search_state import SearchState
 from gvns.logger import GVNSLogger
-from gvns.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
+from gvns.utils.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
 
 # RL/ ML
 from gvns.rl.rl_env import BVNDEnv
@@ -130,9 +130,10 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     ml_policy = None
     if use_ml:
         ml_policy = MLStrategyPolicy(
-            clf_path="gvns/ml/models/rf_strategy_classifier.pkl",
+            clf_path="gvns/ml/models/rf_success_classifier.pkl",
             reg_path="gvns/ml/models/rf_delta_regressor.pkl",
             features_path="gvns/ml/models/rf_features.json",
+            instance_name=instance_name,
             log_decisions=True,
         )
 
