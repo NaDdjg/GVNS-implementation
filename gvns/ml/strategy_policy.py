@@ -1,13 +1,15 @@
 import joblib
 import json
 import numpy as np
+import pandas as pd
 from pathlib import Path
 
 class MLStrategyPolicy:
-    def __init__(self, clf_path, reg_path, features_path, log_decisions=False):
+    def __init__(self, clf_path, reg_path, features_path, instance_name="unknown", log_decisions=False):
         self.clf = joblib.load(clf_path)
         self.reg = joblib.load(reg_path)
 
+        self.instance_name = instance_name
         self.log_decisions = log_decisions
         self.decision_log = [] if log_decisions else None
 
@@ -37,17 +39,18 @@ class MLStrategyPolicy:
                 continue
             X[0, i] = features_dict[fname]
 
-        # head 1: classifier (strategy-agnostic)
-        p_bi = self.clf.predict_proba(X)[0, 1]
-        p_fi = 1.0 - p_bi
-
-        # head 2: regressor (strategy-conditional)
+        
         X_bi = X.copy()
         X_fi = X.copy()
 
         X_bi[0, self.strategy_idx] = 1
         X_fi[0, self.strategy_idx] = 0
 
+        # head 1: classifier (strategy-agnostic)
+        p_bi = self.clf.predict_proba(X_bi)[0, 1]
+        p_fi = self.clf.predict_proba(X_fi)[0, 1]
+
+        # head 2: regressor (strategy-conditional)
         gain_bi = self.reg.predict(X_bi)[0]
         gain_fi = self.reg.predict(X_fi)[0]
 
@@ -55,10 +58,26 @@ class MLStrategyPolicy:
         score_bi = p_bi * gain_bi
         score_fi = p_fi * gain_fi
 
-        decision = "BI" if score_bi > score_fi else "FI"
+        # phase aware hard rule
+        time_ratio = features_dict.get("time_elapsed_ratio", 1.0)
+        stagnation = features_dict.get("stagnation_ls", 0)
+        
+        # early stabilization
+        if time_ratio < 0.05:
+            decision = "FI"
+            decision_reason = "warmup"
+        
+        else:
+            # bias BI when stagnating
+            if stagnation >= 3:
+                score_bi *= 1.2   # soft boost, not a gate
+        
+            decision = "BI" if score_bi > score_fi else "FI"
+            decision_reason = "ml_soft_bias"
 
         result = {
             "decision": decision,
+            "decision_reason": decision_reason,
             "p_fi": p_fi,
             "p_bi": p_bi,
             "gain_fi": gain_fi,
@@ -87,6 +106,20 @@ class MLStrategyPolicy:
         )
         return self.output_dir / f"{safe_inst}__{name}"
     
+    def save_decisions_csv(self):
+        """
+        Save raw ML decisions for offline analysis.
+        One row = one decision call.
+        """
+        if not self.decision_log:
+            print("[ML] No decisions to save.")
+            return
+    
+        df = pd.DataFrame(self.decision_log)
+    
+        path = self._plot_path("ml_decisions_trace.csv")
+        df.to_csv(path, index=False)
+        
     def plot_decisions(self, show=False):  
         if self.log_decisions is False:
            print("[ML] Decision logging is disabled. No plots to show.")
@@ -95,7 +128,6 @@ class MLStrategyPolicy:
         if not self.decision_log:
             raise RuntimeError("No decisions logged.")
 
-        import pandas as pd
         import matplotlib.pyplot as plt
 
         df = pd.DataFrame(self.decision_log)
@@ -114,39 +146,6 @@ class MLStrategyPolicy:
         plt.close()
 
         # Decision vs stagnation
-        plt.figure()
-        df.boxplot(column="stagnation", by="decision")
-        plt.title("Decision vs LS stagnation")
-        plt.suptitle("")
-        plt.ylabel("LS calls since improvement")
-        plt.tight_layout()
-
-        path = self._plot_path("decision_vs_stagnation.png")
-        plt.savefig(path, dpi=150)
-        if show:
-            plt.show()
-        plt.close()
-
-        # Decision over time
-        plt.figure()
-        score_diff = df["score_bi"] - df["score_fi"]
-
-        plt.scatter(
-            df["time_elapsed_ratio"],
-            score_diff,
-            c=(df["decision"] == "BI"),
-            alpha=0.6
-        )
-        plt.axhline(0, linestyle="--")
-        plt.xlabel("Time elapsed ratio")
-        plt.ylabel("Score(BI) - Score(FI)")
-        plt.title("ML decision boundary over time")
-        plt.tight_layout()
-
-        path = self._plot_path("decision_boundary_over_time.png")
-        plt.savefig(path, dpi=150)
-        if show:
-            plt.show()
-        plt.close()
+        self.save_decisions_csv()
 
         print(f"[ML] Decision plots saved to: {self.output_dir}")
