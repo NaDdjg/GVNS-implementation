@@ -91,9 +91,7 @@ class Solution:
             tours = tours + [[] for _ in range(m - len(tours))]
         elif len(tours) > m:
             tours = tours[:m]
-
-        # assign back because later functions use self.tours!
-        self.tours = tours
+        self.tours = tours    # assign back because later functions use self.tours!
         
         vehicle_time = [0.0] * m
         vehicle_pos = [0] * m
@@ -110,7 +108,6 @@ class Solution:
         # (node, travel, start, due, depart)
         vehicle_visits = [[] for _ in range(m)]
         sync_arrivals = {cid: [] for cid in sync_customers}
-        # sync_served = set()
 
         # simulation loop (event-driven style similar to previous logic)
         progress = True
@@ -151,10 +148,8 @@ class Solution:
                     if len(sync_arrivals[i]) < req:
                         continue
 
-                    # we have required vehicles -> check alignment
-                    arrival_times = [vehicle_time[v] for v in sync_arrivals[i]]
                     # synchronized -> start at latest arrival
-                    start_time = max(arrival_times)
+                    start_time = max(vehicle_time[v] for v in sync_arrivals[i])
 
                     # record a visit for each arriving vehicle
                     for v in list(sync_arrivals[i]):
@@ -164,9 +159,8 @@ class Solution:
                         vehicle_visits[v].append(
                             (i, travel_leg, start_time, due, depart)
                         )
+                        vehicle_pos[v] += 1   # advance vehicle state
 
-                        # advance vehicle state
-                        vehicle_pos[v] += 1
                         # set next arrival time = depart + travel(i,next) or return to depot
                         depart = start_time + service
                         if vehicle_pos[v] < len(tours[v]):
@@ -175,7 +169,6 @@ class Solution:
                         else:
                             vehicle_time[v] = depart + TT[i][depot_id]
 
-                    # sync_served.add(i)
                     sync_arrivals[i] = []
                     progress = True
 
@@ -191,8 +184,8 @@ class Solution:
                     vehicle_visits[k].append(
                         (i, travel_leg, start, due, depart)
                     )
-
                     vehicle_pos[k] += 1
+
                     if vehicle_pos[k] < len(tours[k]):
                         nxt = tours[k][vehicle_pos[k]]
                         vehicle_time[k] = depart + TT[i][nxt]
@@ -254,7 +247,6 @@ class Solution:
 
         # canonical timeline on the object for inspection
         self._last_vehicle_visits = vehicle_visits
-
         return self.Fval
 
     # logging 

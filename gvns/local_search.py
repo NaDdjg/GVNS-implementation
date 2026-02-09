@@ -346,8 +346,6 @@ def b_vnd(
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))
 
     best = sol
-    best.eval()
-
     start = time.time()
     no_improve = 0
 
@@ -410,7 +408,6 @@ def b_vnd(
             F_after = F_before
 
             if cand and is_better(cand, best):
-                # cand.eval()
                 best = cand
                 improved = True
                 F_after = best.Fval
@@ -528,8 +525,6 @@ def b_vnd_single_neigh(sol: Solution,
     assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
 
     best = sol
-    best.eval()
-
     start = time.time()
     no_improve = 0
 
