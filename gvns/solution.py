@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from typing import List
-import random
 
 BIG_M = 1_000_000.0
 
@@ -49,10 +48,25 @@ class Solution:
 
         if hasattr(self, "_last_vehicle_visits"):
             new._last_vehicle_visits = [
-                [dict(rec) for rec in vehicle] for vehicle in self._last_vehicle_visits
+                list(vehicle) for vehicle in self._last_vehicle_visits
             ]
 
         return new
+    
+    def self_adjust_penalties(self):
+        """
+        dynamically adjust penalty weights 
+        """
+        if self.penT > 0:
+            self.w1 *= (1.0 + self.alpha)
+        else:
+            self.w1 *= (1.0 - self.alpha)
+        if self.penH > 0:
+            self.w2 *= (1.0 + self.alpha)
+        else:
+            self.w2 *= (1.0 - self.alpha)
+
+        return self.w1, self.w2
 
     # core Evaluation
     def eval(self):
@@ -69,13 +83,7 @@ class Solution:
         horizon = inst.horizon
         sync_customers = getattr(inst, "sync_customers", set())
         sync_requirements = getattr(inst, "sync_requirements", {})
-
-        # detect depot id (same logic you already used)
-        depot_id = min(nodes.keys())
-        for nid, info in nodes.items():
-            if info.get("ready", None) == 0 and info.get("service", None) == 0:
-                depot_id = nid
-                break
+        depot_id = inst.depot_id 
 
         # prepare per-vehicle state
         tours = [list(t) for t in self.tours]  # copy
@@ -98,16 +106,16 @@ class Solution:
             else:
                 vehicle_done[k] = True
 
-        # storage for recorded visits (the canonical timeline)
+        # visit records: list of tuples
+        # (node, travel, start, due, depart)
         vehicle_visits = [[] for _ in range(m)]
         sync_arrivals = {cid: [] for cid in sync_customers}
-        sync_served = set()
+        # sync_served = set()
 
         # simulation loop (event-driven style similar to previous logic)
         progress = True
         iter_guard = 0
         max_iter = sum(len(t) for t in tours) * 10 + 500
-        eps_sync = 1e-3
 
         while progress and iter_guard < max_iter:
             progress = False
@@ -145,36 +153,29 @@ class Solution:
 
                     # we have required vehicles -> check alignment
                     arrival_times = [vehicle_time[v] for v in sync_arrivals[i]]
-
                     # synchronized -> start at latest arrival
                     start_time = max(arrival_times)
 
                     # record a visit for each arriving vehicle
                     for v in list(sync_arrivals[i]):
                         prev = depot_id if vehicle_pos[v] == 0 else tours[v][vehicle_pos[v] - 1]
-                        travel_leg = safe_tt(TT, prev, i)
-                        vehicle_visits[v].append({
-                            "node": i,
-                            "prev": prev,
-                            "travel": float(travel_leg),
-                            "arrival": float(vehicle_time[v]),
-                            "start": float(start_time),
-                            "service": float(service),
-                            "depart": float(start_time + service),
-                            "ready": float(ready),
-                            "due": float(due)
-                        })
+                        travel_leg = TT[prev][i]
+                        depart = start_time + service
+                        vehicle_visits[v].append(
+                            (i, travel_leg, start_time, due, depart)
+                        )
+
                         # advance vehicle state
                         vehicle_pos[v] += 1
                         # set next arrival time = depart + travel(i,next) or return to depot
                         depart = start_time + service
                         if vehicle_pos[v] < len(tours[v]):
                             nxt = tours[v][vehicle_pos[v]]
-                            vehicle_time[v] = depart + safe_tt(TT, i, nxt)
+                            vehicle_time[v] = depart + TT[i][nxt]
                         else:
-                            vehicle_time[v] = depart + safe_tt(TT, i, depot_id)
+                            vehicle_time[v] = depart + TT[i][depot_id]
 
-                    sync_served.add(i)
+                    # sync_served.add(i)
                     sync_arrivals[i] = []
                     progress = True
 
@@ -185,55 +186,44 @@ class Solution:
                     depart = start + service
 
                     prev = depot_id if vehicle_pos[k] == 0 else tours[k][vehicle_pos[k] - 1]
-                    travel_leg = safe_tt(TT, prev, i)
-                    vehicle_visits[k].append({
-                        "node": i,
-                        "prev": prev,
-                        "travel": float(travel_leg),
-                        "arrival": float(arrival),
-                        "start": float(start),
-                        "service": float(service),
-                        "depart": float(depart),
-                        "ready": float(ready),
-                        "due": float(due)
-                    })
+                    travel_leg = TT[prev][i]
+
+                    vehicle_visits[k].append(
+                        (i, travel_leg, start, due, depart)
+                    )
 
                     vehicle_pos[k] += 1
                     if vehicle_pos[k] < len(tours[k]):
                         nxt = tours[k][vehicle_pos[k]]
-                        vehicle_time[k] = depart + safe_tt(TT, i, nxt)
+                        vehicle_time[k] = depart + TT[i][nxt]
                     else:
-                        vehicle_time[k] = depart + safe_tt(TT, i, depot_id)
+                        vehicle_time[k] = depart + TT[i][depot_id]
                     progress = True
 
-        # Now compute global aggregates *from the recorded timeline* (single canonical source)
         travel_total = 0.0
-        for k in range(m):
-            visits = vehicle_visits[k]
-            for rec in visits:
-                travel_total += float(rec.get("travel", 0.0))
-            if visits:
-                # add return to depot
-                last_node = visits[-1]["node"]
-                travel_total += safe_tt(TT, last_node, depot_id)
-
-        # compute penT from recorded visits: lateness = max(0, start - due)
         penT = 0.0
-        for k in range(m):
-            for rec in vehicle_visits[k]:
-                late = max(0.0, rec["start"] - rec["due"])
-                penT += late
-
-        # compute penH (horizon) from end_time per vehicle
         penH = 0.0
+
         for k in range(m):
             visits = vehicle_visits[k]
-            if visits:
-                last_depart = float(visits[-1]["depart"])
-                last_node = visits[-1]["node"]
-                end_time = last_depart + safe_tt(TT, last_node, depot_id)
-                if end_time > horizon:
-                    penH += (end_time - horizon)
+            if not visits:
+                continue
+
+            last_node = depot_id
+            last_depart = 0.0
+
+            for node, travel, start, due, depart in visits:
+                travel_total += travel
+                if start > due:
+                    penT += (start - due)
+                last_node = node
+                last_depart = depart
+
+            travel_total += TT[last_node][depot_id]
+
+            end_time = last_depart + TT[last_node][depot_id]
+            if end_time > horizon:
+                penH += (end_time - horizon)
 
         # synchronization penalty for any sync customers that never got served
         n = 0
@@ -243,6 +233,7 @@ class Solution:
             # each non-sync customer requires 1 occurrence,
             # a sync customer requires sync_requirements[cid]
             n += sync_requirements.get(cid, 1)
+
         PV = sum(len(visits) for visits in vehicle_visits)
         self.PV = int(PV)
         
@@ -266,21 +257,7 @@ class Solution:
 
         return self.Fval
 
-    def self_adjust_penalties(self):
-        """
-        dynamically adjust penalty weights 
-        """
-        if self.penT > 0:
-            self.w1 *= (1.0 + self.alpha)
-        else:
-            self.w1 *= (1.0 - self.alpha)
-        if self.penH > 0:
-            self.w2 *= (1.0 + self.alpha)
-        else:
-            self.w2 *= (1.0 - self.alpha)
-
-        return self.w1, self.w2
-
+    # logging 
     def compute_timeline_postsync(self):
         """
         Return the per-vehicle timeline produced by the canonical eval() run.

@@ -241,13 +241,13 @@ def profile_run_instance_cprofile(*args, **kwargs):
         stats = pstats.Stats(profiler, stream=f)
 
         stats.sort_stats("cumulative")   
-        stats.print_stats(50)           
+        stats.print_stats()           
 
-        f.write("\n\nCALLERS (who calls expensive functions)\n")
-        stats.print_callers(20)
+        # f.write("\n\nCALLERS (who calls expensive functions)\n")
+        # stats.print_callers(20)
 
-        f.write("\n\nCALLEES (what expensive functions call)\n")
-        stats.print_callees(20)
+        # f.write("\n\nCALLEES (what expensive functions call)\n")
+        # stats.print_callees(20)
 
     return result
 
@@ -311,6 +311,7 @@ def run_folder_profiling(folder, n_runs=1, params=None, agent=None, first_improv
         return
 
     all_results = []
+    # line_profiler version (line-by-line)
     # res = profile_run_instance(
     #     path="instances\\30\\C102_30_3.txt", 
     #     n_runs=n_runs, 
@@ -320,6 +321,8 @@ def run_folder_profiling(folder, n_runs=1, params=None, agent=None, first_improv
     #     results_dir=results_dir,
     #     qtables_dir=qtables_dir
     # )
+
+    # cprofile version (function-level)
     res = profile_run_instance_cprofile(
         path="instances\\30\\C102_30_3.txt", 
         n_runs=n_runs, 
@@ -403,18 +406,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
     # profiler version for one instance only
-    # run_folder_profiling(
-    #     folder=INST_FOLDER,
-    #     n_runs=N_RUNS,
-    #     params=PARAMS,
-    #     agent=agent,
-    #     first_improvement=first_improvement,
-    #     results_dir=RESULTS_FOLDER,            
-    #     qtables_dir=QTABLE_DIR,
-    # )
-
-    # parallel version
-    run_folder_parallel(
+    run_folder_profiling(
         folder=INST_FOLDER,
         n_runs=N_RUNS,
         params=PARAMS,
@@ -422,8 +414,19 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,
-        n_processes=18
     )
+
+    # parallel version
+    # run_folder_parallel(
+    #     folder=INST_FOLDER,
+    #     n_runs=N_RUNS,
+    #     params=PARAMS,
+    #     agent=agent,
+    #     first_improvement=first_improvement,
+    #     results_dir=RESULTS_FOLDER,            
+    #     qtables_dir=QTABLE_DIR,
+    #     n_processes=18
+    # )
 
     # sequential version
     # run_folder(

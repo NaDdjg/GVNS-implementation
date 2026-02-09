@@ -80,8 +80,8 @@ params = {
     "neigh_order": "default",
     
     # ML specific params
-    "use_ml": True,
-    "verbose_ml": True,
+    "use_ml": False,
+    "verbose_ml": False,
     "log_ls_data": False
 }
 
