@@ -5,7 +5,7 @@ warnings.filterwarnings('ignore')
 from gvns import benchmark
 
 # rl utilities
-from gvns.agents.qlearning_agent import QTableAgent
+from gvns.rl.agents.qlearning_agent import QTableAgent
 
 # parameters
 N_RUNS = 1  

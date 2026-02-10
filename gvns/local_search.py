@@ -39,7 +39,6 @@ def is_better(new: Solution, old: Solution, eps_f=1e-9) -> bool:
 def explore_intra_insertion(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N1 - intra-route insertion."""
     m = sol.instance.m
-
     checks = 0
     improved = None
 
@@ -99,7 +98,6 @@ def explore_inter_insertion(sol: Solution, max_checks=None, first_improve: bool 
                         if improved is None or is_better(cand, improved):
                             improved = cand
 
-
     return improved
 
 def explore_intra_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
@@ -129,7 +127,6 @@ def explore_intra_swap(sol: Solution, max_checks=None, first_improve: bool = Fal
                         improved = cand
 
     return improved
-
 
 def explore_inter_swap(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N4 - inter-route swap."""
@@ -161,7 +158,6 @@ def explore_inter_swap(sol: Solution, max_checks=None, first_improve: bool = Fal
 
     return improved
 
-
 def explore_two_opt(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N5 - intra-route 2-opt"""
     m = sol.instance.m
@@ -189,7 +185,6 @@ def explore_two_opt(sol: Solution, max_checks=None, first_improve: bool = False)
                         improved = cand
 
     return improved
-
 
 def explore_two_opt_star(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N6 - two-opt*"""
@@ -219,9 +214,7 @@ def explore_two_opt_star(sol: Solution, max_checks=None, first_improve: bool = F
                         if improved is None or is_better(cand, improved):
                             improved = cand
 
-
     return improved
-
 
 def explore_cross_exchange(sol: Solution, max_checks=None, first_improve: bool = False) -> Optional[Solution]:
     """N7 - cross exchange"""
@@ -318,7 +311,13 @@ def b_vnd(
     usage_logger: dict = None,
     iteration: int = None,
     instance_name="unknown",
-    order_mode="default"
+    order_mode="default",
+
+    search_state=None,    
+    ls_logger=None, 
+
+    ml_policy=None,   
+    verbose_ml=False,
 ) -> Solution:
     
     # neighborhood list 
@@ -354,18 +353,60 @@ def b_vnd(
 
         # sequential neighborhoods
         for idx, explorer in neighborhoods:
-
+            # if any time limit reached, stop
             if time_limit and (time.time() - start) > time_limit:
                 break
 
+            # logging before LS
+            if search_state is not None:
+                search_state.before_ls(
+                    k=idx,
+                    iter_gvns=iteration
+                )
+
+            # ML-based strategy decision
+            use_fi = first_improvement # default
+            if ml_policy is not None and search_state is not None:
+                # build feature vector
+                features = search_state.get_model_features(
+                    k=idx,
+                    k_max=len(neighborhoods)
+                )
+
+                # decide strategy based on features
+                decision = ml_policy.decide(features)
+                use_fi = (decision["decision"] == "FI") # final decision
+
+                if verbose_ml:
+                    print(
+                        f"[ML][iter {iteration}][neigh {idx}] "
+                        f"P(BI)={decision['p_bi']:.3f} "
+                        f"P(FI)={decision['p_fi']:.3f} | "
+                        f"G(BI)={decision['gain_bi']:.5f} "
+                        f"G(FI)={decision['gain_fi']:.5f} | "
+                        f"Score(BI)={decision['score_bi']:.5f} "
+                        f"Score(FI)={decision['score_fi']:.5f} "
+                        f"=> {decision['decision']}"
+                    )
+
+            F_before = best.Fval
+            t0 = time.time()
+            
             cand = explorer(
                 best, 
                 max_checks=max_checks_per_neigh, 
-                first_improve=first_improvement
+                first_improve=use_fi
             )
+
+            elapsed = time.time() - t0
+
+            improved = False
+            F_after = F_before
 
             if cand and is_better(cand, best):
                 best = cand
+                improved = True
+                F_after = best.Fval
                 improved_any = True
 
                 # logging
@@ -379,8 +420,39 @@ def b_vnd(
                             "F_before": best.Fval,
                             "F_after": cand.Fval,
                         })
-                break  # restart from first neighborhood
 
+            # logging after LS
+            if search_state is not None:
+                search_state.after_ls(
+                    improved=improved,
+                    F_before=F_before,
+                    F_after=F_after,
+                    elapsed=elapsed,
+                    solution=best
+                )
+
+                # log LS decision
+                if ls_logger is not None:
+                    # save decision data
+                    features = search_state.get_features(
+                        k=idx,
+                        k_max=len(neighborhoods)
+                    )
+
+                    ls_logger.log(
+                        gvns_iter=iteration,
+                        neigh_id=idx,
+                        neigh_name=NEIGHBORHOOD_NAMES[idx],
+                        features=features,
+                        improved=improved,
+                        F_before=F_before,
+                        F_after=F_after,
+                        elapsed=elapsed,
+                    )
+                
+            if improved:
+                break  # restart from first neighborhood
+            
         if not improved_any:
             no_improve += 1
             if no_improve >= max_no_improve:

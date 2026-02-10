@@ -1,0 +1,23 @@
+RandomForestClassifier – Success Prediction
+==================================================
+
+TRAIN METRICS
+roc_auc: 0.993608
+brier: 0.024122
+
+TEST METRICS
+roc_auc: 0.985965
+brier: 0.030810
+
+Train samples: 30763
+Test samples: 9126
+Positive rate (train): 0.5379
+Positive rate (test): 0.5377
+
+RF Parameters:
+n_estimators: 400
+max_depth: 16
+min_samples_leaf: 30
+max_features: sqrt
+n_jobs: -1
+random_state: 42

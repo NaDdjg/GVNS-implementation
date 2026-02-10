@@ -13,6 +13,7 @@ class Instance:
         self.sync_customers = set()      # customers requiring multiple vehicles
         self.sync_requirements = {}      # customer_id -> required_vehicles (usually 2)
         self.travel_time = None          # matrix of distances
+        self.depot_id = 0                 # assuming depot is always node 0
 
         self.speed = 1.0
         self.fixed_cost = 0.0
@@ -83,6 +84,14 @@ class Instance:
                 "due": float(due),
                 "service": float(serv),
             }
+
+        # depot 
+        min_id = min(self.nodes.keys()) 
+        for nid, info in self.nodes.items():
+            if info.get("ready", None) == 0 and info.get("service", None) == 0:
+                min_id = nid
+                break
+        self.depot_id = min_id
 
         # build travel time matrix (euclidean)
         max_id = max(self.nodes.keys())
