@@ -6,7 +6,7 @@
         1    0.003    0.003  511.508  511.508 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\benchmark.py:20(run_instance)
         1    0.004    0.004  501.792  501.792 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\gvns.py:34(run_gvns)
        40    0.052    0.001  501.611   12.540 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py:310(b_vnd)
-   925245  349.371    0.000  447.029    0.000 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py:72(eval)
+   524245  309.371    0.000  407.029    0.000 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\solution.py:72(eval)
       735    3.622    0.005  158.533    0.216 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py:70(explore_inter_insertion)
      1475    3.388    0.002  152.981    0.104 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py:39(explore_intra_insertion)
        44    2.318    0.053   98.701    2.243 C:\Users\HP\Documents\GitHub\GVNS-implementation\gvns\local_search.py:225(explore_cross_exchange)
