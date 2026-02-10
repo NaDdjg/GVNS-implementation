@@ -11,6 +11,3 @@ the following example is the C106_100_5.txt
     3. horizon: 1236
     4. number of synchronized visits: 5
     5. IDs of the synchronized customers: 18 30 61 76 88
-
-
-the "test" folder is used just for tests, i copy the instances i want to run the algorithm/model on in it to make it easier 

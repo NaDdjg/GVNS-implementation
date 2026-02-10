@@ -1,14 +1,23 @@
+import os
 import time
 import random
+import numpy as np
 
-from gvns.solution import Solution
-from gvns.initializer import random_insertion
+# GVNS main module
 import gvns.operators as ops
 import gvns.local_search as ls
-from gvns.logger import GVNSLogger
-from gvns.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
+from gvns.solution import Solution
+from gvns.initializer import random_insertion
 
-from gvns.rl_env import BVNDEnv
+# loggers
+from gvns.data_generation.ls_logger import LSDecisionLogger
+from gvns.search_state.search_state import SearchState
+from gvns.logger import GVNSLogger
+from gvns.utils.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
+
+# RL/ ML
+from gvns.rl.rl_env import BVNDEnv
+from gvns.ml.strategy_policy import MLStrategyPolicy
 
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
@@ -35,6 +44,15 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     random.seed(cfg["seed"])
     Kmax = cfg["p_max"]
 
+    base_seed = cfg["seed"]
+    # derive deterministic instance-specific seed
+    inst_seed = abs(hash(instance_name)) % (2**32)
+
+    final_seed = base_seed + inst_seed
+
+    random.seed(final_seed)
+    np.random.seed(final_seed)
+
     # ============================================================
     # logger
     # ============================================================
@@ -53,7 +71,6 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     current.eval()
 
     best_aug = current.copy()
-    best_aug.eval()
 
     best_feasible = None
     best_feasible_f = float("inf")
@@ -82,6 +99,43 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         "counter": [0] * len(ls.NEIGHBORHOOD_FUNCS), # usage counts per neighborhood 
         "events": []
     }
+
+    # search state for LS
+    search_state = SearchState(
+        instance=instance,
+        time_limit=time_limit
+    )
+    search_state.reset()
+
+    # LS decision logger
+    log_data = cfg.get("log_ls_data", False)
+    ls_logger = None # will remain None if logging is disabled
+
+    if log_data:
+        mode = "FI" if first_improvement else "BI"
+        output_dir = os.path.join("gvns", "ls_data", mode)
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{instance_name}.csv")
+        
+        ls_logger = LSDecisionLogger(
+            output_path=output_path,
+            instance_name=instance_name,
+            mode=mode
+        )
+
+    # ML strategy policy
+    use_ml = cfg.get("use_ml", False)
+    verbose_ml = cfg.get("verbose_ml", False)
+
+    ml_policy = None
+    if use_ml:
+        ml_policy = MLStrategyPolicy(
+            clf_path="gvns/ml/models/rf_success_classifier.pkl",
+            reg_path="gvns/ml/models/rf_delta_regressor.pkl",
+            features_path="gvns/ml/models/rf_features.json",
+            instance_name=instance_name,
+            log_decisions=True,
+        )
 
     # ============================================================
     # GVNS iterating
@@ -119,7 +173,12 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 first_improvement=first_improvement,
                 order_mode=order_mode,
                 usage_logger=usage_logger,
-                instance_name=instance_name
+                instance_name=instance_name,
+                iteration=iteration,                   
+                search_state=search_state, 
+                ls_logger=ls_logger,
+                ml_policy=ml_policy,
+                verbose_ml=verbose_ml
             )
         else: 
             #  RL-DRIVEN BVND 
@@ -237,12 +296,14 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             list(enumerate(ls.NEIGHBORHOOD_FUNCS))
         )
 
+    if ml_policy is not None:
+        ml_policy.plot_decisions(show=False)
+
     if best_feasible is not None:
-        best_feasible.eval()
         best_feasible.best_time = best_feasible_time
         return best_feasible
 
-    best_aug.eval()
     best_aug.best_time = None
     logger.close()
+    ls_logger.close()
     return best_aug

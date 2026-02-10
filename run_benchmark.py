@@ -7,7 +7,7 @@ from pathlib import Path
 from gvns import benchmark
 
 # rl utilities
-from gvns.agents.qlearning_agent import QTableAgent
+from gvns.rl.agents.qlearning_agent import QTableAgent
 
 # ============================================================
 # Argument parsing
@@ -60,7 +60,10 @@ N_RUNS = 1
 NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 
 params = {
+    # logging
     "log_path": "result_summaries/debug/gvns_trace.jsonl",
+
+    # fixed params
     "Contmax": 100,
     "p_init": 1,
     "p_max": 12,
@@ -71,8 +74,15 @@ params = {
     "delta": 0.4, 
     "M": 1e6,
     "seed": 42,
+
+    # changeable params
     "Tmax": 500,
-    "neigh_order": "default"
+    "neigh_order": "default",
+    
+    # ML specific params
+    "use_ml": False,
+    "verbose_ml": False,
+    "log_ls_data": False
 }
 
 # ============================================================
