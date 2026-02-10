@@ -17,7 +17,7 @@ parser.add_argument(
     "--mode",
     type=str,
     required=True,
-    choices=["first", "best", "rl_bi", "rl_fi"],
+    choices=["first", "best", "rl_bi", "rl_fi", "ml_decision"],
     help="Execution mode"
 )
 
@@ -60,7 +60,10 @@ N_RUNS = 1
 NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 
 params = {
+    # logging
     "log_path": "result_summaries/debug/gvns_trace.jsonl",
+
+    # fixed params
     "Contmax": 100,
     "p_init": 1,
     "p_max": 12,
@@ -71,8 +74,15 @@ params = {
     "delta": 0.4, 
     "M": 1e6,
     "seed": 42,
+
+    # changeable params
     "Tmax": 500,
-    "neigh_order": "default"
+    "neigh_order": "default",
+    
+    # ML specific params
+    "use_ml": False,
+    "verbose_ml": False,
+    "log_ls_data": False
 }
 
 # ============================================================
@@ -105,6 +115,17 @@ elif args.mode == "best":
     RESULTS_FOLDER = (
         args.results_dir
         or f"results/last_execution_best_{args.neigh_order}"
+    )
+
+#  Best improvement GVNS
+elif args.mode == "ml_decision":
+    params["use_ml"] = True
+    params["neigh_order"] = args.neigh_order
+    params["Tmax"] = args.tmax
+    
+    RESULTS_FOLDER = (
+        args.results_dir
+        or f"results/last_execution_ml_decision_{args.neigh_order}"
     )
 
 #  RL based GVNS with best improvement
