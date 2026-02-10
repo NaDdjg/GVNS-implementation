@@ -198,7 +198,7 @@ docker run --rm \
     --results_dir results/with_RL/qlearning/First
 ```
 
-#### 2.6. ML-decision (hybrid FI-BI) GVNS (default order, 100 instances)
+#### 2.6. ML-decision (hybrid FI-BI) GVNS (default order, 30 instances)
 
 ```bash
 docker run --rm \
@@ -209,8 +209,9 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_fi \
-    --tmax 1000 \
-    --instances_dir instances/100 \
-    --results_dir results/with_RL/qlearning/First
+    --mode ml_decision \
+    --neigh_order default \
+    --tmax 500 \
+    --instances_dir instances/30 \
+    --results_dir results/without_RL/predefined_order/ML_decision
 ```
