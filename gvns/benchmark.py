@@ -406,18 +406,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
     # profiler version for one instance only
-    run_folder_profiling(
-        folder=INST_FOLDER,
-        n_runs=N_RUNS,
-        params=PARAMS,
-        agent=agent,
-        first_improvement=first_improvement,
-        results_dir=RESULTS_FOLDER,            
-        qtables_dir=QTABLE_DIR,
-    )
-
-    # parallel version
-    # run_folder_parallel(
+    # run_folder_profiling(
     #     folder=INST_FOLDER,
     #     n_runs=N_RUNS,
     #     params=PARAMS,
@@ -425,8 +414,19 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     #     first_improvement=first_improvement,
     #     results_dir=RESULTS_FOLDER,            
     #     qtables_dir=QTABLE_DIR,
-    #     n_processes=18
     # )
+
+    # parallel version
+    run_folder_parallel(
+        folder=INST_FOLDER,
+        n_runs=N_RUNS,
+        params=PARAMS,
+        agent=agent,
+        first_improvement=first_improvement,
+        results_dir=RESULTS_FOLDER,            
+        qtables_dir=QTABLE_DIR,
+        n_processes=18
+    )
 
     # sequential version
     # run_folder(

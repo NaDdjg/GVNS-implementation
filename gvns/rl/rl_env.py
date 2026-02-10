@@ -5,7 +5,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from typing import Optional
 
-from ..utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim
+from ..utils.utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim
 
 class BVNDEnv(gym.Env):
     """

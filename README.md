@@ -19,29 +19,29 @@ The main objective is to:
 
 ```text
 gvns/
-├── Dockerfile                  # Docker image definition
-├── requirements.txt            # Python dependencies
+├── Dockerfile                    # Docker image definition
+├── requirements.txt              # Python dependencies
 ├── gvns/
-│   ├── gvns.py                 # Core GVNS algorithm
-│   ├── local_search.py         # BVND implementation
-│   ├── operators.py            # Neighborhood operatorsand shaking
-│   ├── instance.py             # Instance definition
-│   ├── solution.py             #Solution object definition and evaluation step
-│   ├── initializer.py          # Random initiliazer for first solution
-│   ├── benchmark.py            # Benchmark runner
+│   ├── gvns.py                   # Core GVNS algorithm
+│   ├── local_search.py           # BVND implementation
+│   ├── operators.py              # Neighborhood operatorsand shaking
+│   ├── instance.py               # Instance definition
+│   ├── solution.py               # Solution object definition and evaluation step
+│   ├── initializer.py            # Random initiliazer for first solution
+│   ├── benchmark.py              # Benchmark runner
 │   ├── agents/
-│   │   ├── base_agent.py       # Interface to define the main struture of all agents
-│   │   ├── dqn_agent.py        # Deep Q-learning agent
-│   │   ├── ppo_agent.py        # PPO agent
-│   │   └── qlearning_agent.py  # Tabular Q-learning agent
-│   └── utils.py                # Utilities (saving functions for local sear, rl helpers)
+│   │   ├── base_agent.py         # Interface to define the main struture of all agents
+│   │   ├── dqn_agent.py          # Deep Q-learning agent
+│   │   ├── ppo_agent.py          # PPO agent
+│   │   └── qlearning_agent.py    # Tabular Q-learning agent
+│   └── utils.py                  # Utilities (saving functions for local sear, rl helpers)
 ├── instances/
-│   ├── 30/                     # Instances with 30 customers
-│   ├── 100/                    # Instances with 100 customers
-│   └── 200/                    # Instances with 200 customers
-├── results/                    # All experimental outputs
-├── scripts/                    #Scripts to manage summaries
-├── run_benchmark.py            # Main experiment entry point
+│   ├── 30/                       # Instances with 30 customers
+│   ├── 100/                      # Instances with 100 customers
+│   └── 200/                      # Instances with 200 customers
+├── results/                      # All experimental outputs
+├── scripts/                      # Scripts to manage summaries
+├── run_benchmark.py              # Main experiment entry point
 └── README.md
 ```
 
@@ -74,7 +74,7 @@ The project is controlled via `run_benchmark.py`, with these available arguments
 
 | Argument          | Type   | Required | Default        | Description                                                                          |
 | ----------------- | ------ | -------- | -------------- | ------------------------------------------------------------------------------------ |
-| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_fi` or `rl_bi`                               |
+| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_fi` or `rl_bi` or `ml_decision`              |
 | `--neigh_order`   | string | No       | `default`      | Neighborhood order (`default`, `reverse`, `random`, `suggested`). Ignored in RL mode |
 | `--tmax`          | int    | No       | `500`          | Maximum execution time per instance (in seconds)                                     |
 | `--instances_dir` | string | No       | `instances/30` | Path to instance folder (`instances/30`, `instances/100`, `instances/200`)           |
@@ -182,6 +182,23 @@ docker run --rm \
 ```
 
 #### 2.5. RL-based GVNS with first improvement (Q-learning, 100 instances)
+
+```bash
+docker run --rm \
+  -v $(pwd)/gvns:/app/gvns \
+  -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
+  -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
+  -v $(pwd)/results:/app/results \
+  gvns-benchmark \
+  python run_benchmark.py \
+    --mode rl_fi \
+    --tmax 1000 \
+    --instances_dir instances/100 \
+    --results_dir results/with_RL/qlearning/First
+```
+
+#### 2.6. ML-decision (hybrid FI-BI) GVNS (default order, 100 instances)
 
 ```bash
 docker run --rm \

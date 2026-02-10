@@ -13,7 +13,7 @@ class Instance:
         self.sync_customers = set()      # customers requiring multiple vehicles
         self.sync_requirements = {}      # customer_id -> required_vehicles (usually 2)
         self.travel_time = None          # matrix of distances
-        self.depot_id = 0                 # assuming depot is always node 0
+        self.depot_id = 0                # assuming depot is always node 0
 
         self.speed = 1.0
         self.fixed_cost = 0.0
