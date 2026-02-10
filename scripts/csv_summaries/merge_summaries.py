@@ -5,7 +5,7 @@ import pandas as pd
 def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
     """
     Scans input_dir for files ending with *_summary.csv,
-    merges them, and keeps only the best run (min best_f) per instance.
+    merges them with paper results, and keeps only the best run (min best_f) per instance.
     """
 
     summary_files = [
@@ -47,16 +47,42 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
 
     merged = pd.concat(all_rows, ignore_index=True)
 
-    # Convert best_f to numeric if possible
+    # Convert best_f and time to numeric if possible
     if "best_f" in merged.columns:
         merged["best_f"] = pd.to_numeric(merged["best_f"], errors="coerce")
-
+        
+        # Convert time to numeric if it exists
+        if "time" in merged.columns:
+            merged["time"] = pd.to_numeric(merged["time"], errors="coerce")
+        
+        # Calculate averages per instance across all runs
+        averages = merged.groupby("instance")[["best_f", "time"]].mean()
+        averages = averages.rename(columns={"best_f": "avg_best_f", "time": "avg_time"})
+        
         # Keep best run per instance (minimum best_f)
         merged = merged.sort_values(by=["instance", "best_f"])
         merged = merged.groupby("instance", as_index=False).first()
+        
+        # Merge averages back with best run data
+        merged = merged.merge(averages, left_on="instance", right_index=True, how="left")
     else:
         # No best_f column found anywhere → keep first row for each instance
         merged = merged.groupby("instance", as_index=False).first()
+
+    # Read paper results
+    papers_file = "results/reference/papers_results.csv"
+    try:
+        papers_df = pd.read_csv(papers_file)
+    except Exception as e:
+        print(f"[ERROR] Failed to read papers results from {papers_file}: {e}")
+        return
+
+    # Merge with paper results
+    merged = merged.merge(papers_df, on="instance", how="left")
+
+    # Select and reorder columns (in specific order)
+    columns_to_keep = ["instance", "run", "best_f", "avg_best_f", "best_f_paper", "time", "avg_time", "time_paper"]
+    merged = merged[[col for col in columns_to_keep if col in merged.columns]]
 
     # Save output
     merged.to_csv(output_file, index=False)

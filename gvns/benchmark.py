@@ -425,7 +425,6 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,
-        n_processes=18
     )
 
     # sequential version

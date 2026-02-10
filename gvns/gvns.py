@@ -300,11 +300,10 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         ml_policy.plot_decisions(show=False)
         
     if best_feasible is not None:
-        best_feasible.eval()
         best_feasible.best_time = best_feasible_time
         return best_feasible
 
-    best_aug.eval()
     best_aug.best_time = None
     logger.close()
+    ls_logger.close()
     return best_aug

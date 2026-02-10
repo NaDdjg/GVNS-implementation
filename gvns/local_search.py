@@ -325,7 +325,7 @@ def b_vnd(
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))[::-1]
 
     elif order_mode == "suggested":
-        from gvns.utils import load_suggested_order
+        from gvns.utils.utils import load_suggested_order
 
         order = load_suggested_order(instance_name)
         neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
@@ -340,8 +340,6 @@ def b_vnd(
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))
 
     best = sol
-    best.eval()
-
     start = time.time()
     no_improve = 0
 
@@ -417,8 +415,8 @@ def b_vnd(
                             "iteration": iteration,
                             "neighborhood_id": idx,
                             "neighborhood_name": NEIGHBORHOOD_NAMES[idx],
-                            "F_before": best.Fval,
-                            "F_after": cand.Fval,
+                            "F_before": F_before,
+                            "F_after": F_after,
                         })
 
             # logging after LS
@@ -521,8 +519,6 @@ def b_vnd_single_neigh(sol: Solution,
     assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
 
     best = sol
-    best.eval()
-
     start = time.time()
     no_improve = 0
 
