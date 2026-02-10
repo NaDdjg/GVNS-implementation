@@ -17,7 +17,7 @@ parser.add_argument(
     "--mode",
     type=str,
     required=True,
-    choices=["first", "best", "rl"],
+    choices=["first", "best", "rl_bi", "rl_fi"],
     help="Execution mode"
 )
 
@@ -46,7 +46,7 @@ parser.add_argument(
 parser.add_argument(
     "--results_dir",
     type=str,
-    default="results/last_execution",
+    default="results/last_execution_default",
     help="optional custom results directory"
 )
 
@@ -66,7 +66,7 @@ params = {
     # fixed params
     "Contmax": 100,
     "p_init": 1,
-    "p_max": 10,
+    "p_max": 12,
     "Dp": 0.3,
     "w1": 0.5,    
     "w2": 0.1,
@@ -103,7 +103,7 @@ if args.mode == "first":
 
     RESULTS_FOLDER = (
         args.results_dir
-        or f"results-first-{args.neigh_order}"
+        or f"results/last_execution_first_{args.neigh_order}"
     )
 
 #  Best improvement GVNS
@@ -114,14 +114,34 @@ elif args.mode == "best":
 
     RESULTS_FOLDER = (
         args.results_dir
-        or f"results-{args.neigh_order}"
+        or f"results/last_execution_best_{args.neigh_order}"
     )
 
-#  RL based GVNS
-elif args.mode == "rl":
+#  RL based GVNS with best improvement
+elif args.mode == "rl_bi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
-    RESULTS_FOLDER = args.results_dir or "results-rl"
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
+
+    n_actions = len(NEIGHBORHOOD_NAMES)
+    agent = QTableAgent(
+        n_actions=n_actions,
+        alpha=0.1,
+        gamma=0.95,
+        eps_start=0.1,
+        eps_min=0.01,
+        eps_decay=5e-4,
+        use_ucb=True,
+        ucb_c=1.0,
+        seed=params["seed"]
+    )
+
+#  RL based GVNS with first improvement
+elif args.mode == "rl_fi":
+    # neigh_order is ignored in RL
+    params["Tmax"] = args.tmax
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
+    first_improvement = True
 
     n_actions = len(NEIGHBORHOOD_NAMES)
     agent = QTableAgent(

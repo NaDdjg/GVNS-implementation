@@ -21,14 +21,14 @@ from gvns.ml.strategy_policy import MLStrategyPolicy
 
 DEFAULT_PARAMS = {
     "Contmax": 100,       # max consecutive non-improving iterations
-    "Kmax": 12,           # max shaking strength
+    "p_max": 12,           # max shaking strength
     "delta": 0.4,         # acceptance threshold factor
     "w1": 0.5,
     "w2": 0.1,
     "alpha": 0.1,
     "M": 1e6,
-    "seed": 0,
-    "Tmax": None,
+    "seed": 42,
+    "Tmax": 500,
 }
 
 def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown", qtables_dir=None):
@@ -41,7 +41,8 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         cfg = DEFAULT_PARAMS.copy()
         cfg.update(params)
 
-    Kmax = cfg["Kmax"]
+    random.seed(cfg["seed"])
+    Kmax = cfg["p_max"]
 
     base_seed = cfg["seed"]
     # derive deterministic instance-specific seed
@@ -277,23 +278,23 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             ])
 
     # save neighborhood statistics
-    # if order_mode != "suggested":
-    #     save_neighborhood_usage(
-    #         usage_logger["counter"],
-    #         instance_name
-    #     )
+    if order_mode != "suggested":
+        save_neighborhood_usage(
+            usage_logger["counter"],
+            instance_name
+        )
         
-    #     save_neighborhood_improvement_log(
-    #         usage_logger["events"],
-    #         instance_name,
-    #         suffix="rl" if agent is not None else "bvnd"
-    #     )
+        save_neighborhood_improvement_log(
+            usage_logger["events"],
+            instance_name,
+            suffix="rl" if agent is not None else "bvnd"
+        )
         
-    #     save_suggested_order(
-    #         usage_logger["counter"],
-    #         instance_name,
-    #         list(enumerate(ls.NEIGHBORHOOD_FUNCS))
-    #     )
+        save_suggested_order(
+            usage_logger["counter"],
+            instance_name,
+            list(enumerate(ls.NEIGHBORHOOD_FUNCS))
+        )
 
     if ml_policy is not None:
         ml_policy.plot_decisions(show=False)

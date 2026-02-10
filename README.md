@@ -74,7 +74,7 @@ The project is controlled via `run_benchmark.py`, with these available arguments
 
 | Argument          | Type   | Required | Default        | Description                                                                          |
 | ----------------- | ------ | -------- | -------------- | ------------------------------------------------------------------------------------ |
-| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl`                                             |
+| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_fi` or `rl_bi`                               |
 | `--neigh_order`   | string | No       | `default`      | Neighborhood order (`default`, `reverse`, `random`, `suggested`). Ignored in RL mode |
 | `--tmax`          | int    | No       | `500`          | Maximum execution time per instance (in seconds)                                     |
 | `--instances_dir` | string | No       | `instances/30` | Path to instance folder (`instances/30`, `instances/100`, `instances/200`)           |
@@ -115,6 +115,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -132,6 +133,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -151,6 +153,7 @@ docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
@@ -161,34 +164,36 @@ docker run --rm \
     --results_dir results/without_RL/suggested_order/Best
 ```
 
-#### 2.4. RL-based GVNS (Q-learning, 30 instances)
+#### 2.4. RL-based GVNS with best improvement (Q-learning, 30 instances)
 
 ```bash
 docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl \
+    --mode rl_bi \
     --tmax 500 \
     --instances_dir instances/30 \
     --results_dir results/with_RL/qlearning/Best
 ```
 
-#### 2.5. RL-based GVNS (Q-learning, 100 instances)
+#### 2.5. RL-based GVNS with first improvement (Q-learning, 100 instances)
 
 ```bash
 docker run --rm \
   -v $(pwd)/gvns:/app/gvns \
   -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
   -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl \
+    --mode rl_fi \
     --tmax 1000 \
     --instances_dir instances/100 \
-    --results_dir results/with_RL/qlearning/Best
+    --results_dir results/with_RL/qlearning/First
 ```
