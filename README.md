@@ -24,17 +24,31 @@ gvns/
 ├── gvns/
 │   ├── gvns.py                   # Core GVNS algorithm
 │   ├── local_search.py           # BVND implementation
-│   ├── operators.py              # Neighborhood operatorsand shaking
+│   ├── operators.py              # Neighborhood operators and shaking
 │   ├── instance.py               # Instance definition
-│   ├── solution.py               # Solution object definition and evaluation step
-│   ├── initializer.py            # Random initiliazer for first solution
+│   ├── solution.py               # Solution object definition and evaluation
+│   ├── initializer.py            # Random initializer for first solution
 │   ├── benchmark.py              # Benchmark runner
-│   ├── agents/
-│   │   ├── base_agent.py         # Interface to define the main struture of all agents
-│   │   ├── dqn_agent.py          # Deep Q-learning agent
-│   │   ├── ppo_agent.py          # PPO agent
-│   │   └── qlearning_agent.py    # Tabular Q-learning agent
-│   └── utils.py                  # Utilities (saving functions for local sear, rl helpers)
+│   ├── logger.py                 # Logging utilities
+│   ├── data_generation/
+│   │   ├── ls_logger.py          # Local search logger
+│   │   └── offline_labeling.py   # Offline labeling for data generation
+│   ├── ml/
+│   │   ├── strategy_policy.py    # ML-based strategy policy
+│   │   ├── models/               # ML models directory
+│   │   ├── notebooks/            # Jupyter notebooks for ML analysis
+│   │   └── training/             # ML model training scripts
+│   ├── rl/
+│   │   ├── rl_env.py             # RL environment definition
+│   │   └── agents/
+│   │       ├── base_agent.py     # Base agent interface
+│   │       ├── dqn_agent.py      # Deep Q-learning agent
+│   │       ├── ppo_agent.py      # PPO agent
+│   │       └── qlearning_agent.py # Tabular Q-learning agent
+│   ├── search_state/
+│   │   └── search_state.py       # Search state management
+│   └── utils/
+│       └── utils.py              # Utility functions
 ├── instances/
 │   ├── 30/                       # Instances with 30 customers
 │   ├── 100/                      # Instances with 100 customers
