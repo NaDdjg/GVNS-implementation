@@ -136,7 +136,7 @@ docker run --rm \
     --mode first \
     --neigh_order default \
     --tmax 500 \
-    --instances_dir instances/30 \
+    --instances_dir instances/Liu_ALNS/30 \
     --results_dir results/without_RL/predefined_order/First
 ```
 
@@ -154,7 +154,7 @@ docker run --rm \
     --mode best \
     --neigh_order random \
     --tmax 1000 \
-    --instances_dir instances/100 \
+    --instances_dir instances/Liu_ALNS/100 \
     --results_dir results/without_RL/random_order/Best
 ```
 
@@ -174,7 +174,7 @@ docker run --rm \
     --mode best \
     --neigh_order suggested \
     --tmax 2000 \
-    --instances_dir instances/200 \
+    --instances_dir instances/Liu_ALNS/200 \
     --results_dir results/without_RL/suggested_order/Best
 ```
 
@@ -191,7 +191,7 @@ docker run --rm \
   python run_benchmark.py \
     --mode rl_bi \
     --tmax 500 \
-    --instances_dir instances/30 \
+    --instances_dir instances/Liu_ALNS/30 \
     --results_dir results/with_RL/qlearning/Best
 ```
 
@@ -208,7 +208,7 @@ docker run --rm \
   python run_benchmark.py \
     --mode rl_fi \
     --tmax 1000 \
-    --instances_dir instances/100 \
+    --instances_dir instances/Liu_ALNS/100 \
     --results_dir results/with_RL/qlearning/First
 ```
 
@@ -226,6 +226,6 @@ docker run --rm \
     --mode ml_decision \
     --neigh_order default \
     --tmax 500 \
-    --instances_dir instances/30 \
+    --instances_dir instances/Liu_ALNS/30 \
     --results_dir results/without_RL/predefined_order/ML_decision
 ```

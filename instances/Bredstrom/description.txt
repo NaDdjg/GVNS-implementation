@@ -1,0 +1,34 @@
+Section 1: METADATA
+the metadata of the instances' files are :
+    1. instance name
+    2. number of vehicles (care workers)
+    3. number of customers (services)
+    4. horizon : due of the depot
+    5. number of synchronized customers: they should start at the exact same time, or with a precedence/delay time
+    6. IDs of the customers that should be synchronized (each row is two customers that should be synch)
+
+Section 2: TIME WINDOWS 
+    - for all node: node_id  ready_time  due_time
+    - first node: depot
+    - last node: depot (return to it)
+    
+Section 3: SERVICE DURATIONS
+    - for all nodes: node_id  duration_time
+
+Section 4: DISTANCE / TRAVEL TIME MATRICES
+    - represents the distance between all nodes
+    - 10000 is to represent the absence of an arc between two nodes (no direct route), so its forbidden.
+
+Section 5: COST MATRIX
+for each:
+    - service i 
+    - worker k 
+we have a cost coefficient, like if worker 1 does service 3 -> the cost is: 2.1362
+
+
+the following example is the case_1_20_4_2_1.dat:
+    1. number of vehicles: 4			
+    2. number of customers in the instance: 20
+    3. horizon: 695
+    4. number of synchronized visits: 2
+    5. IDs of the synchronized pairs: 3 and 8 (time lag is 0), 1 and 18
