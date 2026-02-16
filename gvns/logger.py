@@ -36,6 +36,7 @@ class GVNSLogger:
             "note": note,
             "tours": solution.tours,
             "travel_time": float(solution.travel_time),
+            "obj_value": float(solution.obj_value),
             "penT": float(solution.penT),
             "penH": float(solution.penH),
             "penS": float(solution.penS),
@@ -60,7 +61,7 @@ class GVNSLogger:
 
         if self.console:
             # pretty console output (compact)
-            summary = f"[{time.strftime('%H:%M:%S', time.localtime(tstamp))}] {event_type.upper()} step={step} F={solution.Fval:.4f} f={solution.travel_time:.4f} PenT={solution.penT:.4f} PenH={solution.penH:.4f} PenS={solution.penS}"
+            summary = f"[{time.strftime('%H:%M:%S', time.localtime(tstamp))}] {event_type.upper()} step={step} F={solution.Fval:.4f} f={solution.obj_value:.4f} PenT={solution.penT:.4f} PenH={solution.penH:.4f} PenS={solution.penS}"
             print(summary)
             # print per-vehicle compact lines
             if record["timeline"]:

@@ -78,10 +78,10 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
 
     if current.penS == 0 and current.penT == 0 and current.penH == 0:
         best_feasible = current.copy()
-        best_feasible_f = current.travel_time
+        best_feasible_f = current.obj_value
 
     if verbose:
-        print(f"[GVNS] Init: F={current.Fval:.3f}, f={current.travel_time:.3f}, "
+        print(f"[GVNS] Init: F={current.Fval:.3f}, f={current.obj_value:.3f}, "
               f"PenS={current.penS}, PenT={current.penT}, PenH={current.penH}")
 
     # ============================================================
@@ -251,12 +251,15 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
             best_aug = improved.copy()
 
         if improved.penS == 0 and improved.penT == 0 and improved.penH == 0:
-            if improved.travel_time < best_feasible_f:
-                best_feasible_f = improved.travel_time
+            if improved.obj_value < best_feasible_f:
+                best_feasible_f = improved.obj_value
                 best_feasible = improved.copy()
                 best_feasible_time = elapsed
                 print(f"[GVNS][iter {iteration}] New best feasible: "
-                      f"f={best_feasible_f:.3f}")
+                    f"f={best_feasible_f:.3f}"
+                    f" travel time {improved.travel_time:.2f}"
+                    f" worker cost {improved.worker_cost:.2f}")
+                
 
         # ============================================================
         # 5. penalty Adaptation
@@ -267,13 +270,13 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
         # 6. print iteration summary
         # ============================================================
         print(f"[GVNS][iter {iteration}] "
-              f"F={improved.Fval:.3f} f={improved.travel_time:.3f} "
+              f"F={improved.Fval:.3f} f={improved.obj_value:.3f} "
               f"| PenS={improved.penS} PenT={improved.penT} PenH={improved.penH} "
               f"| accepted={accept}, cont={cont}, k={k}, elapsed={elapsed:.2f}s")
 
         if trace_list is not None:
             trace_list.append([
-                iteration, current.Fval, current.travel_time,
+                iteration, current.Fval, current.obj_value,
                 current.penT, current.penH, current.penS, elapsed
             ])
 

@@ -36,6 +36,11 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
                 print(f"[WARNING] File {path} has no 'best_f'. Using entire file anyway.")
                 # still accept the file; best_f filtering will fallback later
 
+            # If input_dir refers to Bredstrom, convert best_f from minutes to hours
+            if "bredstrom" in input_dir.replace("\\", "/").lower():
+                if "best_f" in df.columns:
+                    df["best_f"] = pd.to_numeric(df["best_f"], errors="coerce") / 60
+
             all_rows.append(df)
 
         except Exception as e:

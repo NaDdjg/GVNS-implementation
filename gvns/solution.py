@@ -23,11 +23,14 @@ class Solution:
     M: float = BIG_M
 
     travel_time: float = 0.0
+    worker_cost: float = 0.0
     penT: float = 0.0
     penH: float = 0.0
     penS: float = 0.0
     Fval: float = 0.0
     PV: int = 0
+
+    obj_value = float = 0.0
 
     # utility
     def copy(self):
@@ -40,11 +43,13 @@ class Solution:
             M=self.M,
         )
         new.travel_time = self.travel_time
+        new.worker_cost = self.worker_cost
         new.penT = self.penT
         new.penH = self.penH
         new.penS = self.penS
         new.Fval = self.Fval
         new.PV = self.PV
+        new.obj_value = self.obj_value
 
         if hasattr(self, "_last_vehicle_visits"):
             new._last_vehicle_visits = [
@@ -156,9 +161,20 @@ class Solution:
                         prev = depot_id if vehicle_pos[v] == 0 else tours[v][vehicle_pos[v] - 1]
                         travel_leg = TT[prev][i]
                         depart = start_time + service
-                        vehicle_visits[v].append(
-                            (i, travel_leg, start_time, due, depart)
-                        )
+                        # vehicle_visits[v].append(
+                        #     (i, travel_leg, start_time, due, depart)
+                        # )
+                        vehicle_visits[v].append({
+                            "node": i,
+                            "prev": prev,
+                            "travel": float(travel_leg),
+                            "arrival": float(vehicle_time[v]),
+                            "start": float(start_time),
+                            "service": float(service),
+                            "depart": float(start_time + service),
+                            "ready": float(ready),
+                            "due": float(due)
+                        })
                         vehicle_pos[v] += 1   # advance vehicle state
 
                         # set next arrival time = depart + travel(i,next) or return to depot
@@ -181,9 +197,20 @@ class Solution:
                     prev = depot_id if vehicle_pos[k] == 0 else tours[k][vehicle_pos[k] - 1]
                     travel_leg = TT[prev][i]
 
-                    vehicle_visits[k].append(
-                        (i, travel_leg, start, due, depart)
-                    )
+                    # vehicle_visits[k].append(
+                    #     (i, travel_leg, start, due, depart)
+                    # )
+                    vehicle_visits[k].append({
+                        "node": i,
+                        "prev": prev,
+                        "travel": float(travel_leg),
+                        "arrival": float(arrival),
+                        "start": float(start),
+                        "service": float(service),
+                        "depart": float(depart),
+                        "ready": float(ready),
+                        "due": float(due)
+                    })
                     vehicle_pos[k] += 1
 
                     if vehicle_pos[k] < len(tours[k]):
@@ -194,6 +221,7 @@ class Solution:
                     progress = True
 
         travel_total = 0.0
+        travel_per_vehicle = [0.0] * m
         penT = 0.0
         penH = 0.0
 
@@ -205,45 +233,53 @@ class Solution:
             last_node = depot_id
             last_depart = 0.0
 
-            for node, travel, start, due, depart in visits:
-                travel_total += travel
+            for rec in visits:
+                node = rec["node"]
+                travel = rec["travel"]
+                start = rec["start"]
+                due = rec["due"]
+                depart = rec["depart"]
+
+                travel_per_vehicle[k] += travel
                 if start > due:
                     penT += (start - due)
                 last_node = node
                 last_depart = depart
 
-            travel_total += TT[last_node][depot_id]
-
+            travel_per_vehicle[k] += TT[last_node][depot_id]
             end_time = last_depart + TT[last_node][depot_id]
+
             if end_time > horizon:
                 penH += (end_time - horizon)
+              
+        self.travel_time = sum(travel_per_vehicle)
 
         # synchronization penalty for any sync customers that never got served
-        n = 0
+        required_visits  = 0
         for cid in nodes.keys():
             if cid == depot_id:
                 continue
             # each non-sync customer requires 1 occurrence,
             # a sync customer requires sync_requirements[cid]
-            n += sync_requirements.get(cid, 1)
+            required_visits  += sync_requirements.get(cid, 1)
 
         PV = sum(len(visits) for visits in vehicle_visits)
         self.PV = int(PV)
+        penS = max(0, required_visits - PV)
+
+        if inst.instance_type == "liu":
+            base_obj = self.travel_time
+        elif inst.instance_type == "bredstrom":
+            base_obj =  self.travel_time
+        else:
+            raise ValueError("Unknown instance type")
+
+        self.obj_value = base_obj
         
-        penS = max(0, n - PV)
-
-        # final objective
-        fixed_sum = 0.0
-        if hasattr(inst, 'fixed_cost'):
-            for k in range(m):
-                if k < len(tours) and len(tours[k]) > 0:
-                    fixed_sum += float(inst.fixed_cost)
-
-        self.travel_time = travel_total
         self.penT = penT
         self.penH = penH
         self.penS = penS
-        self.Fval = (travel_total + fixed_sum) + self.w1 * penT + self.w2 * penH + self.M * penS
+        self.Fval = base_obj + self.w1 * penT + self.w2 * penH + self.M * penS
 
         # canonical timeline on the object for inspection
         self._last_vehicle_visits = vehicle_visits

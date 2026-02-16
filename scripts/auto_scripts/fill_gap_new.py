@@ -1,7 +1,7 @@
 import csv
 from decimal import Decimal, InvalidOperation
 
-IN = "result_summaries/merged_summary_Best_default.csv"
+IN = "result_summaries\\summaries\\bredstrom_instances\\merged_summary_First_default.csv"
 
 def parse_decimal(s):
     s = s.strip()
