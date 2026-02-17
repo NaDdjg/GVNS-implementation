@@ -255,9 +255,7 @@ class Instance:
         Section 4: Travel time matrix
         Section 5: Worker-service cost matrix 
         """
-        # --------------------------------------------------
         # Read file and split into sections
-        # --------------------------------------------------
         with open(path, "r") as f:
             raw_lines = [l.rstrip() for l in f]
 
@@ -300,7 +298,6 @@ class Instance:
             a, b = map(int, meta[5 + i].split())
             sync_pairs.append((a, b))
 
-        # store them RAW (we'll reason about them later)
         self.sync_pairs = sync_pairs
 
         # --------------------------------------------------
@@ -392,10 +389,6 @@ class Instance:
                 worker_utility[service_id] = costs
 
             self.worker_cost = worker_utility
-
-            # for node_id, utils in worker_utility.items():
-            #     u_max = max(utils)
-            #     self.worker_cost[node_id] = [u_max - u for u in utils]
 
         self.normalize_synchronization()
 

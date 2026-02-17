@@ -23,7 +23,7 @@ def main():
         # ("results\\without_RL\\random_order\\First", "result_summaries/merged_summary_First_random.csv"),
         # ("results/with_RL/qlearning/Best", "result_summaries/merged_summary_qlearning_Best.csv"),
         # ("results\\without_RL\\predefined_order\\ML_decision", "result_summaries/merged_summary_ML_default.csv"),
-        ("results/without_RL/predefined_order/First/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_First_default.csv"),
+        ("results/without_RL/predefined_order/First/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_First_default_80.csv"),
         # ("results/without_RL/predefined_order/Best/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_Best_default.csv"),
     ]
 

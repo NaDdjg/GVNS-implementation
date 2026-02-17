@@ -267,19 +267,12 @@ class Solution:
         self.PV = int(PV)
         penS = max(0, required_visits - PV)
 
-        if inst.instance_type == "liu":
-            base_obj = self.travel_time
-        elif inst.instance_type == "bredstrom":
-            base_obj =  self.travel_time
-        else:
-            raise ValueError("Unknown instance type")
-
-        self.obj_value = base_obj
+        self.obj_value = self.travel_time # for our case the objective function is just total travel time
         
         self.penT = penT
         self.penH = penH
         self.penS = penS
-        self.Fval = base_obj + self.w1 * penT + self.w2 * penH + self.M * penS
+        self.Fval = self.travel_time + self.w1 * penT + self.w2 * penH + self.M * penS
 
         # canonical timeline on the object for inspection
         self._last_vehicle_visits = vehicle_visits
