@@ -23,11 +23,14 @@ class Solution:
     M: float = BIG_M
 
     travel_time: float = 0.0
+    worker_cost: float = 0.0
     penT: float = 0.0
     penH: float = 0.0
     penS: float = 0.0
     Fval: float = 0.0
     PV: int = 0
+
+    obj_value = float = 0.0
 
     # utility
     def copy(self):
@@ -40,11 +43,13 @@ class Solution:
             M=self.M,
         )
         new.travel_time = self.travel_time
+        new.worker_cost = self.worker_cost
         new.penT = self.penT
         new.penH = self.penH
         new.penS = self.penS
         new.Fval = self.Fval
         new.PV = self.PV
+        new.obj_value = self.obj_value
 
         if hasattr(self, "_last_vehicle_visits"):
             new._last_vehicle_visits = [
@@ -232,18 +237,13 @@ class Solution:
         
         penS = max(0, n - PV)
 
-        # final objective
-        fixed_sum = 0.0
-        if hasattr(inst, 'fixed_cost'):
-            for k in range(m):
-                if k < len(tours) and len(tours[k]) > 0:
-                    fixed_sum += float(inst.fixed_cost)
+        self.obj_value = travel_total 
 
         self.travel_time = travel_total
         self.penT = penT
         self.penH = penH
         self.penS = penS
-        self.Fval = (travel_total + fixed_sum) + self.w1 * penT + self.w2 * penH + self.M * penS
+        self.Fval = (self.obj_value) + self.w1 * penT + self.w2 * penH + self.M * penS
 
         # canonical timeline on the object for inspection
         self._last_vehicle_visits = vehicle_visits

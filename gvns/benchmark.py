@@ -1,6 +1,7 @@
 import os
-import time
 import random
+import time
+from pathlib import Path
 import numpy as np # type: ignore
 import pandas as pd  # type: ignore
 import matplotlib.pyplot as plt # type: ignore
@@ -15,6 +16,32 @@ from gvns.gvns import run_gvns
 import cProfile
 import pstats
 from line_profiler import LineProfiler
+
+# helper for extracting instances 
+def collect_instance_paths(folder: str):
+    """
+    collect instance file paths from a folder.
+
+    - Liu instances → .txt
+    - Bredström instances → .dat
+    """
+    folder = Path(folder)
+    norm = str(folder).replace("\\", "/")
+
+    if "Liu_ALNS" in norm:
+        exts = (".txt",)
+    elif "Bredstrom" in norm:
+        exts = (".dat",)
+    else:
+        raise ValueError(f"Unknown instance folder type: {folder}")
+
+    paths = [
+        os.path.join(folder, p)
+        for p in os.listdir(folder)
+        if p.endswith(exts)
+    ]
+
+    return sorted(paths)
 
 # run GVNS on one instance
 def run_instance(
@@ -34,7 +61,8 @@ def run_instance(
     random.seed(seed)
     np.random.seed(seed)
 
-    inst = Instance().load_liu_format(path)
+    inst = Instance().parse_instance(path)
+    # inst.debug_dump()  # print instance details for debugging
     best_overall = None
     results = []
 
@@ -99,14 +127,14 @@ def run_instance(
         results.append({
             "instance": name,
             "run": run_id,
-            "best_f": best.travel_time,
+            "best_f": best.obj_value,
             "PenT": best.penT,
             "PenH": best.penH,
             "PenS": best.penS,
             "time": best.best_time
         })
 
-        if best_overall is None or best.travel_time < best_overall.travel_time:
+        if best_overall is None or best.obj_value < best_overall.obj_value:
             best_overall = best.copy()
 
         # plot evolution of f (travel cost) and best feasible f line
@@ -151,7 +179,7 @@ def run_instance(
         plt.savefig(plot_path, dpi=150)
         plt.close()
 
-        print(f"[RUN {run_id}] Done. Best f={best.travel_time:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
+        print(f"[RUN {run_id}] Done. Best f={best.obj_value:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
 
     # summary over all runs
     df_res = pd.DataFrame(results)
@@ -277,16 +305,16 @@ def _run_one_instance_mp(
 # classic sequential runner
 def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
     """Run all instances in the specified folder sequentially."""
-    paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
+    
+    paths = collect_instance_paths(folder)
     if not paths:
-        print(f"No .txt instances found in {folder}")
+        print(f"No instances found in {folder}")
         return
 
     all_results = []
     for p in paths:
-        path_full = os.path.join(folder, p)
         res = run_instance(
-            path_full, 
+            path=p, 
             n_runs=n_runs, 
             params=params, 
             agent=agent,
@@ -305,9 +333,10 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
 # profiling version for one instance only
 def run_folder_profiling(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
     """Run all instances in the specified folder sequentially."""
-    paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
+    
+    paths = collect_instance_paths(folder)
     if not paths:
-        print(f"No .txt instances found in {folder}")
+        print(f"No instances found in {folder}")
         return
 
     all_results = []
@@ -353,13 +382,12 @@ def run_folder_parallel(
 ):
     """Run all instances in parallel (one process per instance)."""
 
-    paths = sorted([p for p in os.listdir(folder) if p.endswith(".txt")])
+    paths = collect_instance_paths(folder)
     if not paths:
-        print(f"No .txt instances found in {folder}")
+        print(f"No instances found in {folder}")
         return
 
     os.makedirs(results_dir, exist_ok=True)
-    full_paths = [os.path.join(folder, p) for p in paths]
 
     worker = partial(
         _run_one_instance_mp,
@@ -372,12 +400,12 @@ def run_folder_parallel(
     )
 
     n_proc = n_processes or mp.cpu_count()
-    print(f"Running {len(full_paths)} instances in parallel on {n_proc} processes")
+    print(f"Running {len(paths)} instances in parallel on {n_proc} processes")
 
     pool = mp.Pool(processes=n_proc)
 
     try:
-        all_results = pool.map(worker, full_paths)
+        all_results = pool.map(worker, paths)
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt received, terminating workers...")
         pool.terminate()   # kill workers immediately
@@ -424,7 +452,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         agent=agent,
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
-        qtables_dir=QTABLE_DIR,
+        qtables_dir=QTABLE_DIR
     )
 
     # sequential version

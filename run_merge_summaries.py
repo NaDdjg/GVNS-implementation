@@ -13,16 +13,18 @@ from scripts.csv_summaries.merge_summaries import merge_summaries
 def main():
     # Define the merge operations
     merges = [
-        # ("results/without_RL/predefined_order/Best", "result_summaries/merged_summary_Best_default.csv"),
-        # ("results/without_RL/predefined_order/First", "result_summaries/merged_summary_First_default.csv"),
-        # ("results\\without_RL\\suggested_order\\Best", "result_summaries/merged_summary_Best_suggested.csv"),
-        # ("results/without_RL/suggested_order/First", "result_summaries/merged_summary_First_suggested.csv"),
-        ("results/without_RL/reverse_order/First", "result_summaries/merged_summary_First_reversed.csv"),
-        # ("results/without_RL/reverse_order/Best", "result_summaries/merged_summary_Best_reversed.csv"),
-        # ("results/without_RL/random_order/Best", "result_summaries/merged_summary_Best_random.csv"),
-        # ("results\\without_RL\\random_order\\First", "result_summaries/merged_summary_First_random.csv"),
-        # ("results/with_RL/qlearning/Best", "result_summaries/merged_summary_qlearning_Best.csv"),
-        # ("results\\without_RL\\predefined_order\\ML_decision", "result_summaries/merged_summary_ML_default.csv"),
+        # ("results/without_RL/predefined_order/Best", "result_summaries/summaries/liu_instances/merged_summary_Best_default.csv"),
+        # ("results/without_RL/predefined_order/First", "result_summaries/summaries/liu_instances/merged_summary_First_default.csv"),
+        # ("results/without_RL/suggested_order/Best", "result_summaries/summaries/liu_instances/merged_summary_Best_suggested.csv"),
+        # ("results/without_RL/suggested_order/First", "result_summaries/summaries/liu_instances/merged_summary_First_suggested.csv"),
+        # ("results/without_RL/reverse_order/First", "result_summaries/summaries/liu_instances/merged_summary_First_reversed.csv"),
+        # ("results/without_RL/reverse_order/Best", "result_summaries/summaries/liu_instances/merged_summary_Best_reversed.csv"),
+        # ("results/without_RL/random_order/Best", "result_summaries/summaries/liu_instances/merged_summary_Best_random.csv"),
+        # ("results/without_RL/random_order/First", "result_summaries/summaries/liu_instances/merged_summary_First_random.csv"),
+        # ("results/with_RL/qlearning/Best", "result_summaries/summaries/liu_instances/merged_summary_qlearning_Best.csv"),
+        # ("results/without_RL/predefined_order/ML_decision", "result_summaries/summaries/liu_instances/merged_summary_ML_default.csv"),
+        # ("results/without_RL/predefined_order/First/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_First_default.csv"),
+        # ("results/without_RL/predefined_order/Best/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_Best_default.csv"),
     ]
 
     for input_dir, output_file in merges:
