@@ -100,6 +100,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     input_dir = sys.argv[1]
-    output_file = "result_summaries/merged_summary_First_8.csv" if len(sys.argv) < 3 else sys.argv[2]
+    output_file = "result_summaries/merged_summary_First.csv" if len(sys.argv) < 3 else sys.argv[2]
 
     merge_summaries(input_dir, output_file)

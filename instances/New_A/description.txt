@@ -1,0 +1,3 @@
+Command used to generate data:
+    python scripts\instances_generation\generate_operator_A.py --input_dir instances\Liu_ALNS\30 --output_dir instances\New_A\45 --k 1.5 --delta_xy 0.03 --delta_t 0.02 --seed 123
+

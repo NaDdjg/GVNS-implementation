@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-RESULTS_DIR = "results/without RL/reverse_order/Best"
+RESULTS_DIR = "results/without_RL/predefined_order/First"
 PLOTS_DIR = os.path.join(RESULTS_DIR, "plots_time")
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
