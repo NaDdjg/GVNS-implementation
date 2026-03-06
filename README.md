@@ -263,5 +263,58 @@ docker run --rm \
     --neigh_order random \
     --tmax 300 \
     --instances_dir instances/Bredstrom/case50 \
-    --results_dir results/without_RL/predefined_order/Best
+    --results_dir results/without_RL/random_order/Best
+```
+
+#### 2.8. First improvement GVNS on the new synchronized benchmark (Default order, 200 instances)
+
+```bash
+docker run --rm \
+  -v $(pwd)/gvns:/app/gvns \
+  -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
+  -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
+  -v $(pwd)/results:/app/results \
+  gvns-benchmark \
+  python run_benchmark.py \
+    --mode first \
+    --neigh_order default \
+    --tmax 15000 \
+    --instances_dir instances/New_synch/200 \
+    --results_dir results/new_benchmark/without_RL/predefined_order/First
+```
+
+#### 2.8. ML-decision (hybrid FI-BI) on the new synchronized benchmark (Default order, 200 instances)
+
+```bash
+docker run --rm \
+  -v $(pwd)/gvns:/app/gvns \
+  -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
+  -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
+  -v $(pwd)/results:/app/results \
+  gvns-benchmark \
+  python run_benchmark.py \
+    --mode ml_decision \
+    --neigh_order default \
+    --tmax 15000 \
+    --instances_dir instances/New_synch/200 \
+    --results_dir results/new_benchmark/without_RL/predefined_order/ML_decision
+```
+
+#### 2.9. First improvement GVNS on the new synchronized benchmark (Q-learning, 200 instances)
+
+```bash
+docker run --rm \
+  -v $(pwd)/gvns:/app/gvns \
+  -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
+  -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
+  -v $(pwd)/results:/app/results \
+  gvns-benchmark \
+  python run_benchmark.py \
+    --mode rl_fi \
+    --tmax 15000 \
+    --instances_dir instances/New_synch/200 \
+    --results_dir results/new_benchmark/with_RL/qlearning/First
 ```

@@ -1,0 +1,83 @@
+INSTANCE SET DESCRIPTION
+
+This folder contains the benchmark instances used for the experiments in this project.
+The instances are derived from classical Solomon VRPTW instances and extended to include synchronization constraints.
+
+---
+
+1. INSTANCE FORMAT
+
+Each instance file follows the structure below:
+
+1. Number of vehicles
+2. Number of customers
+3. Planning horizon (due time of the depot)
+4. Number of synchronized customers
+5. IDs of customers requiring synchronization
+6. Customer data lines
+
+Each customer line has the following format:
+
+customer_id  x_coordinate  y_coordinate  ready_time  due_time  service_time
+
+Customer with ID 0 corresponds to the depot.
+
+Synchronized customers require two vehicles to arrive at the same time within the customer's time window.
+
+---
+
+2. BASE INSTANCES
+
+The base instances are the Solomon VRPTW instances located in:
+
+instances/Solomon/
+
+These instances originally contain spatial coordinates, time windows, service times, vehicle capacity, and fleet size, but do not include synchronization constraints.
+
+---
+
+3. GENERATION OF SYNCHRONIZED INSTANCES
+
+Synchronization constraints were added to the Solomon instances using the script:
+
+scripts/instances_generation/generate_synch_instances.py
+
+For each instance, a subset of customers is selected as synchronized visits.
+The number of synchronized customers is chosen proportionally to the instance size:
+
+* 5 synchronized visits for instances with 50 customers
+* 10 synchronized visits for instances with 100 customers
+* 20 synchronized visits for instances with 200 customers
+
+The selected synchronized customers are chosen among customers with relatively larger time windows.
+This choice increases the likelihood that two vehicles can arrive simultaneously without making the instance infeasible.
+
+---
+
+4. INTERMEDIATE INSTANCE GENERATION
+
+Additional intermediate instance sizes were generated to allow scalability analysis without relying exclusively on the sizes used in previous literature.
+
+In particular, instances with 150 and 300 customers were generated.
+
+These instances are produced using the script:
+
+scripts/instances_generation/generate_intermidiate_instances.py
+
+The generation procedure is based on customer replication:
+
+1. A subset of existing customers is randomly selected.
+2. Each selected customer is duplicated to create a new customer.
+3. The spatial coordinates of the replicated customers are slightly perturbed by a small random offset.
+4. Time windows and service times remain unchanged.
+
+This replication strategy preserves the temporal structure of the original Solomon instances while increasing the instance size.
+The number of vehicles is scaled proportionally to the number of customers in order to maintain a similar workload per vehicle.
+
+---
+
+5. PURPOSE OF THESE INSTANCES
+
+The goal of this dataset is to provide benchmark instances for the Vehicle Routing Problem with Time Windows and Synchronization constraints (VRPTW-S).
+
+The generated instances allow the evaluation of algorithm scalability across different problem sizes while maintaining characteristics consistent with the classical Solomon benchmarks.

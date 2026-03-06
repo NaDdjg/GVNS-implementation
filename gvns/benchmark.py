@@ -28,7 +28,7 @@ def collect_instance_paths(folder: str):
     folder = Path(folder)
     norm = str(folder).replace("\\", "/")
 
-    if "Liu_ALNS" in norm:
+    if "Liu_ALNS" in norm or "New_synch" in norm:
         exts = (".txt",)
     elif "Bredstrom" in norm:
         exts = (".dat",)
