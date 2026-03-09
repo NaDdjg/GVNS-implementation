@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-from gvns.agents.qlearning_agent import QTableAgent
+from gvns.rl.agents.qlearning_agent import QTableAgent
 
 # ============================================================
 # USER CONFIG
