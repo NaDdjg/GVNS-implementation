@@ -75,7 +75,7 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
         merged = merged.groupby("instance", as_index=False).first()
 
     # Read paper results
-    papers_file = "results/reference/papers_results.csv"
+    papers_file = "results/reference/first_default.csv"
     try:
         papers_df = pd.read_csv(papers_file)
     except Exception as e:
@@ -86,7 +86,7 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
     merged = merged.merge(papers_df, on="instance", how="left")
 
     # Select and reorder columns (in specific order)
-    columns_to_keep = ["instance", "run", "best_f", "avg_best_f", "best_f_paper", "time", "avg_time", "time_paper"]
+    columns_to_keep = ["instance", "run", "best_f", "avg_best_f", "best_f_reimplementation", "time", "avg_time", "time_reimplementation"]
     merged = merged[[col for col in columns_to_keep if col in merged.columns]]
 
     # Save output

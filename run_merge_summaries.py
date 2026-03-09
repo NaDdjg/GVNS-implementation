@@ -23,9 +23,13 @@ def main():
         # ("results/without_RL/random_order/First", "result_summaries/summaries/liu_instances/merged_summary_First_random.csv"),
         # ("results/with_RL/qlearning/Best", "result_summaries/summaries/liu_instances/merged_summary_qlearning_Best.csv"),
         # ("results/without_RL/predefined_order/ML_decision", "result_summaries/summaries/liu_instances/merged_summary_ML_default.csv"),
+
         # ("results/without_RL/predefined_order/First/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_First_default.csv"),
         # ("results/without_RL/predefined_order/Best/Bredstrom", "result_summaries/summaries/bredstrom_instances/merged_summary_Best_default.csv"),
-        ("results/without_RL/predefined_order/ML_decision", "result_summaries/summaries/new_AB_instances/A1p5_B1p3_a0p2/merged_summary_ML_default.csv"),
+
+        # ("results/without_RL/predefined_order/First", "result_summaries/summaries/new_synch/merged_summary_First_default.csv"),
+        # ("results/with_RL/qlearning/First", "result_summaries/summaries/new_synch/merged_summary_First_qlearning.csv"),
+        ("results/without_RL/predefined_order/ML_decision", "result_summaries/summaries/new_synch/merged_summary_ML_default.csv"),
     ]
 
     for input_dir, output_file in merges:
