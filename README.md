@@ -248,7 +248,7 @@ docker run --rm \
     --results_dir results/without_RL/predefined_order/First
 ```
 
-#### 2.7. Best improvement GVNS on Bredstrom benchmark (Random order, 50 instances)
+#### 2.8. Best improvement GVNS on Bredstrom benchmark (Random order, 50 instances)
 
 ```bash
 docker run --rm \
@@ -266,7 +266,7 @@ docker run --rm \
     --results_dir results/without_RL/random_order/Best
 ```
 
-#### 2.8. First improvement GVNS on the new synchronized benchmark (Default order, 200 instances)
+#### 2.9. First improvement GVNS on the new synchronized benchmark (Default order, 200 instances)
 
 ```bash
 docker run --rm \
@@ -284,7 +284,7 @@ docker run --rm \
     --results_dir results/new_benchmark/without_RL/predefined_order/First
 ```
 
-#### 2.8. ML-decision (hybrid FI-BI) on the new synchronized benchmark (Default order, 200 instances)
+#### 2.10. ML-decision (hybrid FI-BI) on the new synchronized benchmark (Default order, 200 instances)
 
 ```bash
 docker run --rm \
@@ -302,7 +302,7 @@ docker run --rm \
     --results_dir results/new_benchmark/without_RL/predefined_order/ML_decision
 ```
 
-#### 2.9. First improvement GVNS on the new synchronized benchmark (Q-learning, 200 instances)
+#### 2.11. First improvement GVNS on the new synchronized benchmark (Q-learning, 200 instances)
 
 ```bash
 docker run --rm \
