@@ -1,8 +1,8 @@
 import os
 import re
 
-INPUT_FOLDER = "instances/Solomon/100"
-OUTPUT_FOLDER = "instances/New_synch/100"
+INPUT_FOLDER = "instances/Solomon/400"
+OUTPUT_FOLDER = "instances/New_synch/400"
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -104,7 +104,12 @@ def process_instances():
         instance_name = os.path.splitext(file)[0]
         n_customers = len(customers) - 1
 
-        new_filename = f"{instance_name}_{n_customers}_{sync_count}.txt"
+        # if there are more than 200 customers, omit the customer count from filename
+        if n_customers > 200:
+            new_filename = f"{instance_name}_{sync_count}.txt"
+        else:
+            new_filename = f"{instance_name}_{n_customers}_{sync_count}.txt"
+
         output_path = os.path.join(OUTPUT_FOLDER, new_filename)
 
         write_instance(output_path, vehicles, customers, sync_count, sync_ids)
