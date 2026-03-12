@@ -464,6 +464,39 @@ def b_vnd(
 # helpers used for RL integration
 # to run a single neighborhood (or list of neighborhoods) on a given solution
 # ===================================================================
+def b_vnd_single_neigh(sol: Solution,
+                       neighborhood,
+                       time_limit=None,
+                       max_no_improve=1,
+                       first_improvement=False,
+                       max_checks_per_neigh=None):
+    """
+    same logic as b_vnd, but restricted to ONE neighborhood.
+    """
+    assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
+
+    best = sol
+    start = time.time()
+    no_improve = 0
+
+    while True:
+        if time_limit and (time.time() - start) > time_limit:
+            return best
+
+        cand = neighborhood(
+            best,
+            max_checks=max_checks_per_neigh,
+            first_improve=first_improvement
+        )
+
+        if cand and is_better(cand, best):
+            best = cand
+            no_improve = 0
+        else:
+            no_improve += 1
+            if no_improve >= max_no_improve:
+                return best
+
 def rl_bvnd_step(sol: Solution,
                  agent,
                  obs,
@@ -506,36 +539,3 @@ def rl_bvnd_step(sol: Solution,
         if verbose:
             print(f"[RL-BVND] Neighborhood {action} did not improve (F={sol.Fval})")
         return sol, action, False
-
-def b_vnd_single_neigh(sol: Solution,
-                       neighborhood,
-                       time_limit=None,
-                       max_no_improve=1,
-                       first_improvement=False,
-                       max_checks_per_neigh=None):
-    """
-    same logic as b_vnd, but restricted to ONE neighborhood.
-    """
-    assert callable(neighborhood), f"Neighborhood must be callable, got {type(neighborhood)}"
-
-    best = sol
-    start = time.time()
-    no_improve = 0
-
-    while True:
-        if time_limit and (time.time() - start) > time_limit:
-            return best
-
-        cand = neighborhood(
-            best,
-            max_checks=max_checks_per_neigh,
-            first_improve=first_improvement
-        )
-
-        if cand and is_better(cand, best):
-            best = cand
-            no_improve = 0
-        else:
-            no_improve += 1
-            if no_improve >= max_no_improve:
-                return best
