@@ -189,7 +189,7 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_bi \
+    --mode rl_qlearning_bi \
     --tmax 500 \
     --instances_dir instances/Liu_ALNS/30 \
     --results_dir results/with_RL/qlearning/Best
@@ -206,7 +206,7 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_fi \
+    --mode rl_qlearning_fi \
     --tmax 1000 \
     --instances_dir instances/Liu_ALNS/100 \
     --results_dir results/with_RL/qlearning/First
@@ -313,7 +313,7 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_fi \
+    --mode rl_qlearning_fi \
     --tmax 15000 \
     --instances_dir instances/New_synch/200 \
     --results_dir results/new_benchmark/with_RL/qlearning/First

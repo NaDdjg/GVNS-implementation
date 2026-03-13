@@ -6,14 +6,13 @@ import numpy as np
 # GVNS main module
 import gvns.operators as ops
 import gvns.local_search as ls
-from gvns.solution import Solution
 from gvns.initializer import random_insertion
 
 # loggers
 from gvns.data_generation.ls_logger import LSDecisionLogger
 from gvns.search_state.search_state import SearchState
 from gvns.logger import GVNSLogger
-from gvns.utils.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order
+from gvns.utils.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order, save_operator_stats
 
 # RL/ ML
 from gvns.rl.rl_env import BVNDEnv
@@ -98,6 +97,16 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     usage_logger = {
         "counter": [0] * len(ls.NEIGHBORHOOD_FUNCS), # usage counts per neighborhood 
         "events": []
+    }
+
+    # RL operator statistics
+    operator_stats = {
+        i: {
+            "uses": 0,
+            "success": 0,
+            "reward_sum": 0.0
+        }
+        for i in range(len(ls.NEIGHBORHOOD_FUNCS))
     }
 
     # search state for LS
@@ -189,6 +198,7 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 w2=cfg["w2"],
                 M=cfg["M"],
                 Tmax=cfg["Tmax"] or 1e9,
+                reward_mode=cfg.get("reward_mode", "qlearning"),
             )
 
             obs = env.reset()
@@ -210,6 +220,13 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 new_sol=new_sol if improved else None,
                 elapsed=elapsed
             )
+
+            # update operator statistics
+            operator_stats[action]["uses"] += 1
+            operator_stats[action]["reward_sum"] += reward
+
+            if improved:
+                operator_stats[action]["success"] += 1
 
             # Q update
             agent.update(obs, action, reward, next_obs, done)
@@ -277,6 +294,15 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 current.penT, current.penH, current.penS, elapsed
             ])
 
+    # finalize operator statistics
+    for op in operator_stats:
+        uses = operator_stats[op]["uses"]
+        success = operator_stats[op]["success"]
+        reward_sum = operator_stats[op]["reward_sum"]
+
+        operator_stats[op]["success_rate"] = success / uses if uses > 0 else 0.0
+        operator_stats[op]["avg_reward"] = reward_sum / uses if uses > 0 else 0.0
+
     # save neighborhood statistics
     if order_mode != "suggested":
         save_neighborhood_usage(
@@ -298,6 +324,13 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
 
     if ml_policy is not None:
         ml_policy.plot_decisions(show=False)
+
+    if agent is not None and cfg.get("reward_mode", "qlearning") == "dqn":
+        save_operator_stats(
+            operator_stats,
+            instance_name,
+            suffix="dqn"
+        )
         
     if best_feasible is not None:
         best_feasible.best_time = best_feasible_time

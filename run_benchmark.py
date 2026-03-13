@@ -8,6 +8,7 @@ from gvns import benchmark
 
 # rl utilities
 from gvns.rl.agents.qlearning_agent import QTableAgent
+from gvns.rl.agents.dqn_agent import DQNAgent
 
 # ============================================================
 # Argument parsing
@@ -17,7 +18,7 @@ parser.add_argument(
     "--mode",
     type=str,
     required=True,
-    choices=["first", "best", "rl_bi", "rl_fi", "ml_decision"],
+    choices=["first", "best", "ml_decision", "rl_qlearning_fi", "rl_qlearning_bi", "rl_dqn_fi", "rl_dqn_bi"],
     help="Execution mode"
 )
 
@@ -82,7 +83,10 @@ params = {
     # ML specific params
     "use_ml": False,
     "verbose_ml": False,
-    "log_ls_data": False
+    "log_ls_data": False,
+
+    # RL params 
+    "reward_mode": "qlearning" # or "time_penalty"
 }
 
 # ============================================================
@@ -95,6 +99,9 @@ INST_FOLDER = Path(args.instances_dir)
 if not INST_FOLDER.exists():
     raise FileNotFoundError(f"Instances directory not found: {INST_FOLDER}")
 
+# ===============================
+# Default GVNS 
+# ===============================
 #  First improvement GVNS
 if args.mode == "first":
     first_improvement = True
@@ -117,7 +124,9 @@ elif args.mode == "best":
         or f"results/last_execution_best_{args.neigh_order}"
     )
 
-#  Best improvement GVNS
+# =================================
+# ML-based decision GVNS (hubrid FI/BI)
+# =================================
 elif args.mode == "ml_decision":
     params["use_ml"] = True
     params["neigh_order"] = args.neigh_order
@@ -128,8 +137,11 @@ elif args.mode == "ml_decision":
         or f"results/last_execution_ml_decision_{args.neigh_order}"
     )
 
-#  RL based GVNS with best improvement
-elif args.mode == "rl_bi":
+# =================================
+# Q-learning based GVNS (neighborhood order)
+# =================================
+#  Best improvement
+elif args.mode == "rl_qlearning_bi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
@@ -147,8 +159,8 @@ elif args.mode == "rl_bi":
         seed=params["seed"]
     )
 
-#  RL based GVNS with first improvement
-elif args.mode == "rl_fi":
+#  First improvement
+elif args.mode == "rl_qlearning_fi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
@@ -165,6 +177,46 @@ elif args.mode == "rl_fi":
         use_ucb=True,
         ucb_c=1.0,
         seed=params["seed"]
+    )
+
+# =================================
+# DQN based GVNS (neighborhood order)
+# =================================
+#  Best improvement
+elif args.mode == "rl_dqn_bi":
+    # neigh_order is ignored in RL
+    params["Tmax"] = args.tmax
+    params["reward_mode"] = "dqn"
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
+
+    n_actions = len(NEIGHBORHOOD_NAMES)
+    agent = DQNAgent(
+        n_actions=8,
+        lr=3e-4,
+        gamma=0.99,
+        batch_size=32,
+        buffer_size=50000,
+        target_update_freq=1000,
+        seed =params["seed"]
+    )
+
+#  First improvement
+elif args.mode == "rl_dqn_fi":
+    # neigh_order is ignored in RL
+    params["Tmax"] = args.tmax
+    params["reward_mode"] = "dqn"
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
+    first_improvement = True
+
+    n_actions = len(NEIGHBORHOOD_NAMES)
+    agent = DQNAgent(
+        n_actions=8,
+        lr=3e-4,
+        gamma=0.99,
+        batch_size=32,
+        buffer_size=50000,
+        target_update_freq=1000,
+        seed =params["seed"]
     )
 
 # ============================================================
