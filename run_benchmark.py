@@ -196,7 +196,11 @@ elif args.mode == "rl_dqn_bi":
         gamma=0.99,
         batch_size=32,
         buffer_size=50000,
-        target_update_freq=1000,
+        min_buffer_size=1000,
+        target_update_freq=100,
+        eps_start=1.0,
+        eps_end=0.05,
+        eps_decay_steps=500,
         seed =params["seed"]
     )
 
@@ -215,7 +219,11 @@ elif args.mode == "rl_dqn_fi":
         gamma=0.99,
         batch_size=32,
         buffer_size=50000,
-        target_update_freq=1000,
+        min_buffer_size=1000,
+        target_update_freq=100,
+        eps_start=1.0,
+        eps_end=0.05,
+        eps_decay_steps=500,
         seed =params["seed"]
     )
 

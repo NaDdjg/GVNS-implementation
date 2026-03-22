@@ -1,8 +1,8 @@
 import os
 import re
 
-INPUT_FOLDER = "instances/Solomon/400"
-OUTPUT_FOLDER = "instances/New_synch/400"
+INPUT_FOLDER = "instances/Solomon/100"
+OUTPUT_FOLDER = "instances/New_synch/100"
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 

@@ -56,7 +56,7 @@ def extract_state(inst, current_sol, stagnation, start_time=None, neigh_success=
         float(current_sol.penS),
     ]
 
-    elapsed = float(time.time() - (start_time or 0.0))
+    elapsed = min(1.0, (time.time() - start_time) / 100.0)
     progress = [float(stagnation), elapsed / 100.0]  # simple time normalization
 
     succ_rates = []

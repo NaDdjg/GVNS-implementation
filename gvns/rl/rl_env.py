@@ -120,7 +120,6 @@ class BVNDEnv(gym.Env):
         # record attempt
         self.neigh_attempts[action] += 1.0
 
-        
         self.step_count += 1
         if improved and new_sol is not None:
             self.current = new_sol
@@ -154,34 +153,26 @@ class BVNDEnv(gym.Env):
         
         # DQN reward 
         elif self.reward_mode == "dqn":
-            if raw_impr > 0:
-                reward = 1.0
-            elif raw_impr == 0:
-                reward = 0.0
+            reward = raw_impr / (1.0 + abs(F_before))
+
+            if not improved:
+                reward -= 0.02
             else:
-                reward = -0.2
-
-            reward = np.clip(reward, -1.5, 1.5)
-
-            # bonus if new solution is fully feasible
-            if improved and (
-                self.current.penT == 0
-                and self.current.penH == 0
-                and self.current.penS == 0
-            ):
-                reward += 0.2
+                if (self.current.penT == 0 and
+                    self.current.penH == 0 and
+                    self.current.penS == 0):
+                    reward += 0.05
+            
+            reward = np.clip(reward, -1.0, 1.0)
 
             # small time penalty
             reward -= self.time_penalty_coef * elapsed
 
         # termination conditions
         done = False
-        # stall_limit = max(5, self.n_neigh)
 
         if (time.time() - self.start_time) > self.Tmax:
             done = True
-        # if self.step_count - self.last_improved_step > stall_limit:
-        #     done = True
 
         info = {
             "neighborhood": self.neigh_names[action],

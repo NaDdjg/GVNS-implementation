@@ -117,7 +117,8 @@ class DQNAgent(BaseAgent):
         returns: action int
         """
         # update running mean/std online (small stabilizer)
-        state = self.rms.normalize(obs)
+        state = obs.astype(np.float32)
+        state = self.rms.normalize(state)
 
         state_t = torch.tensor(
             state, 
@@ -156,7 +157,9 @@ class DQNAgent(BaseAgent):
         if len(self.buffer) < self.min_buffer_size:
             return
 
-        self.train_step()
+        # to double learning speed 
+        for _ in range(2):
+            self.train_step()
 
     # DQN training step
     def train_step(self):
@@ -202,11 +205,11 @@ class DQNAgent(BaseAgent):
         self.learn_steps += 1
 
         # periodic target update
-        tau = 0.005
-        for target_param, param in zip(self.target_net.parameters(), self.q_net.parameters()):
-            target_param.data.copy_(
-                tau * param.data + (1.0 - tau) * target_param.data
-            )
+        if self.learn_steps % self.target_update_freq == 0:
+            self.target_net.load_state_dict(self.q_net.state_dict())
+
+        if self.learn_steps % 50 == 0:
+            print("learn step", self.learn_steps)
 
         return loss.item()
 
