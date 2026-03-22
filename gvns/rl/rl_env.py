@@ -5,7 +5,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from typing import Optional
 
-from ..utils.utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim
+from ..utils.rl_utils import NEIGHBORHOOD_NAMES as NEIGHBORHOOD_NAMES, extract_state, obs_dim
 
 class BVNDEnv(gym.Env):
     """
@@ -19,7 +19,8 @@ class BVNDEnv(gym.Env):
     def __init__(self, inst, initial_sol, first_improvement: bool = False,
                  w1: float = 0.5, w2: float = 0.1, M: float = 1e6,
                  Tmax: float = 2000.0, b_vnd_max_iters: int = None, time_penalty_coef: float = 1e-3,
-                 seed: Optional[int] = None):
+                 seed: Optional[int] = None,
+                 reward_mode="qlearning"):
         super().__init__()
         self.inst = inst
         self.initial_sol = initial_sol
@@ -30,6 +31,7 @@ class BVNDEnv(gym.Env):
         self.Tmax = float(Tmax)
         self.b_vnd_max_iters = (int(b_vnd_max_iters) if b_vnd_max_iters is not None else None)
         self.time_penalty_coef = float(time_penalty_coef)
+        self.reward_mode = reward_mode
 
         # track attempts + successes per neighborhood
         self.neigh_names = NEIGHBORHOOD_NAMES
@@ -68,10 +70,16 @@ class BVNDEnv(gym.Env):
     def _make_state(self) -> np.ndarray:
         # the agent never sees the full solution, only high-level search indicators
         # makes the agent learn how to search, not how to build solutions for specific instances
+        stagnation = self.step_count - self.last_improved_step
+        stagnation_ratio = stagnation / (self.step_count + 1.0)
+
         return extract_state(
-            self.inst, self.current,
-            iter_no=self.step_count, start_time=self.start_time,
-            neigh_success=self.neigh_success, neigh_attempts=self.neigh_attempts
+            self.inst, 
+            self.current,
+            stagnation=stagnation_ratio, 
+            start_time=self.start_time,
+            neigh_success=self.neigh_success, 
+            neigh_attempts=self.neigh_attempts
         )
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> np.ndarray:
@@ -112,7 +120,6 @@ class BVNDEnv(gym.Env):
         # record attempt
         self.neigh_attempts[action] += 1.0
 
-        
         self.step_count += 1
         if improved and new_sol is not None:
             self.current = new_sol
@@ -122,34 +129,50 @@ class BVNDEnv(gym.Env):
     
         F_after = float(self.current.Fval)
 
-        # clip raw improvement
+        # REWARD DESIGN
+        # compute raw improvement
         raw_impr = F_before - F_after
         raw_impr = np.clip(raw_impr, -1000.0, 1000.0) # to prevent exploding rewards
 
-        # normalized reward
-        reward = raw_impr / (1.0 + abs(F_before))
+        # qlearning reward
+        if self.reward_mode == "qlearning":
+            reward = raw_impr / (1.0 + abs(F_before))
 
-        # small penalty if no improvement (keeps signal negative for wasted attempts)
-        if not improved:
-            reward += -0.05
-        else :
-            # extra bonus for feasibility + f decreased
-            if (self.current.penT == 0 and
-                self.current.penH == 0 and
-                self.current.penS == 0):
-                reward += 0.1
+            # small penalty if no improvement (keeps signal negative for wasted attempts)
+            if not improved:
+                reward += -0.05
+            else :
+                # extra bonus for feasibility + f decreased
+                if (self.current.penT == 0 and
+                    self.current.penH == 0 and
+                    self.current.penS == 0):
+                    reward += 0.1
 
-        # time penalty (for faster improvements)
-        reward -= self.time_penalty_coef * elapsed
+            # time penalty (for faster improvements)
+            reward -= self.time_penalty_coef * elapsed
+        
+        # DQN reward 
+        elif self.reward_mode == "dqn":
+            reward = raw_impr / (1.0 + abs(F_before))
+
+            if not improved:
+                reward -= 0.02
+            else:
+                if (self.current.penT == 0 and
+                    self.current.penH == 0 and
+                    self.current.penS == 0):
+                    reward += 0.05
+            
+            reward = np.clip(reward, -1.0, 1.0)
+
+            # small time penalty
+            reward -= self.time_penalty_coef * elapsed
 
         # termination conditions
         done = False
-        # stall_limit = max(5, self.n_neigh)
 
         if (time.time() - self.start_time) > self.Tmax:
             done = True
-        # if self.step_count - self.last_improved_step > stall_limit:
-        #     done = True
 
         info = {
             "neighborhood": self.neigh_names[action],

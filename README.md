@@ -88,7 +88,7 @@ The project is controlled via `run_benchmark.py`, with these available arguments
 
 | Argument          | Type   | Required | Default        | Description                                                                          |
 | ----------------- | ------ | -------- | -------------- | ------------------------------------------------------------------------------------ |
-| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_fi` or `rl_bi` or `ml_decision`              |
+| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_qlearning_fi`or `ml_decision`, ...           |
 | `--neigh_order`   | string | No       | `default`      | Neighborhood order (`default`, `reverse`, `random`, `suggested`). Ignored in RL mode |
 | `--tmax`          | int    | No       | `500`          | Maximum execution time per instance (in seconds)                                     |
 | `--instances_dir` | string | No       | `instances/30` | Path to instance folder (`instances/30`, `instances/100`, `instances/200`)           |
@@ -189,7 +189,7 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_bi \
+    --mode rl_qlearning_bi \
     --tmax 500 \
     --instances_dir instances/Liu_ALNS/30 \
     --results_dir results/with_RL/qlearning/Best
@@ -206,7 +206,7 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_fi \
+    --mode rl_qlearning_fi \
     --tmax 1000 \
     --instances_dir instances/Liu_ALNS/100 \
     --results_dir results/with_RL/qlearning/First
@@ -313,7 +313,7 @@ docker run --rm \
   -v $(pwd)/results:/app/results \
   gvns-benchmark \
   python run_benchmark.py \
-    --mode rl_fi \
+    --mode rl_qlearning_fi \
     --tmax 15000 \
     --instances_dir instances/New_synch/200 \
     --results_dir results/new_benchmark/with_RL/qlearning/First
