@@ -318,7 +318,3 @@ docker run --rm \
     --instances_dir instances/New_synch/200 \
     --results_dir results/new_benchmark/with_RL/qlearning/First
 ```
-
-```bash
-
-```
