@@ -1,6 +1,7 @@
 import os
 import sys
 import pandas as pd
+import glob
 
 def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
     """
@@ -8,11 +9,7 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
     merges them with paper results, and keeps only the best run (min best_f) per instance.
     """
 
-    summary_files = [
-        os.path.join(input_dir, f)
-        for f in os.listdir(input_dir)
-        if f.endswith("_summary.csv")
-    ]
+    summary_files = glob.glob(os.path.join(input_dir, "**", "*_summary.csv"), recursive=True)
 
     if not summary_files:
         print("[ERROR] No *_summary.csv files found in:", input_dir)
@@ -55,18 +52,20 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
     # Convert best_f and time to numeric if possible
     if "best_f" in merged.columns:
         merged["best_f"] = pd.to_numeric(merged["best_f"], errors="coerce")
-        
+        merged = merged.rename(columns={"best_f": "f_method"})
+
         # Convert time to numeric if it exists
         if "time" in merged.columns:
             merged["time"] = pd.to_numeric(merged["time"], errors="coerce")
         
         # Calculate averages per instance across all runs
-        averages = merged.groupby("instance")[["best_f", "time"]].mean()
-        averages = averages.rename(columns={"best_f": "avg_best_f", "time": "avg_time"})
+        averages = merged.groupby("instance")[["f_method", "time"]].mean()
+        averages = averages.rename(columns={"f_method": "avg_f", "time": "avg_time"})
         
         # Keep best run per instance (minimum best_f)
-        merged = merged.sort_values(by=["instance", "best_f"])
+        merged = merged.sort_values(by=["instance", "f_method"])
         merged = merged.groupby("instance", as_index=False).first()
+        
         
         # Merge averages back with best run data
         merged = merged.merge(averages, left_on="instance", right_index=True, how="left")
@@ -75,7 +74,7 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
         merged = merged.groupby("instance", as_index=False).first()
 
     # Read paper results
-    papers_file = "results/reference/papers_results.csv"
+    papers_file = "results/reference/GVNS_reimplementation.csv"
     try:
         papers_df = pd.read_csv(papers_file)
     except Exception as e:
@@ -86,7 +85,7 @@ def merge_summaries(input_dir: str, output_file: str = "merged_summary.csv"):
     merged = merged.merge(papers_df, on="instance", how="left")
 
     # Select and reorder columns (in specific order)
-    columns_to_keep = ["instance", "run", "best_f", "avg_best_f", "best_f_paper", "time", "avg_time", "time_paper"]
+    columns_to_keep = ["instance", "run", "f_method", "time", "f_GVNS", "time_GVNS", "avg_f", "avg_time"]
     merged = merged[[col for col in columns_to_keep if col in merged.columns]]
 
     # Save output
@@ -100,6 +99,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     input_dir = sys.argv[1]
-    output_file = "result_summaries/merged_summary_First_8.csv" if len(sys.argv) < 3 else sys.argv[2]
+    output_file = "result_summaries/merged_summary_First.csv" if len(sys.argv) < 3 else sys.argv[2]
 
     merge_summaries(input_dir, output_file)
