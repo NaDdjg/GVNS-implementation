@@ -212,7 +212,10 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 neighborhoods=ls.NEIGHBORHOOD_FUNCS,
                 first_improvement=first_improvement,
                 iteration=iteration, 
-                usage_logger=usage_logger
+                usage_logger=usage_logger,
+                ml_policy=ml_policy,
+                search_state=search_state,
+                verbose_ml=verbose_ml
             )
 
             next_obs, reward, done, info = env.step(

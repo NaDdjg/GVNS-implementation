@@ -14,7 +14,7 @@ class MLStrategyPolicy:
         self.decision_log = [] if log_decisions else None
 
         # output directory for plots
-        self.output_dir = Path("result_summaries") / "ml_policy_results"
+        self.output_dir = Path("results") / "ml_policy_results"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         with open(features_path) as f:

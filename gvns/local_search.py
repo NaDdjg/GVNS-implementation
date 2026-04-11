@@ -506,7 +506,10 @@ def rl_bvnd_step(sol: Solution,
                  max_checks_per_neigh=None,
                  iteration: int = None,
                  usage_logger: dict = None,
-                 verbose=False):
+                 verbose=False,
+                 ml_policy=None,
+                 search_state=None,
+                 verbose_ml=False):
     """
     its one bvnd step using RL:
     - agent proposes neighborhoods
@@ -514,15 +517,57 @@ def rl_bvnd_step(sol: Solution,
     """
     action = agent.select_action(obs) # call a neighborhood
 
+    # ML-based strategy decision
+    use_fi = first_improvement # default
+    if ml_policy is not None and search_state is not None:
+        # logging before LS
+        search_state.before_ls(
+            k=action,
+            iter_gvns=iteration
+        )
+
+        # build feature vector
+        features = search_state.get_model_features(
+            k=action,
+            k_max=len(neighborhoods)
+        )
+
+        # decide strategy based on features
+        decision = ml_policy.decide(features)
+        use_fi = (decision["decision"] == "FI") # final decision
+
+        if verbose_ml:
+            print(
+                f"[ML][iter {iteration}][neigh {action}] "
+                f"P(BI)={decision['p_bi']:.3f} "
+                f"P(FI)={decision['p_fi']:.3f} | "
+                f"G(BI)={decision['gain_bi']:.5f} "
+                f"G(FI)={decision['gain_fi']:.5f} | "
+                f"Score(BI)={decision['score_bi']:.5f} "
+                f"Score(FI)={decision['score_fi']:.5f} "
+                f"=> {decision['decision']}"
+            )
+
+    F_before = sol.Fval
+    t0 = time.time()
+    
     cand = b_vnd_single_neigh(
         sol,
         neighborhoods[action],
         time_limit=time_limit,
-        first_improvement=first_improvement,
+        first_improvement=use_fi,
         max_checks_per_neigh=max_checks_per_neigh
     )
 
+    elapsed = time.time() - t0
+
+    improved = False
+    F_after = F_before
+
     if cand and is_better(cand, sol):
+        improved = True
+        F_after = cand.Fval
+
         # logging 
         if usage_logger is not None:
             usage_logger["counter"][action] += 1
@@ -531,9 +576,21 @@ def rl_bvnd_step(sol: Solution,
                     "iteration": iteration,
                     "neighborhood_id": action,
                     "neighborhood_name": NEIGHBORHOOD_NAMES[action],
-                    "F_before": sol.Fval,
-                    "F_after": cand.Fval,
-                })     
+                    "F_before": F_before,
+                    "F_after": F_after,
+                })
+
+    # logging after LS
+    if search_state is not None:
+        search_state.after_ls(
+            improved=improved,
+            F_before=F_before,
+            F_after=F_after,
+            elapsed=elapsed,
+            solution=cand if improved else sol
+        )
+
+    if improved:
         return cand, action, True
     else:
         if verbose:

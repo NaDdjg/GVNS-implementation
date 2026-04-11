@@ -18,7 +18,7 @@ parser.add_argument(
     "--mode",
     type=str,
     required=True,
-    choices=["first", "best", "ml_decision", "rl_qlearning_fi", "rl_qlearning_bi", "rl_dqn_fi", "rl_dqn_bi"],
+    choices=["first", "best", "hybrid_bf", "qlearning_fi", "qlearning_bi", "qlearning_bf", "dqn_fi", "dqn_bi", "dqn_bf"],
     help="Execution mode"
 )
 
@@ -127,7 +127,7 @@ elif args.mode == "best":
 # =================================
 # ML-based decision GVNS (hubrid FI/BI)
 # =================================
-elif args.mode == "ml_decision":
+elif args.mode == "hybrid_bf":
     params["use_ml"] = True
     params["neigh_order"] = args.neigh_order
     params["Tmax"] = args.tmax
@@ -141,7 +141,7 @@ elif args.mode == "ml_decision":
 # Q-learning based GVNS (neighborhood order)
 # =================================
 #  Best improvement
-elif args.mode == "rl_qlearning_bi":
+elif args.mode == "qlearning_bi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
@@ -160,7 +160,7 @@ elif args.mode == "rl_qlearning_bi":
     )
 
 #  First improvement
-elif args.mode == "rl_qlearning_fi":
+elif args.mode == "qlearning_fi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
@@ -183,7 +183,7 @@ elif args.mode == "rl_qlearning_fi":
 # DQN based GVNS (neighborhood order)
 # =================================
 #  Best improvement
-elif args.mode == "rl_dqn_bi":
+elif args.mode == "dqn_bi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
     params["reward_mode"] = "dqn"
@@ -205,7 +205,7 @@ elif args.mode == "rl_dqn_bi":
     )
 
 #  First improvement
-elif args.mode == "rl_dqn_fi":
+elif args.mode == "dqn_fi":
     # neigh_order is ignored in RL
     params["Tmax"] = args.tmax
     params["reward_mode"] = "dqn"
@@ -225,6 +225,50 @@ elif args.mode == "rl_dqn_fi":
         eps_end=0.05,
         eps_decay_steps=500,
         seed =params["seed"]
+    )
+
+# =================================
+# Hybrid methods
+# =================================
+elif args.mode == "dqn_bf":
+    # neigh_order is ignored in RL
+    params["Tmax"] = args.tmax
+    params["use_ml"] = True
+    params["reward_mode"] = "dqn"
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
+
+    n_actions = len(NEIGHBORHOOD_NAMES)
+    agent = DQNAgent(
+        n_actions=8,
+        lr=3e-4,
+        gamma=0.99,
+        batch_size=32,
+        buffer_size=50000,
+        min_buffer_size=1000,
+        target_update_freq=100,
+        eps_start=1.0,
+        eps_end=0.05,
+        eps_decay_steps=500,
+        seed =params["seed"]
+    )
+
+elif args.mode == "qlearning_bf":
+    # neigh_order is ignored in RL
+    params["Tmax"] = args.tmax
+    params["use_ml"] = True    
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
+
+    n_actions = len(NEIGHBORHOOD_NAMES)
+    agent = QTableAgent(
+        n_actions=n_actions,
+        alpha=0.1,
+        gamma=0.95,
+        eps_start=0.1,
+        eps_min=0.01,
+        eps_decay=5e-4,
+        use_ucb=True,
+        ucb_c=1.0,
+        seed=params["seed"]
     )
 
 # ============================================================
