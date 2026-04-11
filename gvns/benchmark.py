@@ -445,23 +445,23 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     # )
 
     # parallel version
-    # run_folder_parallel(
-    #     folder=INST_FOLDER,
-    #     n_runs=N_RUNS,
-    #     params=PARAMS,
-    #     agent=agent,
-    #     first_improvement=first_improvement,
-    #     results_dir=RESULTS_FOLDER,            
-    #     qtables_dir=QTABLE_DIR
-    # )
-
-    # sequential version
-    run_folder(
+    run_folder_parallel(
         folder=INST_FOLDER,
         n_runs=N_RUNS,
         params=PARAMS,
         agent=agent,
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
-        qtables_dir=QTABLE_DIR,
+        qtables_dir=QTABLE_DIR
     )
+
+    # sequential version
+    # run_folder(
+    #     folder=INST_FOLDER,
+    #     n_runs=N_RUNS,
+    #     params=PARAMS,
+    #     agent=agent,
+    #     first_improvement=first_improvement,
+    #     results_dir=RESULTS_FOLDER,            
+    #     qtables_dir=QTABLE_DIR,
+    # )
