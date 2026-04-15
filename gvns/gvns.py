@@ -58,7 +58,6 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     # ============================================================
     log_path = cfg.get("log_path", "gvns_trace.jsonl")
     logger = GVNSLogger(path=log_path, console=True)
-    step_counter = 0
 
     # ============================================================
     # initial solution
