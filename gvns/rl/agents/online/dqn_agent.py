@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from collections import deque, namedtuple
 
-from .base_agent import BaseAgent
+from ..base_agent import BaseAgent
 from gvns.utils.rl_utils import RunningMeanStd, obs_dim
 
 Transition = namedtuple('Transition', 

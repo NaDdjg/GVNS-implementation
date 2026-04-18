@@ -87,6 +87,100 @@ class SearchState:
         })
 
     # =========================================================
+    # Solution-based feature helpers (for the params controller)
+    # =========================================================
+    def _compute_route_features(self, sol):
+        """Compute route structure features."""
+        if sol is None or not sol.tours:
+            return 0.0, 0.0, 0.0
+
+        lengths = [len(r) for r in sol.tours if len(r) > 0]
+        if not lengths:
+            return 0.0, 0.0, 0.0
+
+        mean_len = sum(lengths) / len(lengths)
+        max_len = max(lengths)
+
+        # std
+        var = sum((l - mean_len) ** 2 for l in lengths) / len(lengths)
+        std = var ** 0.5
+
+        max_ratio = max_len / mean_len if mean_len > 0 else 0.0
+
+        return mean_len, std, max_ratio
+
+
+    def _compute_time_features(self, sol):
+        """
+        Approximate TW pressure and waiting.
+        We simulate route traversal (light version).
+        """
+        if sol is None:
+            return 0.0, 0.0, 0.0
+
+        inst = self.instance
+        travel = inst.travel_time
+        nodes = inst.nodes
+
+        total_wait = 0.0
+        total_time = 0.0
+        total_late = 0.0
+        violated = 0
+        total_customers = 0
+
+        for route in sol.tours:
+            if not route:
+                continue
+
+            t = 0.0
+            prev = inst.depot_id
+
+            for cust in route:
+                total_customers += 1
+
+                # travel
+                t += travel[prev][cust]
+
+                ready = nodes[cust]["ready"]
+                due = nodes[cust]["due"]
+                service = nodes[cust]["service"]
+
+                # waiting
+                if t < ready:
+                    total_wait += (ready - t)
+                    t = ready
+
+                # lateness
+                if t > due:
+                    total_late += (t - due)
+                    violated += 1
+
+                t += service
+                prev = cust
+
+            # return to depot
+            t += travel[prev][inst.depot_id]
+            total_time += t
+
+        violation_ratio = (
+            violated / total_customers if total_customers > 0 else 0.0
+        )
+
+        avg_lateness = (
+            total_late / total_customers if total_customers > 0 else 0.0
+        )
+
+        avg_lateness_norm = (
+            avg_lateness / inst.horizon if inst.horizon > 0 else 0.0
+        )
+
+        waiting_ratio = (
+            total_wait / total_time if total_time > 0 else 0.0
+        )
+
+        return violation_ratio, avg_lateness_norm, waiting_ratio
+
+    # =========================================================
     # Reset 
     # =========================================================
     def reset(self):
@@ -131,6 +225,24 @@ class SearchState:
 
         # update current solution snapshot
         self.current_solution = solution
+
+    def _compute_trend(self, values):
+        """Compute simple trend: second half - first half."""
+        n = len(values)
+        if n < 4:
+            return 0.0
+
+        mid = n // 2
+        first = list(values)[:mid]
+        second = list(values)[mid:]
+
+        if not first or not second:
+            return 0.0
+
+        mean_first = sum(first) / len(first)
+        mean_second = sum(second) / len(second)
+
+        return mean_second - mean_first
 
     # =========================================================
     # Feature extraction
@@ -207,6 +319,36 @@ class SearchState:
             "k_norm": k / k_max if k_max > 0 else 0.0,
         })
 
+        # control extension features
+        sol = self.current_solution
+
+        #  Route structure 
+        mean_len, std_len, max_ratio = self._compute_route_features(sol)
+
+        feats.update({
+            "route_len_mean": mean_len,
+            "route_len_std": std_len,
+            "route_len_max_ratio": max_ratio,
+        })
+
+        #  Time window pressure 
+        viol_ratio, late_norm, wait_ratio = self._compute_time_features(sol)
+
+        feats.update({
+            "tw_violation_ratio": viol_ratio,
+            "avg_lateness_norm": late_norm,
+            "waiting_time_ratio": wait_ratio,
+        })
+
+        #  Trends 
+        improv_trend = self._compute_trend(self.improved_hist)
+        delta_trend = self._compute_trend(self.delta_hist)
+
+        feats.update({
+            "improv_trend": improv_trend,
+            "delta_trend": delta_trend,
+        })
+
         return feats
 
     def get_model_features(self, k: int, k_max: int) -> Dict[str, Any]:
@@ -240,6 +382,18 @@ class SearchState:
             "tw_tightness": "tw_tightness",
             "early_tw_ratio": "early_tw_ratio",
             "late_tw_ratio": "late_tw_ratio",
+
+            # control extension
+            "route_len_mean": "route_len_mean",
+            "route_len_std": "route_len_std",
+            "route_len_max_ratio": "route_len_max_ratio",
+
+            "tw_violation_ratio": "tw_violation_ratio",
+            "avg_lateness_norm": "avg_lateness_norm",
+            "waiting_time_ratio": "waiting_time_ratio",
+
+            "improv_trend": "improv_trend",
+            "delta_trend": "delta_trend",
         }
 
         for model_name, raw_name in FEATURE_MAP.items():
@@ -250,3 +404,5 @@ class SearchState:
         mapped["neigh_id"] = k
 
         return mapped
+    
+

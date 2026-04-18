@@ -10,8 +10,8 @@ from gvns.solution import Solution
 from gvns.initializer import random_insertion
 
 # loggers
-from gvns.data_generation.ls_logger import LSDecisionLogger
-from gvns.search_state.search_state import SearchState
+from gvns.data_generation.ml.ls_logger import LSDecisionLogger
+from gvns.data_generation.search_state import SearchState
 from gvns.logger import GVNSLogger
 from gvns.utils.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order, save_operator_stats
 
@@ -31,7 +31,18 @@ DEFAULT_PARAMS = {
     "Tmax": 500,
 }
 
-def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, first_improvement = True, instance_name = "unknown", qtables_dir=None):
+def run_gvns(
+        instance, 
+        params=None, 
+        agent=None, 
+        verbose=True, 
+        trace_list=None, 
+        first_improvement = True, 
+        instance_name = "unknown", 
+        qtables_dir=None,
+        collector=None, 
+        param_controller=None
+    ):
     # ============================================================
     # load parameters
     # ============================================================
@@ -187,7 +198,9 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
                 search_state=search_state, 
                 ls_logger=ls_logger,
                 ml_policy=ml_policy,
-                verbose_ml=verbose_ml
+                verbose_ml=verbose_ml,
+                collector=collector,
+                param_controller=param_controller
             )
         else: 
             #  RL-DRIVEN BVND 
@@ -338,6 +351,9 @@ def run_gvns(instance, params=None, agent=None, verbose=True, trace_list=None, f
     if best_feasible is not None:
         best_feasible.best_time = best_feasible_time
         return best_feasible
+    
+    if collector is not None:
+        collector.save()
 
     best_aug.best_time = None
     logger.close()

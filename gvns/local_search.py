@@ -2,6 +2,8 @@ import random
 import time
 from typing import Optional
 
+import numpy as np
+
 import gvns.operators as ops
 from gvns.solution import Solution
 
@@ -318,6 +320,9 @@ def b_vnd(
 
     ml_policy=None,   
     verbose_ml=False,
+
+    collector=None, 
+    param_controller=None
 ) -> Solution:
     
     # neighborhood list 
@@ -387,6 +392,25 @@ def b_vnd(
                         f"=> {decision['decision']}"
                     )
 
+            # RL-based decision logging
+            state = None
+            action = None
+
+            if collector is not None and search_state is not None:
+                state = search_state.get_model_features(
+                    k=idx,
+                    k_max=len(neighborhoods)
+                )
+
+                # TEMP POLICY (random for now)
+                action = np.random.randint(0, param_controller.n_actions)
+
+                # apply action to parameters
+                if param_controller is not None:
+                    param_controller.apply(action)
+
+                collector.record_decision(state, action)
+
             F_before = best.Fval
             t0 = time.time()
             
@@ -428,6 +452,27 @@ def b_vnd(
                     elapsed=elapsed,
                     solution=best
                 )
+
+                if collector is not None and search_state is not None:
+                    next_state = search_state.get_model_features(
+                        k=idx,
+                        k_max=len(neighborhoods)
+                    )
+
+                    # ===============================
+                    # REWARD (simple + stable)
+                    # ===============================
+                    delta = max(0.0, F_before - F_after)
+
+                    reward = delta
+
+                    # penalty if infeasible
+                    if best.PV > 0:
+                        reward -= 0.1 * best.PV
+
+                    done = False  # GVNS episode continues
+
+                    collector.record_outcome(next_state, reward, done)
 
                 # log LS decision
                 if ls_logger is not None:

@@ -5,7 +5,7 @@ import numpy as np
 from collections import defaultdict
 from typing import Tuple
 
-from .base_agent import BaseAgent
+from ..base_agent import BaseAgent
 
 class QTableAgent(BaseAgent):
     def _new_q_row(self):

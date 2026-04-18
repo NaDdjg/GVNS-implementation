@@ -51,7 +51,9 @@ def run_instance(
         agent=None,
         first_improvement = True,
         results_dir="results",
-        qtables_dir=None
+        qtables_dir=None,
+        collector=None,
+        param_controller=None   
     ):
     """run GVNS multiple times on one instance, save traces and plots."""
     name = os.path.basename(path).split(".")[0]
@@ -62,7 +64,6 @@ def run_instance(
     np.random.seed(seed)
 
     inst = Instance().parse_instance(path)
-    # inst.debug_dump()  # print instance details for debugging
     best_overall = None
     results = []
 
@@ -74,6 +75,12 @@ def run_instance(
         if agent is not None:
             run_agent = agent.clone() if hasattr(agent, "clone") else agent
 
+        if collector is not None:
+            collector.save_path = os.path.join(
+                os.path.dirname(collector.save_path),
+                f"{name}_run{run_id}.npz"
+            )
+            
         start = time.time()
         trace = []
 
@@ -86,7 +93,9 @@ def run_instance(
             verbose=True, 
             trace_list=trace, 
             instance_name = name,
-            qtables_dir=qtables_dir
+            qtables_dir=qtables_dir,
+            collector=collector,
+            param_controller=param_controller
         )
         elapsed = time.time() - start
 
@@ -209,7 +218,7 @@ def profile_run_instance(*args, **kwargs):
     import gvns.local_search as ls
     import gvns.operators as ops
     import gvns.solution as solution
-    import gvns.search_state.search_state as ss
+    import gvns.data_generation.search_state as ss
 
     lp.add_module(ls)
     lp.add_module(ops)
@@ -290,7 +299,9 @@ def _run_one_instance_mp(
     agent,
     first_improvement,
     results_dir,
-    qtables_dir
+    qtables_dir,
+    collector,
+    param_controller
 ):
     return run_instance(
         path_full,
@@ -299,7 +310,9 @@ def _run_one_instance_mp(
         agent=agent,
         first_improvement=first_improvement,
         results_dir=results_dir,
-        qtables_dir=qtables_dir
+        qtables_dir=qtables_dir,
+        collector=collector,
+        param_controller=param_controller
     )
 
 # classic sequential runner
@@ -378,7 +391,9 @@ def run_folder_parallel(
     first_improvement=True,
     results_dir="results",
     qtables_dir=None,
-    n_processes=None  
+    n_processes=None,
+    collector=None, 
+    param_controller=None  
 ):
     """Run all instances in parallel (one process per instance)."""
 
@@ -397,6 +412,8 @@ def run_folder_parallel(
         first_improvement=first_improvement,
         results_dir=results_dir,
         qtables_dir=qtables_dir,
+        collector=collector,
+        param_controller=param_controller
     )
 
     n_proc = n_processes or mp.cpu_count()
@@ -452,7 +469,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         agent=agent,
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
-        qtables_dir=QTABLE_DIR
+        qtables_dir=QTABLE_DIR,
     )
 
     # sequential version

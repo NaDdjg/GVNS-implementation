@@ -7,8 +7,8 @@ from pathlib import Path
 from gvns import benchmark
 
 # rl utilities
-from gvns.rl.agents.qlearning_agent import QTableAgent
-from gvns.rl.agents.dqn_agent import DQNAgent
+from gvns.rl.agents.online.qlearning_agent import QTableAgent
+from gvns.rl.agents.online.dqn_agent import DQNAgent
 
 # ============================================================
 # Argument parsing
