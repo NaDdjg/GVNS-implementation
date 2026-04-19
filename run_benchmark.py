@@ -66,13 +66,17 @@ params = {
 
     # fixed params
     "Contmax": 100,
+
     "p_init": 1,
     "p_max": 12,
     "Dp": 0.3,
+
     "w1": 0.5,    
     "w2": 0.1,
     "alpha": 0.1, 
+
     "delta": 0.4, 
+    
     "M": 1e6,
     "seed": 42,
 
