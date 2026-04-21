@@ -305,6 +305,7 @@ NEIGHBORHOOD_FUNCS = NEIGHBORHOOD_CALLABLES
 
 def b_vnd(
     sol: Solution,
+    results_dir="results",
     time_limit: Optional[float] = None,
     max_no_improve=1,
     first_improvement: bool = False,
@@ -332,7 +333,7 @@ def b_vnd(
     elif order_mode == "suggested":
         from gvns.utils.utils import load_suggested_order
 
-        order = load_suggested_order(instance_name)
+        order = load_suggested_order(instance_name, results_dir=results_dir)
         neighborhoods = [(i, NEIGHBORHOOD_FUNCS[i]) for i in order]
 
     elif order_mode == "random":
@@ -348,26 +349,35 @@ def b_vnd(
     start = time.time()
     no_improve = 0
 
+    # =========================================================
+    # Main loop
+    # =========================================================
     while True:
         if time_limit and (time.time() - start) > time_limit:
             break
 
         improved_any = False
 
-        # sequential neighborhoods
+        # =====================================================
+        # Loop over neighborhoods
+        # =====================================================
         for idx, explorer in neighborhoods:
             # if any time limit reached, stop
             if time_limit and (time.time() - start) > time_limit:
                 break
 
-            # logging before LS
+            # -------------------------------------------------
+            # BEFORE LS (state update)
+            # -------------------------------------------------
             if search_state is not None:
                 search_state.before_ls(
                     k=idx,
                     iter_gvns=iteration
                 )
 
-            # ML-based strategy decision
+            # -------------------------------------------------
+            # ML Strategy (FI / BI)
+            # -------------------------------------------------
             use_fi = first_improvement # default
             if ml_policy is not None and search_state is not None:
                 # build feature vector
@@ -392,25 +402,35 @@ def b_vnd(
                         f"=> {decision['decision']}"
                     )
 
-            # RL-based decision logging
+            # =================================================
+            # RL / Data collection 
+            # =================================================
             state = None
             action = None
 
-            if collector is not None and search_state is not None:
+            if (
+                collector is not None
+                and search_state is not None
+                and param_controller is not None
+            ):
+                # state BEFORE action
                 state = search_state.get_model_features(
                     k=idx,
                     k_max=len(neighborhoods)
                 )
 
-                # TEMP POLICY (random for now)
+                # temporary random policy (offline data collection)
                 action = np.random.randint(0, param_controller.n_actions)
 
-                # apply action to parameters
-                if param_controller is not None:
-                    param_controller.apply(action)
-
+                # record before applying action
                 collector.record_decision(state, action)
 
+                # apply action to parameters
+                param_controller.apply(action)                
+
+            # -------------------------------------------------
+            # LOCAL SEARCH STEP
+            # -------------------------------------------------
             F_before = best.Fval
             t0 = time.time()
             
@@ -431,7 +451,7 @@ def b_vnd(
                 F_after = best.Fval
                 improved_any = True
 
-                # logging
+                # usage logging
                 if usage_logger is not None and order_mode != "suggested":
                     usage_logger["counter"][idx] += 1
                     if iteration is not None:
@@ -443,7 +463,9 @@ def b_vnd(
                             "F_after": F_after,
                         })
 
-            # logging after LS
+            # -------------------------------------------------
+            # AFTER LS (state update)
+            # -------------------------------------------------
             if search_state is not None:
                 search_state.after_ls(
                     improved=improved,
@@ -453,28 +475,45 @@ def b_vnd(
                     solution=best
                 )
 
-                if collector is not None and search_state is not None:
+                # =============================================
+                # RL OUTCOME 
+                # =============================================
+                if (
+                    collector is not None
+                    and param_controller is not None
+                ):
                     next_state = search_state.get_model_features(
                         k=idx,
                         k_max=len(neighborhoods)
                     )
 
-                    # ===============================
-                    # REWARD (simple + stable)
-                    # ===============================
-                    delta = max(0.0, F_before - F_after)
+                    # ----------------------
+                    # Reward
+                    # ----------------------
+                    delta = F_before - F_after   # this is CORRECT signal
 
-                    reward = delta
+                    # normalize lightly
+                    reward = delta / (1.0 + abs(F_before))
 
-                    # penalty if infeasible
-                    if best.PV > 0:
-                        reward -= 0.1 * best.PV
+                    # penalty shaping (keep small)
+                    reward -= 0.01 * best.PV
 
+                    # encourage improvement
+                    if improved:
+                        reward += 0.05   # boost good moves
+                    else:
+                        reward -= 0.01   # slight penalty
+
+                    # clip (safety)
+                    reward = np.clip(reward, -10, 10)
+                    
                     done = False  # GVNS episode continues
 
                     collector.record_outcome(next_state, reward, done)
 
-                # log LS decision
+                # -------------------------------------------------
+                # LS LOGGER 
+                # -------------------------------------------------
                 if ls_logger is not None:
                     # save decision data
                     features = search_state.get_features(
@@ -492,10 +531,14 @@ def b_vnd(
                         F_after=F_after,
                         elapsed=elapsed,
                     )
-                
+
+            # restart VND if improved
             if improved:
-                break  # restart from first neighborhood
+                break  
             
+        # -----------------------------------------------------
+        # Stop condition
+        # -----------------------------------------------------
         if not improved_any:
             no_improve += 1
             if no_improve >= max_no_improve:

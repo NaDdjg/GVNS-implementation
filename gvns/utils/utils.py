@@ -1,7 +1,6 @@
 import csv
 import os
 import matplotlib.pyplot as plt
-from run_benchmark import RESULTS_FOLDER
 from gvns.local_search import NEIGHBORHOOD_FUNCS
 
 NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
@@ -10,12 +9,12 @@ NEIGHBORHOODS = NEIGHBORHOOD_NAMES
 # ===================================================================
 # local search utils 
 # ===================================================================
-def save_neighborhood_usage(counter, instance_name):
+def save_neighborhood_usage(counter, instance_name, results_dir="results"):
     """                                                                                                                                                                                                            
     saves counts of usage of each neighborhood during the local search
     """
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(results_dir, exist_ok=True)
+    neigh_folder = os.path.join(results_dir, "neigh_usage")
     os.makedirs(neigh_folder, exist_ok=True)
     path = os.path.join(neigh_folder, f"{instance_name}_usage.csv")
 
@@ -25,12 +24,12 @@ def save_neighborhood_usage(counter, instance_name):
         for i, count in enumerate(counter):
             w.writerow([i, count])
 
-def save_neighborhood_improvement_log(events, instance_name, suffix="bvnd"):
+def save_neighborhood_improvement_log(events, instance_name, suffix="bvnd", results_dir="results"):
     if not events:
         return
 
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(results_dir, exist_ok=True)
+    neigh_folder = os.path.join(results_dir, "neigh_usage")
     os.makedirs(neigh_folder, exist_ok=True)
 
     path = os.path.join(
@@ -48,12 +47,12 @@ def save_neighborhood_improvement_log(events, instance_name, suffix="bvnd"):
         for ev in events:
             w.writerow(ev.values())
 
-def save_neighborhood_heatmap(counter, instance_name):
+def save_neighborhood_heatmap(counter, instance_name, results_dir="results"):
     """
     creates heatmaps for the usage of each neighborhood 
     """
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+    os.makedirs(results_dir, exist_ok=True)
+    neigh_folder = os.path.join(results_dir, "neigh_usage")
     os.makedirs(neigh_folder, exist_ok=True)
     path = os.path.join(neigh_folder, f"{instance_name}_heatmap.png")
 
@@ -66,9 +65,9 @@ def save_neighborhood_heatmap(counter, instance_name):
     plt.savefig(path, bbox_inches="tight")
     plt.close()
 
-def save_suggested_order(counter, instance_name, neighborhoods):
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    neigh_folder = os.path.join(RESULTS_FOLDER, "neigh_usage")
+def save_suggested_order(counter, instance_name, neighborhoods, results_dir="results"):
+    os.makedirs(results_dir, exist_ok=True)
+    neigh_folder = os.path.join(results_dir, "neigh_usage")
     os.makedirs(neigh_folder, exist_ok=True)
     path = os.path.join(neigh_folder, f"{instance_name}_order_suggestion.txt")
 
@@ -82,7 +81,7 @@ def save_suggested_order(counter, instance_name, neighborhoods):
         for neigh_id, usage in pairs:
             f.write(f"N{neigh_id+1} — usage = {usage}\n")
 
-def load_suggested_order(instance_name):
+def load_suggested_order(instance_name, results_dir="results"):
     """
     used when the local search mode is "suggested"
     reads the suggestion file and return a list of neighborhood indices (0-based).
@@ -90,7 +89,7 @@ def load_suggested_order(instance_name):
     default order should be run before it because it takes the order from the saved files after the default order run.
     """
     path = os.path.join(
-        RESULTS_FOLDER,
+        results_dir,
         "neigh_usage",
         f"{instance_name}_order_suggestion.txt"
     )
@@ -120,10 +119,10 @@ def load_suggested_order(instance_name):
     return order
 
 
-def save_operator_stats(operator_stats, instance_name, suffix="dqn"):
+def save_operator_stats(operator_stats, instance_name, suffix="dqn", results_dir="results"):
 
-    os.makedirs(RESULTS_FOLDER, exist_ok=True)
-    stats_folder = os.path.join(RESULTS_FOLDER, "operator_stats")
+    os.makedirs(results_dir, exist_ok=True)
+    stats_folder = os.path.join(results_dir, "operator_stats")
     os.makedirs(stats_folder, exist_ok=True)
 
     path = os.path.join(stats_folder, f"{instance_name}_{suffix}.csv")

@@ -20,13 +20,25 @@ class OfflineDataset:
         """
         self.feature_names = feature_names
         self.feature_dim = len(feature_names)
+        self.normalized = False
 
-        # storage
+        # main storage
         self.states = []
         self.actions = []
         self.rewards = []
         self.next_states = []
         self.dones = []
+
+        # metadata storage 
+        self.instance_ids = []
+        self.instance_sizes = []
+        self.run_ids = []
+        self.step_ids = []
+        self.neigh_ids = []
+        self.F_before = []
+        self.F_after = []
+        self.delta = []
+        self.elapsed = []
 
     # =========================================================
     # State processing
@@ -36,10 +48,15 @@ class OfflineDataset:
         Convert feature dict → ordered numpy vector.
         Missing features are filled with 0.0.
         """
-        return np.array(
+        vec = np.array(
             [float(state_dict.get(f, 0.0)) for f in self.feature_names],
             dtype=np.float32
         )
+
+        # sanitize
+        vec = np.nan_to_num(vec, nan=0.0, posinf=1e6, neginf=-1e6)
+
+        return vec
 
     # =========================================================
     # Add transition
@@ -50,16 +67,22 @@ class OfflineDataset:
         action: int,
         reward: float,
         next_state: Dict[str, Any],
-        done: bool
+        done: bool,
+        meta: Dict[str, Any] = None
     ):
         """
         Add one transition to dataset.
         """
+        meta = meta or {}
 
         s_vec = self._dict_to_vector(state)
         ns_vec = self._dict_to_vector(next_state)
 
-        # sanity checks (VERY important)
+        # debug check 
+        if np.allclose(s_vec, ns_vec):
+            print("[Warning] state == next_state (possible bug)")
+
+        # sanity checks 
         assert s_vec.shape[0] == self.feature_dim
         assert ns_vec.shape[0] == self.feature_dim
 
@@ -68,6 +91,17 @@ class OfflineDataset:
         self.rewards.append(float(reward))
         self.next_states.append(ns_vec)
         self.dones.append(bool(done))
+
+        # metadata
+        self.instance_ids.append(meta.get("instance_id", "unknown"))
+        self.instance_sizes.append(meta.get("n_customers", 0))
+        self.run_ids.append(meta.get("run_id", 0))
+        self.step_ids.append(meta.get("step_id", 0))
+        self.neigh_ids.append(meta.get("neigh_id", -1))
+        self.F_before.append(meta.get("F_before", 0.0))
+        self.F_after.append(meta.get("F_after", 0.0))
+        self.delta.append(meta.get("delta", 0.0))
+        self.elapsed.append(meta.get("elapsed", 0.0))
 
     # =========================================================
     # Size
@@ -88,6 +122,17 @@ class OfflineDataset:
             "rewards": np.array(self.rewards, dtype=np.float32),
             "next_states": np.array(self.next_states, dtype=np.float32),
             "dones": np.array(self.dones, dtype=np.bool_),
+            "meta": {
+                "instance_ids": np.array(self.instance_ids),
+                "instance_sizes": np.array(self.instance_sizes),
+                "run_ids": np.array(self.run_ids),
+                "step_ids": np.array(self.step_ids),
+                "neigh_ids": np.array(self.neigh_ids),
+                "F_before": np.array(self.F_before),
+                "F_after": np.array(self.F_after),
+                "delta": np.array(self.delta),
+                "elapsed": np.array(self.elapsed),
+            }
         }
 
     # =========================================================
@@ -102,6 +147,7 @@ class OfflineDataset:
         payload = {
             "data": data,
             "feature_names": self.feature_names,
+            "normalized": self.normalized,
         }
 
         with open(path, "wb") as f:
@@ -118,7 +164,10 @@ class OfflineDataset:
             payload = pickle.load(f)
 
         obj = OfflineDataset(feature_names=payload["feature_names"])
-
+        assert payload["feature_names"] == obj.feature_names, \
+            "Feature order mismatch!"
+        
+        obj.normalized = payload.get("normalized", False)
         data = payload["data"]
 
         obj.states = list(data["states"])
@@ -162,3 +211,39 @@ class OfflineDataset:
         done_ratio = np.mean(self.dones)
         print(f"Done ratio: {done_ratio:.4f}")
         print("===========================")
+
+    @staticmethod
+    def merge(datasets: List["OfflineDataset"]) -> "OfflineDataset":
+        """
+        Merge multiple datasets into one.
+        """
+        assert datasets, "No datasets to merge"
+
+        base = datasets[0]
+        merged = OfflineDataset(base.feature_names)
+
+        # copy normalization flag
+        merged.normalized = base.normalized
+
+        for ds in datasets:
+            assert ds.feature_names == base.feature_names, \
+                "Feature mismatch between datasets"
+
+            merged.states.extend(ds.states)
+            merged.actions.extend(ds.actions)
+            merged.rewards.extend(ds.rewards)
+            merged.next_states.extend(ds.next_states)
+            merged.dones.extend(ds.dones)
+
+            if hasattr(ds, "instance_ids"):
+                merged.instance_ids.extend(ds.instance_ids)
+                merged.instance_sizes.extend(ds.instance_sizes)
+                merged.run_ids.extend(ds.run_ids)
+                merged.step_ids.extend(ds.step_ids)
+                merged.neigh_ids.extend(ds.neigh_ids)
+                merged.F_before.extend(ds.F_before)
+                merged.F_after.extend(ds.F_after)
+                merged.delta.extend(ds.delta)
+                merged.elapsed.extend(ds.elapsed)
+
+        return merged

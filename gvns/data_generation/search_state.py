@@ -242,7 +242,8 @@ class SearchState:
         mean_first = sum(first) / len(first)
         mean_second = sum(second) / len(second)
 
-        return mean_second - mean_first
+        den = abs(mean_first) + 1e-6
+        return (mean_second - mean_first) / den
 
     # =========================================================
     # Feature extraction
@@ -277,6 +278,10 @@ class SearchState:
             "time_left_ratio": max(0.0, 1.0 - time_elapsed_ratio),
         })
 
+        feats["stagnation_time_pressure"] = (
+            feats["stagnation_ls"] * feats["time_elapsed_ratio"]
+        )
+
         # rolling-window stats
         W_eff = len(self.improved_hist)
         if W_eff > 0:
@@ -288,15 +293,23 @@ class SearchState:
             avg_delta = 0.0
             max_delta = 0.0
 
+        sol = self.current_solution
+        Fval = sol.Fval if (sol is not None and sol.Fval > 0) else 1e-6
+
+        avg_delta_norm = avg_delta / Fval
+        max_delta_norm = max_delta / Fval
+
         feats.update({
             "improv_rate_W": improv_rate,
             "avg_delta_W": avg_delta,
             "max_delta_W": max_delta,
             "ls_fail_ratio_W": 1.0 - improv_rate,
+            "avg_delta_W_norm": avg_delta_norm,
+            "max_delta_W_norm": max_delta_norm,
+
         })
 
         #  penalty structure 
-        sol = self.current_solution
         if sol is None or sol.Fval == 0:
             feats.update({
                 "PV": 0,
@@ -306,11 +319,12 @@ class SearchState:
             })
         else:
             total_pen = sol.penT + sol.penH + sol.penS
+            den = max(sol.Fval, 1e-6)
             feats.update({
                 "PV": sol.PV,
-                "pen_ratio": total_pen / sol.Fval,
-                "penT_ratio": sol.penT / sol.Fval,
-                "penS_ratio": sol.penS / sol.Fval,
+                "pen_ratio": total_pen / den,
+                "penT_ratio": sol.penT / den,
+                "penS_ratio": sol.penS / den,
             })
 
         #  neighborhood context 
@@ -349,6 +363,25 @@ class SearchState:
             "delta_trend": delta_trend,
         })
 
+        controller = getattr(self, "controller", None)
+
+        if controller is not None:
+            params = controller.get_params()
+
+            feats.update({
+                "param_shaking": params["shaking_scale"],
+                "param_acceptance": params["acceptance_delta"],
+                "param_penalty": params["penalty_scale"],
+                "param_stagnation_limit": params["stagnation_limit"],
+            })
+        else:
+            feats.update({
+                "param_shaking": 1.0,
+                "param_acceptance": 0.05,
+                "param_penalty": 1.0,
+                "param_stagnation_limit": 20,
+            })
+
         return feats
 
     def get_model_features(self, k: int, k_max: int) -> Dict[str, Any]:
@@ -364,6 +397,8 @@ class SearchState:
             "improv_rate_W": "improv_rate_W",
             "avg_delta_W": "avg_delta_W",
             "max_delta_W": "max_delta_W",
+            "avg_delta_norm": "avg_delta_norm",
+            "max_delta_norm": "max_delta_norm",
             "ls_fail_ratio_W": "ls_fail_ratio_W",
             "PV": "PV",
             "pen_ratio": "pen_ratio",
@@ -371,6 +406,7 @@ class SearchState:
             "penS_ratio": "penS_ratio",
             "k": "k",
             "k_norm": "k_norm",
+            "stagnation_time_pressure": "stagnation_time_pressure",
 
             # instance
             "n_customers": "n_customers",
@@ -394,6 +430,12 @@ class SearchState:
 
             "improv_trend": "improv_trend",
             "delta_trend": "delta_trend",
+
+            # controller 
+            "param_shaking": "param_shaking",
+            "param_acceptance": "param_acceptance",
+            "param_penalty": "param_penalty",
+            "param_stagnation_limit": "param_stagnation_limit",
         }
 
         for model_name, raw_name in FEATURE_MAP.items():

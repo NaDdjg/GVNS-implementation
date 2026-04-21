@@ -13,7 +13,12 @@ from gvns.initializer import random_insertion
 from gvns.data_generation.ml.ls_logger import LSDecisionLogger
 from gvns.data_generation.search_state import SearchState
 from gvns.logger import GVNSLogger
-from gvns.utils.utils import save_neighborhood_usage, save_neighborhood_improvement_log, save_suggested_order, save_operator_stats
+from gvns.utils.utils import (
+    save_neighborhood_usage,
+    save_neighborhood_improvement_log,
+    save_suggested_order,
+    save_operator_stats
+)
 
 # RL/ ML
 from gvns.rl.rl_env import BVNDEnv
@@ -33,6 +38,7 @@ DEFAULT_PARAMS = {
 
 def run_gvns(
         instance, 
+        results_dir="results",
         params=None, 
         agent=None, 
         verbose=True, 
@@ -46,23 +52,34 @@ def run_gvns(
     # ============================================================
     # load parameters
     # ============================================================
-    if params is None:
-        cfg = DEFAULT_PARAMS.copy()
-    else:
-        cfg = DEFAULT_PARAMS.copy()
+    cfg = DEFAULT_PARAMS.copy()
+    if params :
         cfg.update(params)
 
     Kmax = cfg["p_max"]
-
+    time_limit = cfg["Tmax"]
+    use_controller = cfg.get("use_controller", False)
+    
+    # ============================================================
+    # seed
+    # ============================================================
     base_seed = cfg["seed"]
-    # derive deterministic instance-specific seed
     inst_seed = abs(hash(instance_name)) % (2**32)
-
     final_seed = base_seed + inst_seed
 
     random.seed(final_seed)
     np.random.seed(final_seed)
     seed = final_seed
+
+    # ============================================================
+    # controller 
+    # ============================================================
+    if use_controller:
+        if param_controller is None:
+            from gvns.data_generation.rl.params.controller import ParamController
+            param_controller = ParamController()
+        else:
+            param_controller.reset()
 
     # ============================================================
     # logger
@@ -73,7 +90,7 @@ def run_gvns(
     # ============================================================
     # initial solution
     # ============================================================
-    current = random_insertion(instance, seed=seed)
+    current = random_insertion(instance, seed=final_seed)
     current.w1 = cfg["w1"]
     current.w2 = cfg["w2"]
     current.alpha = cfg["alpha"]
@@ -91,20 +108,18 @@ def run_gvns(
         best_feasible_f = current.obj_value
 
     if verbose:
-        print(f"[GVNS] Init: F={current.Fval:.3f}, f={current.obj_value:.3f}, "
-              f"PenS={current.penS}, PenT={current.penT}, PenH={current.penH}")
+        print(f"[GVNS] Init: F={current.Fval:.3f}, f={current.obj_value:.3f}")
 
     # ============================================================
-    # main GVNS loop
+    # main GVNS loop init
     # ============================================================
     cont = 0
     iteration = 0
     start = time.time()
-    time_limit = cfg["Tmax"]
-    delta = cfg["delta"]
-    Dp = cfg["Dp"]
+    
+    delta_cfg  = cfg["delta"]
+    base_Dp  = cfg.get("Dp", 1)
     order_mode=cfg.get("neigh_order", "default")
-
     usage_logger = {
         "counter": [0] * len(ls.NEIGHBORHOOD_FUNCS), # usage counts per neighborhood 
         "events": []
@@ -120,14 +135,18 @@ def run_gvns(
         for i in range(len(ls.NEIGHBORHOOD_FUNCS))
     }
 
-    # search state for LS
-    search_state = SearchState(
-        instance=instance,
-        time_limit=time_limit
-    )
+    # ============================================================
+    # search state
+    # ============================================================
+    search_state = SearchState(instance, time_limit)
     search_state.reset()
 
-    # LS decision logger
+    if use_controller:
+        search_state.controller = param_controller
+
+    # ============================================================
+    # LS logger
+    # ============================================================
     log_data = cfg.get("log_ls_data", False)
     ls_logger = None # will remain None if logging is disabled
 
@@ -143,11 +162,13 @@ def run_gvns(
             mode=mode
         )
 
-    # ML strategy policy
+    # ============================================================
+    # ML policy 
+    # ============================================================
     use_ml = cfg.get("use_ml", False)
     verbose_ml = cfg.get("verbose_ml", False)
-
     ml_policy = None
+
     if use_ml:
         ml_policy = MLStrategyPolicy(
             clf_path="gvns/ml/models/rf_success_classifier.pkl",
@@ -156,9 +177,9 @@ def run_gvns(
             instance_name=instance_name,
             log_decisions=True,
         )
-
+    
     # ============================================================
-    # GVNS iterating
+    # GVNS Loop
     # ============================================================
     while True:
         iteration += 1
@@ -171,8 +192,19 @@ def run_gvns(
             print("[GVNS] Non-improvement limit reached.")
             break
 
+        # ========================================================
+        # Paparmeters switch
+        # ========================================================
+        if use_controller:
+            params_now = param_controller.get_params()
+            delta = params_now["acceptance_delta"]
+            Dp = base_Dp * params_now["shaking_scale"]
+        else:
+            delta = delta_cfg
+            Dp = base_Dp
+
         # ============================================================
-        # 1. progressive shaking
+        # Shaking
         # ============================================================
         k = 1 + (iteration % Kmax)
         shaken = ops.random_shake(current, k=k, Dp=Dp)
@@ -183,7 +215,7 @@ def run_gvns(
         shaken.eval()
 
         # ============================================================
-        # 2. BVND (classic local search/RL)
+        # 2. Local search
         # ============================================================
         if agent is None:
             #  CLASSIC BVND 
@@ -194,13 +226,14 @@ def run_gvns(
                 order_mode=order_mode,
                 usage_logger=usage_logger,
                 instance_name=instance_name,
+                results_dir=results_dir,
                 iteration=iteration,                   
                 search_state=search_state, 
                 ls_logger=ls_logger,
                 ml_policy=ml_policy,
                 verbose_ml=verbose_ml,
                 collector=collector,
-                param_controller=param_controller
+                param_controller=param_controller if use_controller else None
             )
         else: 
             #  RL-DRIVEN BVND 
@@ -258,7 +291,7 @@ def run_gvns(
         improved.eval()
 
         # ============================================================
-        # 3. acceptance criterion (Move-or-Not)
+        # Acceptance criterion (Move-or-Not)
         # ============================================================
         if (improved.penS < current.penS or
             improved.penT < current.penT or
@@ -278,7 +311,7 @@ def run_gvns(
             #            note=f"iter_{iteration}")
 
         # ============================================================
-        # 4. track best solutions
+        # Track best solutions
         # ============================================================
         if improved.Fval < best_aug.Fval:
             best_aug = improved.copy()
@@ -292,12 +325,12 @@ def run_gvns(
                     f"f={best_feasible_f:.3f}")
                 
         # ============================================================
-        # 5. penalty Adaptation
+        # Penalty Adaptation
         # ============================================================
         current.self_adjust_penalties()
 
         # ============================================================
-        # 6. print iteration summary
+        # Trace logging
         # ============================================================
         print(f"[GVNS][iter {iteration}] "
               f"F={improved.Fval:.3f} f={improved.obj_value:.3f} "
@@ -310,7 +343,16 @@ def run_gvns(
                 current.penT, current.penH, current.penS, elapsed
             ])
 
-    # finalize operator statistics
+    # ============================================================
+    # Save collector
+    # ============================================================
+    if collector is not None:
+        collector.save()
+
+    # ============================================================
+    # Statistics and logs
+    # ============================================================
+    # operator statistics
     for op in operator_stats:
         uses = operator_stats[op]["uses"]
         success = operator_stats[op]["success"]
@@ -319,43 +361,55 @@ def run_gvns(
         operator_stats[op]["success_rate"] = success / uses if uses > 0 else 0.0
         operator_stats[op]["avg_reward"] = reward_sum / uses if uses > 0 else 0.0
 
-    # save neighborhood statistics
+    # neighborhood statistics
     if order_mode != "suggested":
         save_neighborhood_usage(
             usage_logger["counter"],
-            instance_name
+            instance_name,
+            results_dir=results_dir
         )
         
         save_neighborhood_improvement_log(
             usage_logger["events"],
             instance_name,
-            suffix="rl" if agent is not None else "bvnd"
+            suffix="rl" if agent is not None else "bvnd",
+            results_dir=results_dir
+
         )
         
         save_suggested_order(
             usage_logger["counter"],
             instance_name,
-            list(enumerate(ls.NEIGHBORHOOD_FUNCS))
+            list(enumerate(ls.NEIGHBORHOOD_FUNCS)),
+            results_dir=results_dir
         )
 
+    # ML policy logs
     if ml_policy is not None:
         ml_policy.plot_decisions(show=False)
 
+    # RL operator stats
     if agent is not None and cfg.get("reward_mode", "qlearning") == "dqn":
         save_operator_stats(
             operator_stats,
             instance_name,
-            suffix="dqn"
+            suffix="dqn",
+            results_dir=results_dir
         )
-        
+
+    # ============================================================
+    # Cleanup
+    # ============================================================
+    logger.close()
+    if ls_logger is not None:
+        ls_logger.close()   
+
+    # ============================================================
+    # Return
+    # ============================================================
     if best_feasible is not None:
         best_feasible.best_time = best_feasible_time
         return best_feasible
-    
-    if collector is not None:
-        collector.save()
 
     best_aug.best_time = None
-    logger.close()
-    ls_logger.close()
     return best_aug

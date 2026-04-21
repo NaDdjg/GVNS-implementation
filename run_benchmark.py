@@ -85,8 +85,10 @@ params = {
     "verbose_ml": False,
     "log_ls_data": False,
 
-    # RL params 
-    "reward_mode": "qlearning" 
+    # RL / controller flags 
+    "reward_mode": "qlearning",
+    "use_controller": False,
+    "collect_data": False
 }
 
 # ============================================================

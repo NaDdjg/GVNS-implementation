@@ -1,6 +1,8 @@
 import os
 import numpy as np
+
 from typing import Dict, Any, List
+from gvns.data_generation.rl.dataset import OfflineDataset
 
 
 class GVNSCollector:
@@ -9,22 +11,16 @@ class GVNSCollector:
     (state, action, reward, next_state, done)
     """
 
-    def __init__(self, action_dim: int, save_path: str = None):
-        self.action_dim = action_dim
+    def __init__(self, feature_names: List[str], save_path: str = None):
         self.save_path = save_path
-
+        self.dataset = OfflineDataset(feature_names)
         self.reset()
 
     def reset(self):
-        self.states: List[Dict[str, Any]] = []
-        self.actions: List[int] = []
-        self.rewards: List[float] = []
-        self.next_states: List[Dict[str, Any]] = []
-        self.dones: List[int] = []
-
-        # temp storage for current step
         self._last_state = None
         self._last_action = None
+        self._step_id = 0
+        self.meta: List[Dict[str, Any]] = []
 
     # =========================================================
     # STEP HANDLING
@@ -34,24 +30,36 @@ class GVNSCollector:
         self._last_state = state
         self._last_action = action
 
+        if action < 0:
+            print(f"[Warning] invalid action {action}")
+
     def record_outcome(
         self,
         next_state: Dict[str, Any],
         reward: float,
-        done: bool
+        done: bool,
+        meta: Dict[str, Any] = None
     ):
-        """Called AFTER LS"""
         if self._last_state is None:
             return
+    
+        self.meta.append(meta if meta is not None else {})
 
-        self.states.append(self._last_state)
-        self.actions.append(self._last_action)
-        self.rewards.append(reward)
-        self.next_states.append(next_state)
-        self.dones.append(int(done))
+        self.dataset.add_transition(
+            state=self._last_state,
+            action=self._last_action,
+            reward=reward,
+            next_state=next_state,
+            done=done,
+            meta=meta
+        )
 
         self._last_state = None
         self._last_action = None
+        self._step_id += 1
+
+    def size(self):
+        return len(self.dataset)
 
     # =========================================================
     # SAVE
@@ -62,13 +70,4 @@ class GVNSCollector:
 
         os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
 
-        np.savez(
-            self.save_path,
-            states=self.states,
-            actions=self.actions,
-            rewards=self.rewards,
-            next_states=self.next_states,
-            dones=self.dones,
-        )
-
-        print(f"[Collector] Saved dataset to {self.save_path}")
+        self.dataset.save(self.save_path)
