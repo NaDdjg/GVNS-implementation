@@ -7,7 +7,7 @@ VALIDATION_BASE = "instances\\PPO_instances\\validation"
 # =========================
 # TRAIN COLLECTION
 # =========================
-for size in ["50", "100", "200"]:
+for size in ["50"]:
     print(f"\n===== TRAINING SIZE {size} =====")
 
     collect_dataset(
@@ -23,7 +23,7 @@ for size in ["50", "100", "200"]:
 # =========================
 # VALIDATION COLLECTION
 # =========================
-for size in ["50", "100", "200"]:
+for size in ["50"]:
     print(f"\n===== VALIDATION SIZE {size} =====")
 
     collect_dataset(

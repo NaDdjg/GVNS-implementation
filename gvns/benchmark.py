@@ -53,6 +53,7 @@ def run_instance(
         n_runs=1, 
         params=None, 
         agent=None,
+        ppo_agent=None,
         first_improvement = True,
         results_dir="results",
         qtables_dir=None,
@@ -105,6 +106,7 @@ def run_instance(
             results_dir=results_dir,
             params=params, 
             agent=run_agent, 
+            ppo_agent=ppo_agent,
             first_improvement = first_improvement,
             verbose=True, 
             trace_list=trace, 
@@ -315,6 +317,7 @@ def _run_one_instance_mp(
     n_runs,
     params,
     agent,
+    ppo_agent,
     first_improvement,
     results_dir,
     qtables_dir,
@@ -354,6 +357,7 @@ def _run_one_instance_mp(
         n_runs=n_runs,
         params=params,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
         results_dir=results_dir,
         qtables_dir=qtables_dir,
@@ -367,6 +371,7 @@ def run_folder(
         n_runs=1, 
         params=None, 
         agent=None, 
+        ppo_agent=None,
         first_improvement = True, 
         results_dir="results", 
         qtables_dir=None,
@@ -414,6 +419,7 @@ def run_folder(
             n_runs=n_runs, 
             params=params, 
             agent=agent,
+            ppo_agent=ppo_agent,
             first_improvement = first_improvement,
             results_dir=results_dir,
             qtables_dir=qtables_dir,
@@ -476,6 +482,7 @@ def run_folder_parallel(
     n_runs=1,
     params=None,
     agent=None,
+    ppo_agent=None,
     first_improvement=True,
     results_dir="results",
     qtables_dir=None,
@@ -497,6 +504,7 @@ def run_folder_parallel(
         n_runs=n_runs,
         params=params,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
         results_dir=results_dir,
         qtables_dir=qtables_dir,
@@ -534,7 +542,7 @@ def run_folder_parallel(
 # ============================================================
 # Main benchmark function
 # ============================================================
-def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
+def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, ppo_agent = None, first_improvement = True):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
@@ -555,6 +563,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     #     n_runs=N_RUNS,
     #     params=PARAMS,
     #     agent=agent,
+    #     ppo_agent=ppo_agent,
     #     first_improvement=first_improvement,
     #     results_dir=RESULTS_FOLDER,            
     #     qtables_dir=QTABLE_DIR,
@@ -566,6 +575,7 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         n_runs=N_RUNS,
         params=PARAMS,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,

@@ -1,0 +1,95 @@
+\documentclass{article}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage[margin=1.5cm]{geometry}
+
+\begin{document}
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Results for Bredström 20-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r @{\hspace{4pt}} r r r}
+\toprule
+\multirow{2}{*}{Instance} & \multicolumn{2}{c}{GVNS} & \multicolumn{3}{c}{Enhanced GVNS} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+ & Best & Time & Best & Time & Gap \\
+\midrule
+\texttt{case\_1\_20\_4\_2\_2} & 3.55 & 0.01 & 3.55 & 12.96 & 0.00 \\
+\texttt{case\_1\_20\_4\_2\_3} & 3.55 & 0.01 & 3.55 & 4.32 & 0.00 \\
+\texttt{case\_1\_20\_4\_2\_4} & 3.39 & 0.01 & 3.40 & 26.22 & 0.39 \\
+\texttt{case\_2\_20\_4\_2\_2} & 4.27 & 0.05 & 4.27 & 3.47 & 0.04 \\
+\texttt{case\_2\_20\_4\_2\_3} & 3.58 & 0.01 & 3.58 & 37.61 & 0.09 \\
+\texttt{case\_2\_20\_4\_2\_4} & 3.42 & 0.01 & 3.45 & 10.67 & 0.88 \\
+\texttt{case\_3\_20\_4\_2\_2} & 3.63 & 0.01 & 3.63 & 50.72 & 0.09 \\
+\texttt{case\_3\_20\_4\_2\_3} & 3.33 & 0.01 & 3.35 & 9.71 & 0.60 \\
+\texttt{case\_3\_20\_4\_2\_4} & 3.29 & 0.02 & 3.35 & 3.82 & 1.82 \\
+\texttt{case\_4\_20\_4\_2\_2} & 6.14 & 0.29 & 6.25 & 17.34 & 1.79 \\
+\texttt{case\_4\_20\_4\_2\_3} & 5.67 & 0.30 & 5.68 & 4.89 & 0.24 \\
+\texttt{case\_4\_20\_4\_2\_4} & 5.13 & 0.05 & 5.17 & 134.18 & 0.71 \\
+\texttt{case\_5\_20\_4\_2\_2} & 3.93 & 0.05 & 3.98 & 3.52 & 1.36 \\
+\texttt{case\_5\_20\_4\_2\_3} & 3.53 & 0.02 & 3.53 & 27.25 & 0.09 \\
+\texttt{case\_5\_20\_4\_2\_4} & 3.34 & 0.01 & 3.37 & 10.25 & 0.80 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Results for Bredström 50-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r @{\hspace{4pt}} r r r}
+\toprule
+\multirow{2}{*}{Instance} & \multicolumn{2}{c}{GVNS} & \multicolumn{3}{c}{Enhanced GVNS} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+ & Best & Time & Best & Time & Gap \\
+\midrule
+\texttt{case\_1\_50\_10\_5\_2} & 8.14 & 2.91 & 8.18 & 561.24 & 0.53 \\
+\texttt{case\_1\_50\_10\_5\_3} & 7.70 & 9.44 & 7.78 & 1363.22 & 1.08 \\
+\texttt{case\_1\_50\_10\_5\_4} & 7.14 & 1.99 & 7.20 & 938.48 & 0.84 \\
+\texttt{case\_2\_50\_10\_5\_2} & 8.39 & 4.02 & 8.40 & 77.74 & 0.12 \\
+\texttt{case\_2\_50\_10\_5\_3} & 7.48 & 2.69 & 7.48 & 1367.70 & 0.04 \\
+\texttt{case\_2\_50\_10\_5\_4} & 6.88 & 1.45 & 6.88 & 1363.92 & 0.05 \\
+\texttt{case\_3\_50\_10\_5\_2} & 9.54 & 2.95 & 9.57 & 123.28 & 0.28 \\
+\texttt{case\_3\_50\_10\_5\_3} & 8.54 & 1.43 & 8.58 & 315.83 & 0.51 \\
+\texttt{case\_3\_50\_10\_5\_4} & 8.00 & 36.52 & 8.02 & 432.76 & 0.21 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Results for Bredström 80-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r @{\hspace{4pt}} r r r}
+\toprule
+\multirow{2}{*}{Instance} & \multicolumn{2}{c}{GVNS} & \multicolumn{3}{c}{Enhanced GVNS} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+ & Best & Time & Best & Time & Gap \\
+\midrule
+\texttt{case\_1\_80\_16\_8\_2} & 11.91 & 150.01 & 11.97 & 1913.30 & 0.48 \\
+\texttt{case\_1\_80\_16\_8\_3} & 10.92 & 61.21 & 10.95 & 3294.37 & 0.27 \\
+\texttt{case\_1\_80\_16\_8\_4} & 10.43 & 205.89 & 10.50 & 263.32 & 0.67 \\
+\texttt{case\_2\_80\_16\_8\_2} & 8.54 & 65.67 & 8.60 & 1211.78 & 0.70 \\
+\texttt{case\_2\_80\_16\_8\_3} & 7.63 & 69.04 & 7.63 & 1187.02 & 0.04 \\
+\texttt{case\_2\_80\_16\_8\_4} & 7.36 & 103.16 & 7.47 & 1023.93 & 1.45 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\end{document}

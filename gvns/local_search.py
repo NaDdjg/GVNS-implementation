@@ -323,7 +323,9 @@ def b_vnd(
     verbose_ml=False,
 
     collector=None, 
-    param_controller=None
+    param_controller=None, 
+    ppo_agent = None,
+    ppo_logger=None
 ) -> Solution:
     
     # neighborhood list 
@@ -346,6 +348,8 @@ def b_vnd(
         neighborhoods = list(enumerate(NEIGHBORHOOD_FUNCS))
 
     best = sol
+    best_global = sol.Fval
+
     start = time.time()
     no_improve = 0
 
@@ -408,25 +412,36 @@ def b_vnd(
             state = None
             action = None
 
-            if (
-                collector is not None
-                and search_state is not None
-                and param_controller is not None
-            ):
-                # state BEFORE action
+            if search_state is not None and param_controller is not None:
+
+                # build state
                 state = search_state.get_model_features(
                     k=idx,
                     k_max=len(neighborhoods)
                 )
 
-                # temporary random policy (offline data collection)
-                action = np.random.randint(0, param_controller.n_actions)
+                # -----------------------------
+                # DATA COLLECTION 
+                # -----------------------------
+                if collector is not None:
+                    action = np.random.randint(0, param_controller.n_actions)
+                    collector.record_decision(state, action)
 
-                # record before applying action
-                collector.record_decision(state, action)
+                # -----------------------------
+                # INFERENCE (TRAINED AGENT)
+                # -----------------------------
+                elif ppo_agent is not None:
+                    action = ppo_agent.select_action(state)
 
-                # apply action to parameters
-                param_controller.apply(action)                
+                    if ppo_logger is not None:
+                        ppo_logger.log_decision(iteration, idx, action)
+
+                # safty fallback
+                else:
+                    action = 0  # neutral
+
+                # Apply action 
+                param_controller.apply(action)               
 
             # -------------------------------------------------
             # LOCAL SEARCH STEP
@@ -463,9 +478,13 @@ def b_vnd(
                             "F_after": F_after,
                         })
 
+            if ppo_logger is not None:
+                ppo_logger.log_outcome(F_before, F_after, improved)
+                
             # -------------------------------------------------
             # AFTER LS (state update)
             # -------------------------------------------------
+
             if search_state is not None:
                 search_state.after_ls(
                     improved=improved,
@@ -490,22 +509,30 @@ def b_vnd(
                     # ----------------------
                     # Reward
                     # ----------------------
-                    delta = F_before - F_after   # this is CORRECT signal
+                    delta = F_before - F_after
 
-                    # normalize lightly
-                    reward = delta / (1.0 + abs(F_before))
+                    # scale invariant improvement
+                    scale = max(1.0, abs(F_before))
+                    rel_improvement = delta / scale
 
-                    # penalty shaping (keep small)
-                    reward -= 0.01 * best.PV
+                    # squash to stable range
+                    reward = np.tanh(3.0 * rel_improvement)
 
-                    # encourage improvement
-                    if improved:
-                        reward += 0.05   # boost good moves
+                    # penalize non-improving moves
+                    if not improved:
+                        # penalize proportionally to how bad the move is
+                        reward -= 0.05 * (1 + abs(rel_improvement))
                     else:
-                        reward -= 0.01   # slight penalty
+                        # small consistent boost for improvements
+                        reward += 0.05
 
-                    # clip (safety)
-                    reward = np.clip(reward, -10, 10)
+                    # global best bonus
+                    if F_after < best_global:
+                        reward += 0.1
+                        best_global = F_after
+
+                    # final safety clip 
+                    reward = np.clip(reward, -1.0, 1.0)
                     
                     done = False  # GVNS episode continues
 

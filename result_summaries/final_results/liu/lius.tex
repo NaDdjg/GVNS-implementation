@@ -1,0 +1,83 @@
+﻿\documentclass{article}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage[margin=1.5cm]{geometry}
+
+\begin{document}
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Results for Liu 30-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r @{\hspace{4pt}} r r r}
+\toprule
+\multirow{2}{*}{Instance} & \multicolumn{2}{c}{GVNS} & \multicolumn{3}{c}{Enhanced GVNS} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+ & Best & Time & Best & Time & Gap \\
+\midrule
+\texttt{C102\_30\_15} & 391.21 & 1.29 & 391.21 & 102.88 & 0.00 \\
+\texttt{C102\_30\_3} & 287.12 & 0.08 & 287.12 & 303.32 & 0.00 \\
+\texttt{C102\_30\_9} & 373.01 & 0.56 & 373.01 & 24.73 & 0.00 \\
+\texttt{C203\_30\_15} & 422.74 & 2.62 & 422.74 & 308.29 & 0.00 \\
+\texttt{C203\_30\_3} & 301.47 & 0.25 & 301.47 & 12.32 & 0.00 \\
+\texttt{C203\_30\_9} & 343.10 & 0.97 & 343.10 & 98.74 & 0.00 \\
+\texttt{R104\_30\_15} & 740.33 & 3.23 & 740.33 & 0.00 & 0.00 \\
+\texttt{R104\_30\_3} & 519.15 & 0.48 & 519.15 & 378.74 & 0.00 \\
+\texttt{R104\_30\_9} & 666.71 & 1.35 & 666.71 & 373.15 & 0.00 \\
+\texttt{R205\_30\_15} & 745.35 & 4.10 & 745.35 & 69.69 & 0.00 \\
+\texttt{R205\_30\_3} & 528.17 & 0.78 & 528.17 & 363.91 & 0.00 \\
+\texttt{R205\_30\_9} & 687.51 & 2.18 & 687.51 & 113.99 & 0.00 \\
+\texttt{RC103\_30\_15} & 843.63 & 3.92 & 846.55 & 189.84 & 0.35 \\
+\texttt{RC103\_30\_3} & 603.82 & 0.70 & 603.82 & 89.14 & 0.00 \\
+\texttt{RC103\_30\_9} & 757.05 & 1.90 & 777.63 & 111.44 & 2.72 \\
+\texttt{RC207\_30\_15} & 795.67 & 2.90 & 822.79 & 255.02 & 1.41 \\
+\texttt{RC207\_30\_3} & 552.45 & 0.73 & 552.45 & 81.38 & 0.00 \\
+\texttt{RC207\_30\_9} & 687.20 & 2.77 & 704.20 & 24.66 & 0.36 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Results for Liu 100-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r @{\hspace{4pt}} r r r}
+\toprule
+\multirow{2}{*}{Instance} & \multicolumn{2}{c}{GVNS} & \multicolumn{3}{c}{Enhanced GVNS} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6}
+ & Best & Time & Best & Time & Gap \\
+\midrule
+\texttt{C106\_100\_10} & 1146.47 & 25.64 & 1161.81 & 5063.89 & 0.99 \\
+\texttt{C106\_100\_20} & 1310.21 & 66.96 & 1330.73 & 4515.08 & 1.57 \\
+\texttt{C106\_100\_5} & 1039.96 & 48.75 & 1043.63 & 708.69 & 0.35 \\
+\texttt{C201\_100\_10} & 850.81 & 42.89 & 850.81 & 14683.58 & 0.00 \\
+\texttt{C201\_100\_20} & 940.99 & 46.95 & 963.43 & 3455.01 & 0.00 \\
+\texttt{C201\_100\_5} & 773.11 & 21.40 & 773.11 & 8001.42 & 0.00 \\
+\texttt{R110\_100\_10} & 1215.11 & 170.56 & 1244.31 & 4323.84 & 2.40 \\
+\texttt{R110\_100\_20} & 1364.37 & 129.59 & 1408.85 & 3540.09 & 3.26 \\
+\texttt{R110\_100\_5} & 1156.69 & 217.89 & 1202.50 & 3382.43 & 3.56 \\
+\texttt{R209\_100\_10} & 998.50 & 207.24 & 1023.00 & 6391.11 & 2.45 \\
+\texttt{R209\_100\_20} & 1119.36 & 197.02 & 1153.33 & 1673.07 & 3.03 \\
+\texttt{R209\_100\_5} & 936.96 & 222.25 & 972.64 & 6637.88 & 3.81 \\
+\texttt{RC101\_100\_10} & 1891.49 & 199.74 & 1943.04 & 5427.31 & 2.73 \\
+\texttt{RC101\_100\_20} & 2098.25 & 213.30 & 2162.69 & 4041.14 & 3.07 \\
+\texttt{RC101\_100\_5} & 1762.22 & 72.33 & 1821.66 & 5350.77 & 3.37 \\
+\texttt{RC205\_100\_10} & 1376.34 & 400.85 & 1425.78 & 5230.91 & 3.59 \\
+\texttt{RC205\_100\_20} & 1554.31 & 192.52 & 1586.05 & 760.37 & 2.04 \\
+\texttt{RC205\_100\_5} & 1297.38 & 250.09 & 1332.91 & 2336.30 & 2.01 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\end{document}

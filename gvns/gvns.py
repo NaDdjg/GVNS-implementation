@@ -41,6 +41,7 @@ def run_gvns(
         results_dir="results",
         params=None, 
         agent=None, 
+        ppo_agent=None,
         verbose=True, 
         trace_list=None, 
         first_improvement = True, 
@@ -163,6 +164,16 @@ def run_gvns(
         )
 
     # ============================================================
+    # PPO logger
+    # ============================================================
+    ppo_logger = None
+    if ppo_agent is not None:
+        from gvns.data_generation.rl.ppo_action_logger import PPOActionLogger
+
+        ppo_logger = PPOActionLogger(
+            output_path=f"results/methods/Hyperparams_controller/ppo_logs/{instance_name}.json"
+        )
+    # ============================================================
     # ML policy 
     # ============================================================
     use_ml = cfg.get("use_ml", False)
@@ -233,7 +244,9 @@ def run_gvns(
                 ml_policy=ml_policy,
                 verbose_ml=verbose_ml,
                 collector=collector,
-                param_controller=param_controller if use_controller else None
+                param_controller=param_controller if use_controller else None,
+                ppo_agent=ppo_agent,
+                ppo_logger=ppo_logger
             )
         else: 
             #  RL-DRIVEN BVND 
@@ -396,6 +409,10 @@ def run_gvns(
             suffix="dqn",
             results_dir=results_dir
         )
+
+    # PPO action logs
+    if ppo_logger is not None:
+        ppo_logger.save()
 
     # ============================================================
     # Cleanup

@@ -9,9 +9,9 @@ from gvns.benchmark import run_folder
 # Time limits per instance size 
 # =========================================================
 TIME_LIMITS = {
-    50: 900,     # 15 min
-    100: 1800,   # 30 min
-    200: 2700,   # 45 min
+    50: 600,     # 10 min
+    100: 1200,   # 20 min
+    200: 2400,   # 40 min
     400: 3600,   # 60 min
 }
 
@@ -175,3 +175,8 @@ def collect_dataset(
 
     print("\n=== DATASET COLLECTION DONE ===")
     print(f"Datasets saved in: {dataset_dir}")
+
+    return {
+        "collector": collector,
+        "save_path": base_save_path,
+    }
