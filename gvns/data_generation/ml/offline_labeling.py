@@ -5,11 +5,11 @@ import pandas as pd
 # Paths
 # =========================================================
 INPUT_PATH = os.path.join(
-    "gvns", "ls_data", "merged_ls_decisions.csv"
+    "gvns", "datasets", "ml_ls_data", "merged_ls_decisions.csv"
 )
 
 OUTPUT_PATH = os.path.join(
-    "gvns", "ls_data", "learning_dataset.csv"
+    "gvns", "datasets", "ml_ls_data", "learning_dataset.csv"
 )
 
 # =========================================================

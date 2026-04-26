@@ -33,8 +33,8 @@ Logging behavior:
 - One CSV file is generated per instance
 - Files are saved automatically by the logger to:
 
-  gvns/ls_data/FI/   → FI runs
-  gvns/ls_data/BI/   → BI runs
+  gvns/datasets/ml_ls_data/FI/   → FI runs
+  gvns/datasets/ml_ls_data/BI/   → BI runs
 
 Each CSV row corresponds to ONE LS decision.
 
@@ -50,15 +50,15 @@ Run:
 
 This script:
 - Loads all CSV files from:
-    gvns/ls_data/FI/
-    gvns/ls_data/BI/
+    gvns/datasets/ml_ls_data/FI/
+    gvns/datasets/ml_ls_data/BI/
 - Adds a numeric strategy column:
     strategy = 0 → FI
     strategy = 1 → BI
 - Concatenates everything into a single dataframe
 
 Output:
-  gvns/ls_data/merged_ls_decisions.csv
+  gvns/datasets/ml_ls_data/merged_ls_decisions.csv
 
 This file still contains raw logs and identifiers.
 
@@ -81,7 +81,7 @@ This script:
 - Performs sanity checks (NaNs, distributions, strategy balance)
 
 Output:
-  gvns/ls_data/learning_dataset.csv
+  gvns/datasets/ml_ls_data/learning_dataset.csv
 
 This is the ONLY file used for training ML models.
 
@@ -109,7 +109,7 @@ FINAL NOTE
 ------------------------------------------------------------
 
 The file:
-  gvns/ls_data/learning_dataset.csv
+  gvns/datasets/ml_ls_data/learning_dataset.csv
 
 is the canonical dataset used for:
 - model training
