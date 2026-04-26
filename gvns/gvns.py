@@ -70,7 +70,6 @@ def run_gvns(
 
     random.seed(final_seed)
     np.random.seed(final_seed)
-    seed = final_seed
 
     # ============================================================
     # controller 
@@ -173,6 +172,7 @@ def run_gvns(
         ppo_logger = PPOActionLogger(
             output_path=f"results/methods/Hyperparams_controller/ppo_logs/{instance_name}.json"
         )
+        
     # ============================================================
     # ML policy 
     # ============================================================

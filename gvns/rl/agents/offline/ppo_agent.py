@@ -137,7 +137,7 @@ class PPOAgent(BaseAgent):
         Returns an action index sampled from the current policy.
         """
         state_vec = self._state_to_vector(state)
-        state_t = torch.as_tensor(state_vec, dtype=torch.float32, device=self.device)
+        state_t = torch.as_tensor(state_vec, dtype=torch.float32, device=self.device).unsqueeze(0)
 
         self.model.eval()
         with torch.no_grad():
@@ -289,17 +289,24 @@ class PPOAgent(BaseAgent):
         payload = torch.load(path, map_location=self.device)
 
         if isinstance(payload, dict) and "model_state_dict" in payload:
-            self.model.load_state_dict(payload["model_state_dict"])
-            if "optimizer_state_dict" in payload:
-                self.optimizer.load_state_dict(payload["optimizer_state_dict"])
 
+            # restore config FIRST
             self.state_dim = payload.get("state_dim", self.state_dim)
             self.n_actions = payload.get("n_actions", self.n_actions)
             self.feature_names = payload.get("feature_names", self.feature_names)
-            self.gamma = payload.get("gamma", self.gamma)
-            self.clip_eps = payload.get("clip_eps", self.clip_eps)
-            self.k_epochs = payload.get("k_epochs", self.k_epochs)
-            self.batch_size = payload.get("batch_size", self.batch_size)
+
+            # rebuild model
+            self.model = ActorCritic(self.state_dim, self.n_actions).to(self.device)
+
+            # rebuild optimizer
+            self.optimizer = optim.Adam(self.model.parameters(), lr=3e-4)
+
+            # load weights
+            self.model.load_state_dict(payload["model_state_dict"])
+
+            if "optimizer_state_dict" in payload:
+                self.optimizer.load_state_dict(payload["optimizer_state_dict"])
+
         else:
             self.model.load_state_dict(payload)
 
