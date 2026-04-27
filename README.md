@@ -158,7 +158,7 @@ docker run --rm \
     --results_dir results/methods/BF/400
 ```
 
-#### 2.3. GVNS (First/Best) on the new benchmark (Q-learning, 400 instances)
+#### 2.3. GVNS (First improvement) on the new benchmark (Q-learning, 400 instances)
 
 ```bash
 docker run --rm \
@@ -175,7 +175,7 @@ docker run --rm \
     --results_dir results/methods/Hybrid/Qlearning_BF/400
 ```
 
-#### 2.4. GVNS (First/Best) on the new benchmark (DQN, 400 instances)
+#### 2.4. GVNS (First improvement) on the new benchmark (DQN, 400 instances)
 
 ```bash
 docker run --rm \
@@ -190,4 +190,21 @@ docker run --rm \
     --tmax 29000 \
     --instances_dir instances/New_synch/400 \
     --results_dir results/methods/Hybrid/DQN_BF/400
+```
+
+#### 2.5. GVNS (First improvement) on the new benchmark, with PPO hyperparams controller(default order, 50 instances)
+
+```bash
+docker run --rm \
+  -v $(pwd)/gvns:/app/gvns \
+  -v $(pwd)/run_benchmark.py:/app/run_benchmark.py \
+  -v $(pwd)/instances:/app/instances \
+  -v $(pwd)/result_summaries:/app/result_summaries \
+  -v $(pwd)/results:/app/results \
+  gvns-benchmark \
+  python run_benchmark.py \
+    --mode param_controller \
+    --tmax 1800 \
+    --instances_dir instances/New_synch/50 \
+    --results_dir results/methods/Hyperparams_controller/50
 ```

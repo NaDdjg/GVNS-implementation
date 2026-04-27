@@ -29,7 +29,7 @@ parser.add_argument(
     type=str,
     default="default",
     choices=["default", "reverse", "random", "suggested"],
-    help="Neighborhood order (non-RL only)"
+    help="Neighborhood order (non-online-RL only)"
 )
 
 parser.add_argument(
