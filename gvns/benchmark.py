@@ -332,7 +332,7 @@ def _run_one_instance_mp(
     # =========================
     local_collector = None
     if collect_data and collector is not None:
-        base_path = collector.save_path or "datasets/tmp.npz"
+        base_path = collector.save_path or "gvns\\datasets\\param_controller_cleaned\\train_clean.npz"
 
         name = os.path.basename(path_full).split(".")[0]
         local_path = base_path.replace(
@@ -542,9 +542,19 @@ def run_folder_parallel(
 # ============================================================
 # Main benchmark function
 # ============================================================
-def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, ppo_agent = None, first_improvement = True):
+def benchmark_main(
+        INST_FOLDER, 
+        RESULTS_FOLDER, 
+        QTABLE_DIR, 
+        PARAMS, 
+        N_RUNS = 1, 
+        agent = None, 
+        ppo_agent = None, 
+        first_improvement = True,
+        ):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    param_controller = ParamController()
 
     # profiler version for one instance only
     # run_folder_profiling(
@@ -558,25 +568,27 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     # )
 
     # parallel version
-    # run_folder_parallel(
-    #     folder=INST_FOLDER,
-    #     n_runs=N_RUNS,
-    #     params=PARAMS,
-    #     agent=agent,
-    #     ppo_agent=ppo_agent,
-    #     first_improvement=first_improvement,
-    #     results_dir=RESULTS_FOLDER,            
-    #     qtables_dir=QTABLE_DIR,
-    # )
-
-    # sequential version
-    run_folder(
+    run_folder_parallel(
         folder=INST_FOLDER,
         n_runs=N_RUNS,
         params=PARAMS,
         agent=agent,
         ppo_agent=ppo_agent,
         first_improvement=first_improvement,
+        param_controller=param_controller,  
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,
     )
+
+    # sequential version
+    # run_folder(
+    #     folder=INST_FOLDER,
+    #     n_runs=N_RUNS,
+    #     params=PARAMS,
+    #     agent=agent,
+    #     ppo_agent=ppo_agent,
+    #     first_improvement=first_improvement,
+    #     results_dir=RESULTS_FOLDER,     
+    #     param_controller=param_controller,       
+    #     qtables_dir=QTABLE_DIR,
+    # )

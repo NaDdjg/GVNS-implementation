@@ -282,7 +282,7 @@ elif args.mode == "param_controller":
     RESULTS_FOLDER = args.results_dir or "results/last_execution_param_controller"
 
     # load dataset metadata
-    data = np.load("path/to/train_clean.npz")
+    data = np.load("gvns/datasets/param_controller_cleaned/train_clean.npz")
     state_dim = data["states"].shape[1]
     n_actions = 8  
     feature_names = data["feature_names"].tolist()
@@ -294,7 +294,7 @@ elif args.mode == "param_controller":
     )
 
     # load trained weights 
-    ppo_agent.load("path/to/model.pth")
+    ppo_agent.load("gvns/rl/notebooks/models/ppo_param_controller.pt")
 
 
 # ============================================================

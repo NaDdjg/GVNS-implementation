@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -286,7 +286,7 @@ class PPOAgent(BaseAgent):
         torch.save(payload, path)
 
     def load(self, path: str):
-        payload = torch.load(path, map_location=self.device)
+        payload = torch.load(path, map_location=self.device, weights_only=False)
 
         if isinstance(payload, dict) and "model_state_dict" in payload:
 
