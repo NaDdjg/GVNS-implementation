@@ -19,43 +19,51 @@ The main objective is to:
 
 ```text
 gvns/
-├── Dockerfile                    # Docker image definition
-├── requirements.txt              # Python dependencies
+├── Dockerfile                          # Docker image definition
+├── requirements.txt                    # Python dependencies
 ├── gvns/
-│   ├── gvns.py                   # Core GVNS algorithm
-│   ├── local_search.py           # BVND implementation
-│   ├── operators.py              # Neighborhood operators and shaking
-│   ├── instance.py               # Instance definition
-│   ├── solution.py               # Solution object definition and evaluation
-│   ├── initializer.py            # Random initializer for first solution
-│   ├── benchmark.py              # Benchmark runner
-│   ├── logger.py                 # Logging utilities
+│   ├── gvns.py                         # Core GVNS algorithm
+│   ├── local_search.py                 # BVND implementation
+│   ├── operators.py                    # Neighborhood operators and shaking
+│   ├── instance.py                     # Instance definition
+│   ├── solution.py                     # Solution object definition and evaluation
+│   ├── initializer.py                  # Random initializer for first solution
+│   ├── benchmark.py                    # Benchmark runner
+│   ├── logger.py                       # Logging utilities
 │   ├── data_generation/
-│   │   ├── ls_logger.py          # Local search logger
-│   │   └── offline_labeling.py   # Offline labeling for data generation
+│   │   ├── search_state.py             # Search state management
+│   │   ├── ml/                         # ML datageneration files
+│   │   └── rl/                         # RL datageneration files
+│   ├── datasets/
+│   │   ├── ml_ls_data/                 # ML model training data
+│   │   └── param_controller_cleaned/   # RL offline model training data
 │   ├── ml/
-│   │   ├── strategy_policy.py    # ML-based strategy policy
-│   │   ├── models/               # ML models directory
-│   │   ├── notebooks/            # Jupyter notebooks for ML analysis
-│   │   └── training/             # ML model training scripts
+│   │   ├── strategy_policy.py          # ML-based strategy policy
+│   │   ├── models/                     # ML models directory
+│   │   └── notebooks/                  # Jupyter notebooks for ML analysis
+│   │       ├── evaluation/             # ML model evaluation notebooks
+│   │       └── training/               # ML model training notebooks/reports
 │   ├── rl/
-│   │   ├── rl_env.py             # RL environment definition
+│   │   ├── rl_env.py                   # RL environment definition
+│   │   ├── notebooks/                  # Jupyter notebooks for RL analysis
 │   │   └── agents/
-│   │       ├── base_agent.py     # Base agent interface
-│   │       ├── dqn_agent.py      # Deep Q-learning agent
-│   │       ├── ppo_agent.py      # PPO agent
-│   │       └── qlearning_agent.py # Tabular Q-learning agent
-│   ├── search_state/
-│   │   └── search_state.py       # Search state management
+│   │       ├── base_agent.py           # Base agent interface
+│   │       ├── offline/
+│   │       |   └── ppo_agent.py        # PPO agent
+│   │       └── online/
+│   │           ├── dqn_agent.py        # Deep Q-learning agent
+│   │           └── qlearning_agent.py  # Tabular Q-learning agent
 │   └── utils/
-│       └── utils.py              # Utility functions
+│   │   ├── rl_utils/                   # RL utility functions
+│   │   └── utils.py                    # General utility functions
 ├── instances/
-│   ├── 30/                       # Instances with 30 customers
-│   ├── 100/                      # Instances with 100 customers
-│   └── 200/                      # Instances with 200 customers
-├── results/                      # All experimental outputs
-├── scripts/                      # Scripts to manage summaries
-├── run_benchmark.py              # Main experiment entry point
+│   ├── Bredstrom/                      # Bredstrom instances
+│   ├── Liu_ALNS/                       # Liu instances
+│   ├── New_synch/                      # Generated instances used in all experiments
+│   └── Solomon/                        # Solomon instances (base)
+├── results/                            # All experimental outputs
+├── scripts/                            # Scripts to manage allsutomatic tasks
+├── run_benchmark.py                    # Main experiment entry point
 └── README.md
 ```
 
@@ -88,7 +96,7 @@ The project is controlled via `run_benchmark.py`, with these available arguments
 
 | Argument          | Type   | Required | Default        | Description                                                                          |
 | ----------------- | ------ | -------- | -------------- | ------------------------------------------------------------------------------------ |
-| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_qlearning_fi`or `ml_decision`, ...           |
+| `--mode`          | string | Yes      | `best`         | Execution mode: `first`, `best`, or `rl_qlearning_fi` or `ml_decision`, ...          |
 | `--neigh_order`   | string | No       | `default`      | Neighborhood order (`default`, `reverse`, `random`, `suggested`). Ignored in RL mode |
 | `--tmax`          | int    | No       | `500`          | Maximum execution time per instance (in seconds)                                     |
 | `--instances_dir` | string | No       | `instances/30` | Path to instance folder (`instances/30`, `instances/100`, `instances/200`)           |
