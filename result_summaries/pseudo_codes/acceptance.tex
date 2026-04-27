@@ -1,0 +1,48 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\begin{document}
+
+\begin{algorithm}[H]
+\caption{Acceptance Criterion}
+\begin{algorithmic}[1]
+\Require Current solution $\text{Current}$, improved solution $\text{Improved}$, tolerance $\delta$
+\Ensure Updated current solution $\text{Current}$
+
+\State $\text{Accept} \gets (\text{Improved}.F \le (1 + \delta) \times \text{Current}.F)$
+\If{$\text{Accept}$}
+    \State $\text{Current} \gets \text{Improved}$
+    \State $\text{NoImproveCounter} \gets 0$
+\Else
+    \State $\text{NoImproveCounter} \gets \text{NoImproveCounter} + 1$
+\EndIf
+
+\State \text{Current.AdjustPenalties()}\
+\State \Return $\text{Current}$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{Adjust Penalties}
+\begin{algorithmic}[1]
+\Require Solution $\text{Solution}$, step size $\alpha$
+\Ensure Solution with updated penalty weights
+
+\If{$\text{Solution.penT} > 0$}
+    \State $\text{Solution.w1} \gets \text{Solution.w1} \times (1 + \alpha)$
+\Else
+    \State $\text{Solution.w1} \gets \text{Solution.w1} \times (1 - \alpha)$
+\EndIf
+
+\If{$\text{Solution.penH} > 0$}
+    \State $\text{Solution.w2} \gets \text{Solution.w2} \times (1 + \alpha)$
+\Else
+    \State $\text{Solution.w2} \gets \text{Solution.w2} \times (1 - \alpha)$
+\EndIf
+
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

@@ -1,0 +1,55 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\begin{document}
+\begin{algorithm}[H]
+\caption{General Variable Neighborhood Search (GVNS)}
+\begin{algorithmic}[1]
+\Require Instance $\mathcal{I}$, parameters, optional agent
+\Ensure Best solution found
+
+\State $S \gets$ GenerateInitialSolution($\mathcal{I}$)
+\State Evaluate($S$)
+\State $S_{best} \gets S$
+\State \phantom{}
+
+\While{stopping criterion not met}
+
+    \State \# \text{Shaking (diversification)}
+    \State $S' \gets$ Shaking($S$)
+
+    \State \phantom{}
+
+    \State \# \text{Local search (intensification)}
+    \State $S'' \gets$ BVND($S'$)
+
+    \State Evaluate($S''$)
+
+    \State \phantom{}
+
+    \State \# \text{Acceptance}
+    \If{$S''$ is accepted}
+        \State $S \gets S''$
+    \EndIf
+
+    \State \phantom{}
+
+    \State \# \text{Update best solution}
+    \If{$S''$ better than $S_{best}$}
+        \State $S_{best} \gets S''$
+    \EndIf
+
+    \State \phantom{}
+
+    \State \# \text{Penalty adaptation}
+    \State UpdatePenalties($S$)
+
+\EndWhile
+
+\State \Return $S_{best}$
+
+\end{algorithmic}
+\end{algorithm}
+\end{document}

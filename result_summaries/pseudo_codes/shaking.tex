@@ -1,0 +1,36 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\begin{document}
+\begin{algorithm}[H]
+\caption{Shaking Procedure}
+\begin{algorithmic}[1]
+\Require Current solution $S$, shaking intensity $p$, probability $D_p$
+\Ensure Perturbed solution $S'$
+
+\State $S' \gets S$
+\State $accepted \gets 0$
+
+\While{$accepted < p$}
+    \State Draw $r \sim U(0,1)$
+    \If{$r \le D_p$}
+        \State Select a neighborhood from $\{\text{IntraSwap}, \text{InterSwap}, 2\text{-opt}, 2\text{-opt}^*, \text{Cross-exchange}\}$
+    \Else
+        \State Select a neighborhood from $\{\text{IntraInsertion}, \text{InterInsertion}, k\text{-relocate}\}$
+    \EndIf
+
+    \State Apply a random move to obtain $S_{\text{cand}}$
+    \If{$S_{\text{cand}} \text{ is valid}$}
+        \If{$S_{\text{cand}}$ preserves synchronization constraints}
+            \State $S' \gets S_{\text{cand}}$
+            \State $accepted \gets accepted + 1$
+        \EndIf
+    \EndIf
+\EndWhile
+
+\State \Return $S'$
+\end{algorithmic}
+\end{algorithm}
+\end{document}

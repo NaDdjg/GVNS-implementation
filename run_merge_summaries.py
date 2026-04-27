@@ -15,7 +15,7 @@ def main():
     merges = [
         # ("results/methods/Hybrid/DQN_BF/50", "result_summaries/summaries/new_synch/summary_DQN_BF.csv"),
         # ("results/methods/Hybrid/Qlearning_BF/50", "result_summaries/summaries/new_synch/summary_Qlearning_BF.csv"),   
-        ("results/methods/Hybrid/Qlearning_BF/400", "result_summaries/summaries/new_synch/summary_Qlearning_BF_400.csv"),
+        ("results/methods/Hybrid/DQN_BF/100", "result_summaries/summaries/new_synch/summary_DQN_BF_100.csv"),
         # ("results/methods/Hybrid/Qlearning_BF/100", "result_summaries/summaries/new_synch/summary_Qlearning_BF_100.csv"),   
         # ("results/methods/Hybrid/DQN_BF/200", "result_summaries/summaries/new_synch/summary_DQN_BF_200.csv"),
         # ("results/methods/Hybrid/Qlearning_BF/200", "result_summaries/summaries/new_synch/summary_Qlearning_BF_200.csv"),   

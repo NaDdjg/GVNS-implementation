@@ -17,6 +17,10 @@ import cProfile
 import pstats
 from line_profiler import LineProfiler
 
+# data collection
+from gvns.data_generation.rl.collector import GVNSCollector
+from gvns.data_generation.rl.params.controller import ParamController
+
 # helper for extracting instances 
 def collect_instance_paths(folder: str):
     """
@@ -28,7 +32,7 @@ def collect_instance_paths(folder: str):
     folder = Path(folder)
     norm = str(folder).replace("\\", "/")
 
-    if "Liu_ALNS" in norm or "New_synch" in norm:
+    if "Liu_ALNS" in norm or "New_synch" in norm or "PPO_instances" in norm:
         exts = (".txt",)
     elif "Bredstrom" in norm:
         exts = (".dat",)
@@ -49,9 +53,12 @@ def run_instance(
         n_runs=1, 
         params=None, 
         agent=None,
+        ppo_agent=None,
         first_improvement = True,
         results_dir="results",
-        qtables_dir=None
+        qtables_dir=None,
+        collector=None,
+        param_controller=None   
     ):
     """run GVNS multiple times on one instance, save traces and plots."""
     name = os.path.basename(path).split(".")[0]
@@ -62,35 +69,57 @@ def run_instance(
     np.random.seed(seed)
 
     inst = Instance().parse_instance(path)
-    # inst.debug_dump()  # print instance details for debugging
     best_overall = None
     results = []
 
     for run_id in range(1, n_runs + 1):
         print(f"\n[RUN {run_id}/{n_runs}] Starting GVNS on {name} ...")
 
-        # new agent per run (no leakage)
+        # =========================
+        # Reset collector/controller
+        # =========================
+        if collector is not None:
+            collector.reset()
+            collector.save_path = os.path.join(
+                os.path.dirname(collector.save_path),
+                f"{name}_run{run_id}.npz"
+            )
+
+        if param_controller is not None:
+            param_controller.reset()
+
+        # =========================
+        # New agent per run
+        # =========================
         run_agent = None
         if agent is not None:
             run_agent = agent.clone() if hasattr(agent, "clone") else agent
-
+            
         start = time.time()
         trace = []
 
-        # Run GVNS (classic or RL)
+        # =========================
+        # Run GVNS
+        # =========================
         best = run_gvns(
             inst, 
+            results_dir=results_dir,
             params=params, 
             agent=run_agent, 
+            ppo_agent=ppo_agent,
             first_improvement = first_improvement,
             verbose=True, 
             trace_list=trace, 
             instance_name = name,
-            qtables_dir=qtables_dir
+            qtables_dir=qtables_dir,
+            collector=collector,
+            param_controller=param_controller
         )
         elapsed = time.time() - start
 
+        # =========================
         # Build trace DataFrame
+        # =========================
         # if trace is empty, produce an empty DataFrame with canonical columns
         if not trace:
             cols = ["iter", "F", "f", "PenT", "PenH", "PenS", "elapsed"]
@@ -209,7 +238,7 @@ def profile_run_instance(*args, **kwargs):
     import gvns.local_search as ls
     import gvns.operators as ops
     import gvns.solution as solution
-    import gvns.search_state.search_state as ss
+    import gvns.data_generation.search_state as ss
 
     lp.add_module(ls)
     lp.add_module(ops)
@@ -288,22 +317,67 @@ def _run_one_instance_mp(
     n_runs,
     params,
     agent,
+    ppo_agent,
     first_improvement,
     results_dir,
-    qtables_dir
+    qtables_dir,
+    collector,
+    param_controller
 ):
+    use_controller = params.get("use_controller", False) if params else False
+    collect_data = params.get("collect_data", False) if params else False
+
+    # =========================
+    # Create LOCAL collector
+    # =========================
+    local_collector = None
+    if collect_data and collector is not None:
+        base_path = collector.save_path or "gvns\\datasets\\param_controller_cleaned\\train_clean.npz"
+
+        name = os.path.basename(path_full).split(".")[0]
+        local_path = base_path.replace(
+            ".npz",
+            f"_{name}.npz"
+        )
+
+        local_collector = GVNSCollector(
+            action_dim=collector.action_dim,
+            save_path=local_path
+        )
+    
+    # =========================
+    # Create LOCAL controller
+    # =========================
+    local_controller = None
+    if use_controller and param_controller is not None:
+        local_controller = ParamController()
+
     return run_instance(
         path_full,
         n_runs=n_runs,
         params=params,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
         results_dir=results_dir,
-        qtables_dir=qtables_dir
+        qtables_dir=qtables_dir,
+        collector=local_collector,
+        param_controller=local_controller
     )
 
 # classic sequential runner
-def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = True, results_dir="results", qtables_dir=None):
+def run_folder(
+        folder, 
+        n_runs=1, 
+        params=None, 
+        agent=None, 
+        ppo_agent=None,
+        first_improvement = True, 
+        results_dir="results", 
+        qtables_dir=None,
+        collector=None,
+        param_controller=None
+    ):
     """Run all instances in the specified folder sequentially."""
     
     paths = collect_instance_paths(folder)
@@ -313,20 +387,53 @@ def run_folder(folder, n_runs=1, params=None, agent=None, first_improvement = Tr
 
     all_results = []
     for p in paths:
+        # =========================
+        # Create local collector per instance
+        # =========================
+        local_collector = None
+        if collector is not None:
+            name = os.path.basename(p).split(".")[0]
+
+            save_path = collector.save_path.replace(
+                ".npz",
+                f"_{name}.npz"
+            )
+
+            local_collector = GVNSCollector(
+                feature_names=collector.dataset.feature_names,
+                save_path=save_path
+            )
+
+        # =========================
+        # Create local controller
+        # =========================
+        local_controller = None
+        if param_controller is not None:
+            local_controller = ParamController()
+
+        # =========================
+        # Run instance
+        # =========================
         res = run_instance(
             path=p, 
             n_runs=n_runs, 
             params=params, 
             agent=agent,
+            ppo_agent=ppo_agent,
             first_improvement = first_improvement,
             results_dir=results_dir,
-            qtables_dir=qtables_dir
+            qtables_dir=qtables_dir,
+            collector=local_collector,
+            param_controller=local_controller
         )
         all_results.append(res)
 
-    # combine all summaries into one global summary CSV
+    # =========================
+    # Combine results
+    # =========================
     df_all = pd.concat(all_results, ignore_index=True)
     df_all.to_csv(os.path.join(results_dir, "all_instances_summary.csv"), index=False)
+
     print("\nBenchmark completed.")
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
 
@@ -375,10 +482,13 @@ def run_folder_parallel(
     n_runs=1,
     params=None,
     agent=None,
+    ppo_agent=None,
     first_improvement=True,
     results_dir="results",
     qtables_dir=None,
-    n_processes=None  
+    n_processes=None,
+    collector=None, 
+    param_controller=None  
 ):
     """Run all instances in parallel (one process per instance)."""
 
@@ -394,9 +504,12 @@ def run_folder_parallel(
         n_runs=n_runs,
         params=params,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
         results_dir=results_dir,
         qtables_dir=qtables_dir,
+        collector=collector,
+        param_controller=param_controller
     )
 
     n_proc = n_processes or mp.cpu_count()
@@ -429,9 +542,19 @@ def run_folder_parallel(
 # ============================================================
 # Main benchmark function
 # ============================================================
-def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, agent = None, first_improvement = True):
+def benchmark_main(
+        INST_FOLDER, 
+        RESULTS_FOLDER, 
+        QTABLE_DIR, 
+        PARAMS, 
+        N_RUNS = 1, 
+        agent = None, 
+        ppo_agent = None, 
+        first_improvement = True,
+        ):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    param_controller = ParamController()
 
     # profiler version for one instance only
     # run_folder_profiling(
@@ -450,9 +573,11 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
         n_runs=N_RUNS,
         params=PARAMS,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
+        param_controller=param_controller,  
         results_dir=RESULTS_FOLDER,            
-        qtables_dir=QTABLE_DIR
+        qtables_dir=QTABLE_DIR,
     )
 
     # sequential version
@@ -461,7 +586,9 @@ def benchmark_main(INST_FOLDER, RESULTS_FOLDER, QTABLE_DIR, PARAMS, N_RUNS = 1, 
     #     n_runs=N_RUNS,
     #     params=PARAMS,
     #     agent=agent,
+    #     ppo_agent=ppo_agent,
     #     first_improvement=first_improvement,
-    #     results_dir=RESULTS_FOLDER,            
+    #     results_dir=RESULTS_FOLDER,     
+    #     param_controller=param_controller,       
     #     qtables_dir=QTABLE_DIR,
     # )

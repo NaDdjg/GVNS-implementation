@@ -353,7 +353,7 @@ class Instance:
 
         norm_path = path.replace("\\", "/")
 
-        if "instances/Liu_ALNS/" in norm_path or "instances/New_synch/" in norm_path:
+        if "instances/Liu_ALNS/" in norm_path or "instances/New_synch/" in norm_path or "instances/PPO_instances/" in norm_path:
             inst.instance_type = "liu"
             inst.load_liu_format(path)
 

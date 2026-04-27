@@ -1,14 +1,16 @@
 import os
 import argparse
 import warnings
+import numpy as np
 warnings.filterwarnings('ignore')
 
 from pathlib import Path
 from gvns import benchmark
 
 # rl utilities
-from gvns.rl.agents.qlearning_agent import QTableAgent
-from gvns.rl.agents.dqn_agent import DQNAgent
+from gvns.rl.agents.online.qlearning_agent import QTableAgent
+from gvns.rl.agents.online.dqn_agent import DQNAgent
+from gvns.rl.agents.offline.ppo_agent import PPOAgent
 
 # ============================================================
 # Argument parsing
@@ -18,7 +20,7 @@ parser.add_argument(
     "--mode",
     type=str,
     required=True,
-    choices=["first", "best", "hybrid_bf", "qlearning_fi", "qlearning_bi", "qlearning_bf", "dqn_fi", "dqn_bi", "dqn_bf"],
+    choices=["first", "best", "hybrid_bf", "qlearning_fi", "qlearning_bi", "qlearning_bf", "dqn_fi", "dqn_bi", "dqn_bf", "param_controller"],
     help="Execution mode"
 )
 
@@ -66,17 +68,13 @@ params = {
 
     # fixed params
     "Contmax": 100,
-
     "p_init": 1,
     "p_max": 12,
     "Dp": 0.3,
-
     "w1": 0.5,    
     "w2": 0.1,
     "alpha": 0.1, 
-
     "delta": 0.4, 
-    
     "M": 1e6,
     "seed": 42,
 
@@ -89,14 +87,17 @@ params = {
     "verbose_ml": False,
     "log_ls_data": False,
 
-    # RL params 
-    "reward_mode": "qlearning" 
+    # RL / controller flags 
+    "reward_mode": "qlearning",
+    "use_controller": False,
+    "collect_data": False
 }
 
 # ============================================================
 # Mode-dependent configuration
 # ============================================================
 agent = None
+ppo_agent = None
 first_improvement = False
 
 INST_FOLDER = Path(args.instances_dir)
@@ -275,6 +276,27 @@ elif args.mode == "qlearning_bf":
         seed=params["seed"]
     )
 
+elif args.mode == "param_controller":
+    params["use_controller"] = True
+    params["Tmax"] = args.tmax
+    RESULTS_FOLDER = args.results_dir or "results/last_execution_param_controller"
+
+    # load dataset metadata
+    data = np.load("gvns/datasets/param_controller_cleaned/train_clean.npz")
+    state_dim = data["states"].shape[1]
+    n_actions = 8  
+    feature_names = data["feature_names"].tolist()
+
+    ppo_agent = PPOAgent(
+        state_dim=state_dim,
+        n_actions=n_actions,
+        feature_names=feature_names,
+    )
+
+    # load trained weights 
+    ppo_agent.load("gvns/rl/notebooks/models/ppo_param_controller.pt")
+
+
 # ============================================================
 # Run benchmark
 # ============================================================
@@ -293,6 +315,7 @@ if __name__ == "__main__":
         QTABLE_DIR=QTABLE_DIR,
         PARAMS=params,
         agent=agent,
+        ppo_agent=ppo_agent,
         first_improvement=first_improvement,
         N_RUNS=N_RUNS
     )

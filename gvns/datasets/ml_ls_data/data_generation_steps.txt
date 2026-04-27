@@ -1,0 +1,120 @@
+GVNS – Local Search Decision Dataset Generation
+===============================================
+
+This file documents the complete pipeline used to generate the
+machine-learning dataset for learning FI / BI local search strategies
+inside the GVNS framework.
+
+The goal is NOT to reach optimal solutions, but to collect diverse and
+representative local search decision data.
+
+
+------------------------------------------------------------
+STEP 1 — Run GVNS on all instances (data collection)
+------------------------------------------------------------
+
+Run GVNS on all available instances using BOTH strategies:
+- FI (First Improvement)
+- BI (Best Improvement)
+
+Important notes:
+- Convergence or best solution quality is NOT important
+- Runs can be short (time-limited)
+- Diversity of local search behavior is the goal
+
+During execution:
+- Each Local Search (LS) call logs:
+  - instance features
+  - search state features
+  - neighborhood context
+  - outcome (improvement, delta, elapsed time)
+
+Logging behavior:
+- One CSV file is generated per instance
+- Files are saved automatically by the logger to:
+
+  gvns/datasets/ml_ls_data/FI/   → FI runs
+  gvns/datasets/ml_ls_data/BI/   → BI runs
+
+Each CSV row corresponds to ONE LS decision.
+
+
+------------------------------------------------------------
+STEP 2 — Merge all FI and BI CSV files
+------------------------------------------------------------
+
+After all runs finish, merge all per-instance CSV files into one dataset.
+
+Run:
+  python scripts/dataset/merge_ls_data.py
+
+This script:
+- Loads all CSV files from:
+    gvns/datasets/ml_ls_data/FI/
+    gvns/datasets/ml_ls_data/BI/
+- Adds a numeric strategy column:
+    strategy = 0 → FI
+    strategy = 1 → BI
+- Concatenates everything into a single dataframe
+
+Output:
+  gvns/datasets/ml_ls_data/merged_ls_decisions.csv
+
+This file still contains raw logs and identifiers.
+
+
+------------------------------------------------------------
+STEP 3 — Offline labeling & dataset cleaning
+------------------------------------------------------------
+
+Generate the final learning dataset from the merged logs.
+
+Run:
+  python gvns/data_generation/offline_labeling.py
+
+This script:
+- Loads merged_ls_decisions.csv
+- Filters to improving LS decisions only
+- Cleans numerical noise (e.g. negative deltas)
+- Creates learning targets (e.g. rel_delta)
+- Drops non-learning identifier columns
+- Performs sanity checks (NaNs, distributions, strategy balance)
+
+Output:
+  gvns/datasets/ml_ls_data/learning_dataset.csv
+
+This is the ONLY file used for training ML models.
+
+
+------------------------------------------------------------
+STEP 4 — Dataset verification and statistics
+------------------------------------------------------------
+
+Verify dataset integrity and feature distributions.
+
+Run:
+  python scripts/dataset/columns_verif.py
+
+This script:
+- Prints summary statistics for all features
+- Checks ranges, means, and potential anomalies
+- Helps validate that features behave as expected
+- Serves as a final validation before training
+
+No files are modified in this step.
+
+
+------------------------------------------------------------
+FINAL NOTE
+------------------------------------------------------------
+
+The file:
+  gvns/datasets/ml_ls_data/learning_dataset.csv
+
+is the canonical dataset used for:
+- model training
+- evaluation
+- offline strategy simulation
+
+If new instances, features, or logging changes are introduced,
+ALL steps above must be rerun in order.
