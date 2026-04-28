@@ -1,15 +1,15 @@
-RandomForestRegressor – log(delta)
+RandomForestRegressor ï¿½ log(delta)
 ========================================
 
 TRAIN METRICS
-MAE: 0.009776
-RMSE: 0.038736
-R2: 0.383886
+MAE: 0.0068
+RMSE: 0.0325
+R2: 0.51037
 
 TEST METRICS
-MAE: 0.004950
-RMSE: 0.028431
-R2: 0.314683
+MAE: 0.0079
+RMSE: 0.0368
+R2: 0.412695
 
 Train samples: 30763
 Test samples: 9126

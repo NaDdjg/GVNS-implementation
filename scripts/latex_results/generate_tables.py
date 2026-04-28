@@ -82,7 +82,7 @@ for size, instances in data.items():
 
     lines = []
 
-    lines.append("\\begin{table}[h]")
+    lines.append("\\begin{table}[ht]")
     lines.append("\\centering")
     lines.append("\\small")
     lines.append("\\setlength{\\tabcolsep}{5pt}")
