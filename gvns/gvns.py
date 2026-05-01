@@ -93,7 +93,7 @@ def run_gvns(
     current = random_insertion(instance, seed=final_seed)
     current.w1 = cfg["w1"]
     current.w2 = cfg["w2"]
-    current.alpha = cfg["alpha"]
+    current.alpha = cfg["alpha"] 
     current.M = cfg["M"]
     current.eval()
 
