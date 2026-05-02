@@ -4,8 +4,8 @@ from collections import defaultdict
 
 # === PATHS ===
 INPUT_DIR = r"result_summaries\summaries\new_synch"
-OUTPUT_DIR = r"result_summaries\papers\final_results\contribution\cost"
-GAP_OUTPUT_DIR = r"result_summaries\papers\final_results\contribution\gap"
+OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\cost"
+GAP_OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\gap"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(GAP_OUTPUT_DIR, exist_ok=True)
