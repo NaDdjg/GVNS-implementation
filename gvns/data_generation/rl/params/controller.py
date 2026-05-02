@@ -10,7 +10,7 @@ class ParamController:
         # BASELINE (reference values)
         self.base_params = {
             "shaking_scale": 1.0,
-            "acceptance_delta": 0.05,
+            "acceptance_delta": 0.3,
             "penalty_scale": 1.0,
             "stagnation_limit": 20,
         }
@@ -26,9 +26,9 @@ class ParamController:
 
         # BOUNDS 
         self.bounds = {
-            "shaking_scale": (0.5, 2.0),
-            "acceptance_delta": (0.0, 0.2),
-            "penalty_scale": (0.5, 3.0),
+            "shaking_scale": (0.3, 1.0),
+            "acceptance_delta": (0.0, 0.4),
+            "penalty_scale": (0.1, 2.0),
             "stagnation_limit": (5, 50),
         }
 
