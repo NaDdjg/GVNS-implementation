@@ -4,9 +4,11 @@ from collections import defaultdict
 
 # === PATHS ===
 INPUT_DIR = r"result_summaries\summaries\new_synch"
-OUTPUT_DIR = r"result_summaries\final_results\cost"
+OUTPUT_DIR = r"result_summaries\papers\final_results\contribution\cost"
+GAP_OUTPUT_DIR = r"result_summaries\papers\final_results\contribution\gap"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(GAP_OUTPUT_DIR, exist_ok=True)
 
 # === DATA STRUCTURE ===
 data = defaultdict(lambda: defaultdict(dict))
@@ -202,11 +204,6 @@ for size, instances in data.items():
         f.write("\n".join(lines))
 
 print("Tables generated successfully!")
-
-
-# === GAP OUTPUT DIR ===
-GAP_OUTPUT_DIR = r"result_summaries\final_results\gap"
-os.makedirs(GAP_OUTPUT_DIR, exist_ok=True)
 
 # === GENERATE GAP TABLES ===
 for size, instances in data.items():
