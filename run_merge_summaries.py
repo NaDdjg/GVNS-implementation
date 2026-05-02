@@ -8,7 +8,7 @@ import sys
 # Add the current directory to sys.path to import merge_summaries
 sys.path.insert(0, os.path.dirname(__file__))
 
-from scripts.csv_summaries.merge_summaries import merge_summaries
+from scripts.results_generation.csv_summaries.merge_summaries import merge_summaries
 
 def main():
     # Define the merge operations
