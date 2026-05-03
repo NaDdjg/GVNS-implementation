@@ -40,6 +40,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--processes",
+    type=int,
+    default=None,
+    help="Number of parallel processes to use"
+)
+
+parser.add_argument(
     "--instances_dir",
     type=str,
     default="instances/New_synch/50",
@@ -107,11 +114,13 @@ if not INST_FOLDER.exists():
 # ===============================
 # Default GVNS 
 # ===============================
+params["Tmax"] = args.tmax
+n_processes = args.processes
+
 #  First improvement GVNS
 if args.mode == "first":
     first_improvement = True
     params["neigh_order"] = args.neigh_order
-    params["Tmax"] = args.tmax
 
     RESULTS_FOLDER = (
         args.results_dir
@@ -122,7 +131,6 @@ if args.mode == "first":
 elif args.mode == "best":
     first_improvement = False
     params["neigh_order"] = args.neigh_order
-    params["Tmax"] = args.tmax
 
     RESULTS_FOLDER = (
         args.results_dir
@@ -135,7 +143,6 @@ elif args.mode == "best":
 elif args.mode == "hybrid_bf":
     params["use_ml"] = True
     params["neigh_order"] = args.neigh_order
-    params["Tmax"] = args.tmax
     
     RESULTS_FOLDER = (
         args.results_dir
@@ -148,7 +155,6 @@ elif args.mode == "hybrid_bf":
 #  Best improvement
 elif args.mode == "qlearning_bi":
     # neigh_order is ignored in RL
-    params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
 
     n_actions = len(NEIGHBORHOOD_NAMES)
@@ -167,7 +173,6 @@ elif args.mode == "qlearning_bi":
 #  First improvement
 elif args.mode == "qlearning_fi":
     # neigh_order is ignored in RL
-    params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
     first_improvement = True
 
@@ -190,7 +195,6 @@ elif args.mode == "qlearning_fi":
 #  Best improvement
 elif args.mode == "dqn_bi":
     # neigh_order is ignored in RL
-    params["Tmax"] = args.tmax
     params["reward_mode"] = "dqn"
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
 
@@ -212,7 +216,6 @@ elif args.mode == "dqn_bi":
 #  First improvement
 elif args.mode == "dqn_fi":
     # neigh_order is ignored in RL
-    params["Tmax"] = args.tmax
     params["reward_mode"] = "dqn"
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
     first_improvement = True
@@ -237,7 +240,6 @@ elif args.mode == "dqn_fi":
 # =================================
 elif args.mode == "dqn_bf":
     # neigh_order is ignored in RL
-    params["Tmax"] = args.tmax
     params["use_ml"] = True
     params["reward_mode"] = "dqn"
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
@@ -259,7 +261,6 @@ elif args.mode == "dqn_bf":
 
 elif args.mode == "qlearning_bf":
     # neigh_order is ignored in RL
-    params["Tmax"] = args.tmax
     params["use_ml"] = True    
     RESULTS_FOLDER = args.results_dir or "results/last_execution_rl"
 
@@ -278,7 +279,6 @@ elif args.mode == "qlearning_bf":
 
 elif args.mode == "param_controller":
     params["use_controller"] = True
-    params["Tmax"] = args.tmax
     RESULTS_FOLDER = args.results_dir or "results/last_execution_param_controller"
 
     # load dataset metadata
@@ -314,8 +314,9 @@ if __name__ == "__main__":
         RESULTS_FOLDER=RESULTS_FOLDER,
         QTABLE_DIR=QTABLE_DIR,
         PARAMS=params,
+        N_RUNS=N_RUNS,
         agent=agent,
         ppo_agent=ppo_agent,
         first_improvement=first_improvement,
-        N_RUNS=N_RUNS
+        n_processes=n_processes
     )

@@ -590,7 +590,8 @@ def benchmark_main(
         agent = None, 
         ppo_agent = None, 
         first_improvement = True,
-        ):
+        n_processes=None 
+    ):
     # check again if folder exists 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)
     param_controller = ParamController()
@@ -617,6 +618,7 @@ def benchmark_main(
         param_controller=param_controller,  
         results_dir=RESULTS_FOLDER,            
         qtables_dir=QTABLE_DIR,
+        n_processes=n_processes,
     )
 
     # sequential version
