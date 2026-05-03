@@ -213,6 +213,7 @@ docker run --rm \
   python run_benchmark.py \
     --mode param_controller \
     --tmax 1800 \
+    --processes 20 \
     --instances_dir instances/New_synch/50 \
     --results_dir results/methods/Hyperparams_controller/50
 ```
