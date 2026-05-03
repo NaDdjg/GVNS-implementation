@@ -51,6 +51,7 @@ def collect_instance_paths(folder: str):
 def run_instance(
         path, 
         n_runs=1, 
+        external_run_id=None,
         params=None, 
         agent=None,
         ppo_agent=None,
@@ -64,26 +65,19 @@ def run_instance(
     name = os.path.basename(path).split(".")[0]
     print(f"\n=== Running instance {name} ===")
 
-    seed = params.get("seed", 42) if params else 42
-    random.seed(seed)
-    np.random.seed(seed)
-
     inst = Instance().parse_instance(path)
     best_overall = None
     results = []
 
     for run_id in range(1, n_runs + 1):
-        print(f"\n[RUN {run_id}/{n_runs}] Starting GVNS on {name} ...")
+        rid = external_run_id if external_run_id is not None else run_id
+        print(f"\n[RUN {rid}] Starting GVNS on {name} ...")
 
         # =========================
         # Reset collector/controller
         # =========================
         if collector is not None:
             collector.reset()
-            collector.save_path = os.path.join(
-                os.path.dirname(collector.save_path),
-                f"{name}_run{run_id}.npz"
-            )
 
         if param_controller is not None:
             param_controller.reset()
@@ -141,7 +135,7 @@ def run_instance(
 
         # save trace as CSV
         os.makedirs(results_dir, exist_ok=True)
-        csv_path = os.path.join(results_dir, f"{name}_run{run_id}.csv")
+        csv_path = os.path.join(results_dir, f"{name}_run{rid}.csv")
         df.to_csv(csv_path, index=False)
 
         # attempt to extract best_feasible_f from trace if present
@@ -155,7 +149,7 @@ def run_instance(
         # record final stats (best returned object still used)
         results.append({
             "instance": name,
-            "run": run_id,
+            "run": rid,
             "best_f": best.obj_value,
             "PenT": best.penT,
             "PenH": best.penH,
@@ -168,7 +162,7 @@ def run_instance(
 
         # plot evolution of f (travel cost) and best feasible f line
         plt.figure(figsize=(8, 5))
-        plt.title(f"GVNS evolution for {name} (run {run_id})")
+        plt.title(f"GVNS evolution for {name} (run {rid})")
         plt.xlabel("Iteration")
         plt.ylabel("Objective f (travel distance)")
 
@@ -204,23 +198,14 @@ def run_instance(
         plt.grid(True, linestyle="--", alpha=0.5)
         plt.tight_layout()
 
-        plot_path = os.path.join(results_dir, f"{name}_run{run_id}.png")
+        plot_path = os.path.join(results_dir, f"{name}_run{rid}.png")
         plt.savefig(plot_path, dpi=150)
         plt.close()
 
-        print(f"[RUN {run_id}] Done. Best f={best.obj_value:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
+        print(f"[RUN {rid}] Done. Best f={best.obj_value:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
 
     # summary over all runs
     df_res = pd.DataFrame(results)
-    summary_path = os.path.join(results_dir, f"{name}_summary.csv")
-    df_res.to_csv(summary_path, index=False)
-
-    print(f"\n=== Summary for {name} ===")
-    # safe prints even if some keys missing
-    cols_to_show = [c for c in ["run", "best_f", "best_feasible_f", "PenS", "time"] if c in df_res.columns]
-    print(df_res[cols_to_show])
-    print(f"→ mean f={df_res['best_f'].mean():.3f}, best f={df_res['best_f'].min():.3f}")
-
     return df_res
 
 # ============================================================
@@ -311,50 +296,78 @@ def profile_run_instance_cprofile(*args, **kwargs):
 # ============================================================
 # Run folder
 # ============================================================
-# helper for multiprocessing
-def _run_one_instance_mp(
-    path_full,
-    n_runs,
-    params,
-    agent,
-    ppo_agent,
-    first_improvement,
-    results_dir,
-    qtables_dir,
-    collector,
-    param_controller
+def run_single(
+    path,
+    run_id,
+    params=None,
+    agent=None,
+    ppo_agent=None,
+    first_improvement=True,
+    results_dir="results",
+    qtables_dir=None,
+    collector=None,
+    param_controller=None
 ):
+    """
+    Run a single GVNS run using run_instance (n_runs=1),
+    preserving trace CSV + plots + full logic.
+    """
+
+    # avoid modifying shared dict across processes
+    if params is not None:
+        params = dict(params)
+        base_seed = params.get("seed", 42)
+        params["seed"] = base_seed + run_id
+
+        random.seed(params["seed"])
+        np.random.seed(params["seed"])
+
+    df_res = run_instance(
+        path=path,
+        n_runs=1,  # key: reuse existing logic
+        external_run_id=run_id,
+        params=params,
+        agent=agent,
+        ppo_agent=ppo_agent,
+        first_improvement=first_improvement,
+        results_dir=results_dir,
+        qtables_dir=qtables_dir,
+        collector=collector,
+        param_controller=param_controller
+    )
+
+    return df_res.iloc[0].to_dict()
+
+
+def _run_single_mp(args, params, agent, ppo_agent, first_improvement,
+            results_dir, qtables_dir, collector, param_controller):
+    path_full, run_id = args
+
     use_controller = params.get("use_controller", False) if params else False
     collect_data = params.get("collect_data", False) if params else False
+        
+    name = os.path.basename(path_full).split(".")[0]
 
-    # =========================
-    # Create LOCAL collector
-    # =========================
+    # LOCAL collector
     local_collector = None
     if collect_data and collector is not None:
         base_path = collector.save_path or "gvns\\datasets\\param_controller_cleaned\\train_clean.npz"
 
-        name = os.path.basename(path_full).split(".")[0]
-        local_path = base_path.replace(
-            ".npz",
-            f"_{name}.npz"
-        )
-
+            
+        local_path = base_path.replace(".npz", f"_{name}_run{run_id}.npz")
         local_collector = GVNSCollector(
             action_dim=collector.action_dim,
             save_path=local_path
         )
-    
-    # =========================
-    # Create LOCAL controller
-    # =========================
+
+    # LOCAL controller
     local_controller = None
     if use_controller and param_controller is not None:
         local_controller = ParamController()
 
-    return run_instance(
+    return run_single(
         path_full,
-        n_runs=n_runs,
+        run_id,
         params=params,
         agent=agent,
         ppo_agent=ppo_agent,
@@ -362,7 +375,7 @@ def _run_one_instance_mp(
         results_dir=results_dir,
         qtables_dir=qtables_dir,
         collector=local_collector,
-        param_controller=local_controller
+    param_controller=local_controller
     )
 
 # classic sequential runner
@@ -487,10 +500,10 @@ def run_folder_parallel(
     results_dir="results",
     qtables_dir=None,
     n_processes=None,
-    collector=None, 
-    param_controller=None  
+    collector=None,
+    param_controller=None
 ):
-    """Run all instances in parallel (one process per instance)."""
+    """Run all instances and runs fully in parallel (instance × run)."""
 
     paths = collect_instance_paths(folder)
     if not paths:
@@ -499,9 +512,21 @@ def run_folder_parallel(
 
     os.makedirs(results_dir, exist_ok=True)
 
+    # =========================
+    # Build ALL tasks (instance, run)
+    # =========================
+    tasks = []
+    for path in paths:
+        for run_id in range(1, n_runs + 1):
+            tasks.append((path, run_id))
+
+    print(f"Total tasks: {len(tasks)}")
+
+    # =========================
+    # Worker wrapper (with local objects)
+    # =========================
     worker = partial(
-        _run_one_instance_mp,
-        n_runs=n_runs,
+        _run_single_mp,
         params=params,
         agent=agent,
         ppo_agent=ppo_agent,
@@ -512,29 +537,43 @@ def run_folder_parallel(
         param_controller=param_controller
     )
 
-    n_proc = n_processes or mp.cpu_count()
-    print(f"Running {len(paths)} instances in parallel on {n_proc} processes")
+    # =========================
+    # Parallel execution
+    # =========================
+    n_proc = n_processes or min(len(tasks), mp.cpu_count())
+    print(f"Running on {n_proc} processes")
 
     pool = mp.Pool(processes=n_proc)
 
     try:
-        all_results = pool.map(worker, paths)
+        results = pool.map(worker, tasks)
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt received, terminating workers...")
-        pool.terminate()   # kill workers immediately
+        pool.terminate()
         pool.join()
         print("All worker processes terminated.")
         return
     else:
-        pool.close()       # normal shutdown
+        pool.close()
         pool.join()
 
-    # combine all summaries into one global summary CSV
-    df_all = pd.concat(all_results, ignore_index=True)
+    # =========================
+    # Combine results
+    # =========================
+    df_all = pd.DataFrame(results)
+
     df_all.to_csv(
         os.path.join(results_dir, "all_instances_summary.csv"),
         index=False
     )
+
+    for instance_name, group in df_all.groupby("instance"):
+        summary_path = os.path.join(results_dir, f"{instance_name}_summary.csv")
+        group.to_csv(summary_path, index=False)
+
+        print(f"\n=== Summary for {instance_name} ===")
+        print(group[["run", "best_f", "PenS", "time"]])
+        print(f"→ mean f={group['best_f'].mean():.3f}, best f={group['best_f'].min():.3f}")
 
     print("\nBenchmark completed.")
     print(df_all.groupby("instance")["best_f"].agg(["mean", "std", "min", "max"]))
