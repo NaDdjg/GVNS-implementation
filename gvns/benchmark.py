@@ -202,7 +202,7 @@ def run_instance(
         plt.savefig(plot_path, dpi=150)
         plt.close()
 
-        print(f"[RUN {rid}] Done. Best f={best.obj_value:.3f}, Best feasible f={(best_f_feasible if best_f_feasible is not None else None)}, PenS={best.penS:.1f}, time={elapsed:.2f}s")
+        print(f"[RUN {rid}] Done. Best f={best.obj_value:.3f}, time={elapsed:.2f}s")
 
     # summary over all runs
     df_res = pd.DataFrame(results)
