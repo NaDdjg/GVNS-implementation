@@ -30,14 +30,12 @@ for file in os.listdir(INPUT_DIR):
 
     # Detect needed columns safely
     f_cols = [c for c in df.columns if c.startswith("f_")]
-    time_cols = [c for c in df.columns if c.startswith("time_")]
 
-    if not f_cols or not time_cols or "avg_f" not in df.columns:
+    if not f_cols or not "avg_time" in df.columns or not "avg_f" in df.columns:
         print(f"Skipping {file} (missing required columns)")
         continue
 
     f_col = f_cols[0]
-    time_col = time_cols[0]
 
     # Drop empty rows
     df = df.dropna(subset=["instance"])
@@ -66,7 +64,7 @@ for file in os.listdir(INPUT_DIR):
         # === VALUES ===
         try:
             f_val = float(row[f_col])
-            time_val = float(row[time_col])
+            time_val = float(row["avg_time"])
             avg_val = float(row["avg_f"])
         except:
             continue
@@ -122,7 +120,7 @@ for size, instances in data.items():
     # Sub-header
     header2 = ["", ""]
     for _ in methods:
-        header2 += ["Best", "Avg", "Time"]
+        header2 += ["Best", "Avg", "Avg_time"]
 
     lines.append(" & ".join(header2) + " \\\\")
     lines.append("\\midrule")
@@ -156,7 +154,7 @@ for size, instances in data.items():
             if m in methods_data:
                 f_val = methods_data[m]["f"]
                 avg_val = methods_data[m]["avg"]
-                time_val = methods_data[m]["time"]
+                avg_time = methods_data[m]["avg_time"]
 
                 method_values_all[m].append(f_val)
 
@@ -168,7 +166,7 @@ for size, instances in data.items():
 
                 row.append(f_str)
                 row.append(f"{avg_val:.2f}")
-                row.append(f"{time_val:.1f}")
+                row.append(f"{avg_time:.1f}")
             else:
                 row += ["-", "-", "-"]
 
@@ -276,7 +274,7 @@ for size, instances in data.items():
         for m in methods:
             if m in methods_data:
                 f_val = methods_data[m]["f"]
-                time_val = methods_data[m]["time"]
+                avg_time = methods_data[m]["avg_time"]
 
                 # GAP calculation
                 gap = 100 * (f_val - best_overall) / best_overall
