@@ -387,7 +387,6 @@ def run_gvns(
             instance_name,
             suffix="rl" if agent is not None else "bvnd",
             results_dir=results_dir
-
         )
         
         save_suggested_order(

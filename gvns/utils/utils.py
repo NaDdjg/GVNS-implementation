@@ -118,7 +118,6 @@ def load_suggested_order(instance_name, results_dir="results"):
     print(f"[INFO] suggested neighborhood order {order}")
     return order
 
-
 def save_operator_stats(operator_stats, instance_name, suffix="dqn", results_dir="results"):
 
     os.makedirs(results_dir, exist_ok=True)
