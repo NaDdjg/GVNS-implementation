@@ -484,7 +484,6 @@ def b_vnd(
             # -------------------------------------------------
             # AFTER LS (state update)
             # -------------------------------------------------
-
             if search_state is not None:
                 search_state.after_ls(
                     improved=improved,

@@ -10,9 +10,9 @@ def plot_ml_decisions():
     """
     
     # Paths
-    input_dir = "results/without_RL/predefined_order/ML_decision/decision_traces"
-    output_dir_time = "result_summaries/ml_policy_results/decison_over_time"
-    output_dir_iterations = "result_summaries/ml_policy_results/decision_over_iterations"
+    input_dir = "results\\methods\\BF\\decision_traces"
+    output_dir_time = "result_summaries\\plots\\ml_policy_results\\decison_over_time"
+    output_dir_iterations = "result_summaries\\plots\\ml_policy_results\\decision_over_iterations"
     
     # Create output directories if they don't exist
     os.makedirs(output_dir_time, exist_ok=True)

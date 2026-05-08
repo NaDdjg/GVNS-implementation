@@ -1,0 +1,72 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\begin{document}
+
+\begin{algorithm}[H]
+\caption{GVNS with PPO-Driven Local Search}
+\begin{algorithmic}[1]
+\Require Instance, time limit, PPO agent, parameter controller
+\Ensure Best solution found
+
+\State $S \gets \text{generate\_initial\_solution}()$
+\State $stagnation \gets 0$
+
+\While{not termination\_condition(time\_limit, stagnation)}
+    \State Update parameters from PPO agent
+    \State \phantom{}
+
+    \State $S \gets \text{shake}(S, \text{param\_controller.shaking\_scale})$ 
+    \State $S' \gets \text{local\_search\_with\_PPO}(S, \text{ppo\_agent}, \text{param\_controller})$
+
+    \State \phantom{}
+    \If{$Acceptance(S, S', \delta)$}
+        \State $S \gets S'$
+        \State $stagnation \gets 0$
+    \Else
+        \State $stagnation \gets stagnation + 1$
+    \EndIf
+
+    \State \phantom{}
+    \State UpdatePenalties($S, \alpha$)
+
+\EndWhile
+
+\State \Return $S$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{Local Search with PPO}
+\begin{algorithmic}[1]
+\Require Solution $S$, PPO agent, parameter controller
+\Ensure Improved solution $S$
+
+\For{each neighborhood $N_i$ in predefined order}
+    \State Extract state: $state \gets \text{extract\_features}(S, i)$
+    \State $action \gets \text{ppo\_agent.select\_action}(state)$
+    \State $\text{param\_controller.apply\_action}(action)$
+    \State \phantom{}
+
+    \State $F_{\text{before}} \gets \text{objective}(S)$
+    \State $candidate \gets \text{apply\_neighborhood}(S, N_i, first\_improvement$
+    \State $improved \gets (F_{\text{after}} < F_{\text{before}})$
+
+    \State \phantom{}
+    \State $reward \gets \text{compute\_reward}(F_{\text{before}}, F_{\text{after}}, improved)$
+    \State $next\_state \gets \text{extract\_features}(candidate, i)$
+    \State $\text{ppo\_agent.store\_transition}(state, action, reward, next\_state, done)$ 
+
+    \State \phantom{}
+    \If{improved}
+        \State $S \gets candidate$
+    \EndIf
+\EndFor
+
+\State \Return $S$
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}
