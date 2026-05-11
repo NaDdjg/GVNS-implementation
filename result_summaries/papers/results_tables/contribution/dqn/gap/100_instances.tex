@@ -1,0 +1,37 @@
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Gap results for 100-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r r @{\hspace{8pt}} r r @{\hspace{8pt}}}
+\toprule
+\multirow{2}{*}{Instance} & \multirow{2}{*}{Best} & \multicolumn{2}{c}{DQN\_FI} & \multicolumn{2}{c}{GVNS} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+ &  & Gap(\%) & Time & Gap(\%) & Time \\
+\midrule
+\texttt{C103\_100\_10} & 901.02 & \textbf{0.00} & 3890.2 & 0.35 & 5005.3 \\
+\texttt{C104\_100\_10} & 863.20 & \textbf{0.00} & 4477.0 & 1.64 & 5888.4 \\
+\texttt{C107\_100\_10} & 878.93 & 0.45 & 1978.6 & \textbf{0.00} & 1232.5 \\
+\texttt{C202\_100\_10} & 746.65 & 0.56 & 4477.4 & \textbf{0.00} & 3267.7 \\
+\texttt{C206\_100\_10} & 853.75 & \textbf{0.00} & 2581.8 & 1.55 & 3051.9 \\
+\texttt{C208\_100\_10} & 721.29 & \textbf{0.00} & 4236.6 & 0.01 & 5368.7 \\
+\texttt{R101\_100\_10} & 1840.01 & \textbf{0.00} & 3195.7 & 0.07 & 4864.1 \\
+\texttt{R105\_100\_10} & 1554.69 & \textbf{0.00} & 4774.9 & 2.55 & 3547.6 \\
+\texttt{R111\_100\_10} & 1197.36 & 3.52 & 4185.5 & \textbf{0.00} & 4660.9 \\
+\texttt{R203\_100\_10} & 997.28 & 1.44 & 4753.6 & \textbf{0.00} & 5438.6 \\
+\texttt{R207\_100\_10} & 951.72 & \textbf{0.00} & 1097.9 & 0.25 & 2382.7 \\
+\texttt{R210\_100\_10} & 1062.38 & 3.06 & 3460.4 & \textbf{0.00} & 2345.4 \\
+\texttt{RC101\_100\_10} & 1879.98 & \textbf{0.00} & 5417.4 & 0.40 & 5712.8 \\
+\texttt{RC104\_100\_10} & 1220.96 & \textbf{0.00} & 4292.5 & 1.70 & 2199.1 \\
+\texttt{RC106\_100\_10} & 1622.70 & \textbf{0.00} & 4089.2 & 1.62 & 4163.8 \\
+\texttt{RC202\_100\_10} & 1264.34 & 0.03 & 3765.9 & \textbf{0.00} & 5071.9 \\
+\texttt{RC203\_100\_10} & 1065.14 & \textbf{0.00} & 5672.0 & 0.02 & 6228.6 \\
+\texttt{RC208\_100\_10} & 1102.46 & \textbf{0.00} & 3233.4 & 1.35 & 3537.3 \\
+\midrule
+\textbf{Average} & - & 0.50 & - & 0.64 & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

@@ -1,0 +1,25 @@
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Results for 200-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r r r @{\hspace{8pt}} r r r @{\hspace{8pt}}}
+\toprule
+\multirow{2}{*}{Instance} & \multirow{2}{*}{Best} & \multicolumn{3}{c}{GVNS} & \multicolumn{3}{c}{GVNS\_BF} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+ &  & Best & Avg & Time & Best & Avg & Time \\
+\midrule
+\texttt{C1\_2\_9\_20} & 3400.10 & 3424.28 & 3424.28 & 9359.8 & \textbf{3400.10} & 3424.91 & 12832.1 \\
+\texttt{C2\_2\_2\_20} & 2393.09 & \textbf{2393.09} & 2393.09 & 13385.7 & 2459.18 & 2462.05 & 9788.8 \\
+\texttt{R1\_2\_5\_20} & 4815.88 & 4856.01 & 4856.01 & 9798.0 & \textbf{4815.88} & 4883.79 & 8954.2 \\
+\texttt{R2\_2\_4\_20} & 2301.87 & \textbf{2301.87} & 2301.87 & 12564.8 & 2387.67 & 2419.64 & 13065.9 \\
+\texttt{RC1\_2\_3\_20} & 3147.46 & 3164.61 & 3164.61 & 14746.9 & \textbf{3147.46} & 3151.46 & 10455.1 \\
+\texttt{RC2\_2\_1\_20} & 3498.79 & 3581.15 & 3581.15 & 7174.4 & \textbf{3498.79} & 3553.20 & 7131.7 \\
+\midrule
+\textbf{Average} & 3259.53 & 3286.83 & - & - & 3284.85 & - & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

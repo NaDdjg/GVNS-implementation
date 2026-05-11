@@ -1,0 +1,25 @@
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Gap results for 200-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r r @{\hspace{8pt}} r r @{\hspace{8pt}}}
+\toprule
+\multirow{2}{*}{Instance} & \multirow{2}{*}{Best} & \multicolumn{2}{c}{DQN\_BF} & \multicolumn{2}{c}{GVNS} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+ &  & Gap(\%) & Time & Gap(\%) & Time \\
+\midrule
+\texttt{C1\_2\_9\_20} & 3423.15 & \textbf{0.00} & 10359.9 & 0.03 & 9359.8 \\
+\texttt{C2\_2\_2\_20} & 2393.09 & 0.24 & 1245.9 & \textbf{0.00} & 13385.7 \\
+\texttt{R1\_2\_5\_20} & 4839.81 & \textbf{0.00} & 11800.0 & 0.33 & 9798.0 \\
+\texttt{R2\_2\_4\_20} & 2301.87 & 1.21 & 3021.7 & \textbf{0.00} & 12564.8 \\
+\texttt{RC1\_2\_3\_20} & 3163.82 & \textbf{0.00} & 9036.8 & 0.02 & 14746.9 \\
+\texttt{RC2\_2\_1\_20} & 3579.38 & \textbf{0.00} & 3658.5 & 0.05 & 7174.4 \\
+\midrule
+\textbf{Average} & - & 0.24 & - & 0.07 & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

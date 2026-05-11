@@ -3,9 +3,9 @@ import pandas as pd
 from collections import defaultdict
 
 # === PATHS ===
-INPUT_DIR = r"result_summaries\summaries\new_synch"
-OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\cost"
-GAP_OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\gap"
+INPUT_DIR = r"result_summaries\summaries\new_synch\temp"
+OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\dqn_bf\cost"
+GAP_OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\dqn_bf\gap"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(GAP_OUTPUT_DIR, exist_ok=True)
@@ -120,7 +120,7 @@ for size, instances in data.items():
     # Sub-header
     header2 = ["", ""]
     for _ in methods:
-        header2 += ["Best", "Avg", "Avg_time"]
+        header2 += ["Best", "Avg", "Time"]
 
     lines.append(" & ".join(header2) + " \\\\")
     lines.append("\\midrule")
@@ -154,7 +154,7 @@ for size, instances in data.items():
             if m in methods_data:
                 f_val = methods_data[m]["f"]
                 avg_val = methods_data[m]["avg"]
-                avg_time = methods_data[m]["avg_time"]
+                avg_time = methods_data[m]["time"]
 
                 method_values_all[m].append(f_val)
 
@@ -274,7 +274,7 @@ for size, instances in data.items():
         for m in methods:
             if m in methods_data:
                 f_val = methods_data[m]["f"]
-                avg_time = methods_data[m]["avg_time"]
+                avg_time = methods_data[m]["time"]
 
                 # GAP calculation
                 gap = 100 * (f_val - best_overall) / best_overall
@@ -288,7 +288,7 @@ for size, instances in data.items():
                     gap_str = f"{gap:.2f}"
 
                 row.append(gap_str)
-                row.append(f"{time_val:.1f}")
+                row.append(f"{avg_time:.1f}")
             else:
                 row += ["-", "-"]
 

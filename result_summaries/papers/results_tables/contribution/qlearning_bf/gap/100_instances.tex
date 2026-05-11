@@ -1,0 +1,37 @@
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Gap results for 100-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r r @{\hspace{8pt}} r r @{\hspace{8pt}}}
+\toprule
+\multirow{2}{*}{Instance} & \multirow{2}{*}{Best} & \multicolumn{2}{c}{GVNS} & \multicolumn{2}{c}{Qlearning\_BF} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+ &  & Gap(\%) & Time & Gap(\%) & Time \\
+\midrule
+\texttt{C103\_100\_10} & 904.17 & \textbf{0.00} & 5005.3 & 8.90 & 4073.8 \\
+\texttt{C104\_100\_10} & 877.38 & \textbf{0.00} & 5888.4 & 8.90 & 4887.1 \\
+\texttt{C107\_100\_10} & 878.93 & \textbf{0.00} & 1232.5 & 0.05 & 2905.2 \\
+\texttt{C202\_100\_10} & 746.65 & \textbf{0.00} & 3267.7 & 2.64 & 4130.8 \\
+\texttt{C206\_100\_10} & 867.01 & \textbf{0.00} & 3051.9 & 0.08 & 6071.6 \\
+\texttt{C208\_100\_10} & 721.35 & \textbf{0.00} & 5368.7 & 7.24 & 4201.9 \\
+\texttt{R101\_100\_10} & 1841.36 & \textbf{0.00} & 4864.1 & 0.41 & 5376.0 \\
+\texttt{R105\_100\_10} & 1585.08 & 0.59 & 3547.6 & \textbf{0.00} & 5354.3 \\
+\texttt{R111\_100\_10} & 1197.36 & \textbf{0.00} & 4660.9 & 2.67 & 4224.6 \\
+\texttt{R203\_100\_10} & 992.79 & 0.45 & 5438.6 & \textbf{0.00} & 3401.0 \\
+\texttt{R207\_100\_10} & 954.07 & \textbf{0.00} & 2382.7 & 1.18 & 5346.3 \\
+\texttt{R210\_100\_10} & 1062.38 & \textbf{0.00} & 2345.4 & 3.38 & 3099.6 \\
+\texttt{RC101\_100\_10} & 1887.43 & \textbf{0.00} & 5712.8 & 0.87 & 5701.1 \\
+\texttt{RC104\_100\_10} & 1241.68 & \textbf{0.00} & 2199.1 & 6.54 & 5363.2 \\
+\texttt{RC106\_100\_10} & 1648.94 & \textbf{0.00} & 4163.8 & 0.47 & 5681.4 \\
+\texttt{RC202\_100\_10} & 1264.34 & \textbf{0.00} & 5071.9 & 5.07 & 4162.9 \\
+\texttt{RC203\_100\_10} & 1065.30 & \textbf{0.00} & 6228.6 & 4.64 & 4770.8 \\
+\texttt{RC208\_100\_10} & 1117.31 & \textbf{0.00} & 3537.3 & 0.06 & 3420.4 \\
+\midrule
+\textbf{Average} & - & 0.06 & - & 2.95 & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

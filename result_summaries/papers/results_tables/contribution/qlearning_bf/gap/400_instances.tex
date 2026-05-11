@@ -1,0 +1,37 @@
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Gap results for 400-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r r @{\hspace{8pt}} r r @{\hspace{8pt}}}
+\toprule
+\multirow{2}{*}{Instance} & \multirow{2}{*}{Best} & \multicolumn{2}{c}{GVNS} & \multicolumn{2}{c}{Qlearning\_BF} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+ &  & Gap(\%) & Time & Gap(\%) & Time \\
+\midrule
+\texttt{C1\_4\_10\_40} & 9322.04 & \textbf{0.00} & 20057.5 & 14.98 & 24380.1 \\
+\texttt{C1\_4\_1\_40} & 9683.38 & \textbf{0.00} & 19100.5 & 25.35 & 25841.4 \\
+\texttt{C1\_4\_5\_40} & 9772.92 & \textbf{0.00} & 21142.9 & 1.13 & 25023.9 \\
+\texttt{C2\_4\_2\_40} & 5332.84 & \textbf{0.00} & 22078.5 & 20.99 & 20472.6 \\
+\texttt{C2\_4\_4\_40} & 4962.11 & \textbf{0.00} & 23084.2 & 6.06 & 24507.4 \\
+\texttt{C2\_4\_8\_40} & 5783.16 & \textbf{0.00} & 19076.2 & 0.07 & 24997.7 \\
+\texttt{R1\_4\_3\_40} & 7698.51 & \textbf{0.00} & 20078.8 & 10.87 & 22785.4 \\
+\texttt{R1\_4\_7\_40} & 7661.87 & \textbf{0.00} & 21044.3 & 7.72 & 26154.0 \\
+\texttt{R1\_4\_9\_40} & 9847.05 & \textbf{0.00} & 22112.2 & 32.74 & 25008.3 \\
+\texttt{R2\_4\_1\_40} & 9473.83 & \textbf{0.00} & 22041.8 & 3.53 & 23550.0 \\
+\texttt{R2\_4\_4\_40} & 5297.60 & \textbf{0.00} & 23940.3 & 11.23 & 25016.8 \\
+\texttt{R2\_4\_6\_40} & 7671.54 & 0.13 & 22883.8 & \textbf{0.00} & 13342.7 \\
+\texttt{RC1\_4\_3\_40} & 7207.36 & \textbf{0.00} & 24103.3 & 8.31 & 17301.7 \\
+\texttt{RC1\_4\_7\_40} & 9225.41 & \textbf{0.00} & 20156.5 & 4.82 & 27072.2 \\
+\texttt{RC1\_4\_8\_40} & 8843.13 & \textbf{0.00} & 21009.9 & 6.97 & 13151.9 \\
+\texttt{RC2\_4\_10\_40} & 6538.77 & \textbf{0.00} & 24004.5 & 18.51 & 28252.7 \\
+\texttt{RC2\_4\_1\_40} & 8375.34 & \textbf{0.00} & 23024.0 & 11.79 & 17740.6 \\
+\texttt{RC2\_4\_2\_40} & 7222.30 & \textbf{0.00} & 22802.9 & 3.32 & 17954.9 \\
+\midrule
+\textbf{Average} & - & 0.01 & - & 10.47 & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}

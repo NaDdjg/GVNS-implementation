@@ -1,0 +1,25 @@
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\caption{Results for 200-customer instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l r r r r @{\hspace{8pt}} r r r @{\hspace{8pt}}}
+\toprule
+\multirow{2}{*}{Instance} & \multirow{2}{*}{Best} & \multicolumn{3}{c}{GVNS} & \multicolumn{3}{c}{Qlearning\_BF} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+ &  & Best & Avg & Time & Best & Avg & Time \\
+\midrule
+\texttt{C1\_2\_9\_20} & 3424.28 & \textbf{3424.28} & 3424.28 & 9359.8 & 3480.94 & 3510.94 & 9175.5 \\
+\texttt{C2\_2\_2\_20} & 2393.09 & \textbf{2393.09} & 2393.09 & 13385.7 & 2419.46 & 2499.46 & 10215.0 \\
+\texttt{R1\_2\_5\_20} & 4856.01 & \textbf{4856.01} & 4856.01 & 9798.0 & 4926.75 & 5305.59 & 1520.1 \\
+\texttt{R2\_2\_4\_20} & 2301.87 & \textbf{2301.87} & 2301.87 & 12564.8 & 2406.19 & 4206.19 & 2801.9 \\
+\texttt{RC1\_2\_3\_20} & 3164.61 & \textbf{3164.61} & 3164.61 & 14746.9 & 3251.89 & 4551.89 & 1008.3 \\
+\texttt{RC2\_2\_1\_20} & 3577.87 & 3581.15 & 3581.15 & 7174.4 & \textbf{3577.87} & 4277.87 & 3667.9 \\
+\midrule
+\textbf{Average} & 3286.29 & 3286.83 & - & - & 3343.85 & - & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
