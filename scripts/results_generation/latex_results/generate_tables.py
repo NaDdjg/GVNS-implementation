@@ -3,9 +3,9 @@ import pandas as pd
 from collections import defaultdict
 
 # === PATHS ===
-INPUT_DIR = r"result_summaries\summaries\new_synch\temp"
-OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\dqn_bf\cost"
-GAP_OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\dqn_bf\gap"
+INPUT_DIR = r"result_summaries\summaries\new_synch"
+OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\all_models\cost"
+GAP_OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\all_models\gap"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(GAP_OUTPUT_DIR, exist_ok=True)

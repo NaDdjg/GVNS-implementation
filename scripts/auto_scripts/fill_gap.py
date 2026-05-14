@@ -1,7 +1,7 @@
 import csv
 from decimal import Decimal, InvalidOperation
 
-IN = r"result_summaries\summaries\new_synch\temp\summary_Qlearning_BF.csv"
+IN = r"result_summaries\summaries\new_synch\summary_Qlearning_BF.csv"
 
 def parse_decimal(s):
     s = s.strip()
@@ -33,7 +33,11 @@ def main():
             # gap = (best_f - best_f_reimplementation) / best_f_reimplementation * 100
             gap = (best_f - best_f_reimplementation) / best_f_reimplementation * 100
             # format with 2 decimal places
-            gap = f"{gap.quantize(Decimal('0.01'))}"
+            gap_quantized = gap.quantize(Decimal('0.01'))
+            if gap_quantized > 0:
+                gap = f"+{gap_quantized}"
+            else:
+                gap = f"{gap_quantized}"
         r['gap_f_with_GVNS'] = gap
 
     # Write back to the same file (overwrite)

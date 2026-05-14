@@ -18,8 +18,11 @@ def main():
         # ("results/methods/Hybrid/DQN_BF/100", "result_summaries/summaries/new_synch/summary_DQN_BF_100.csv"),
         # ("results/methods/Hybrid/Qlearning_BF/100", "result_summaries/summaries/new_synch/summary_Qlearning_BF_100.csv"),   
         # ("results/methods/Hybrid/DQN_BF/200", "result_summaries/summaries/new_synch/summary_DQN_BF_200.csv"),
-        # ("results/methods/Hybrid/Qlearning_BF/200", "result_summaries/summaries/new_synch/summary_Qlearning_BF_200.csv"),  
-        ("results/methods/Hyperparams_controller", "result_summaries/summaries/new_synch/GVNS_PPO.csv"), 
+        ("results\\methods\\Hybrid\\Qlearning_BF\\200", "result_summaries/summaries/new_synch/new/summary_Qlearning_BF_200.csv"),  
+        # ("results\\methods\\neighborhood_order\\DQN_F\\200", "result_summaries/summaries/new_synch/new/summary_DQN_200.csv"),  
+        # ("results\\methods\\BF\\200", "result_summaries/summaries/new_synch/new/summary_BF_200.csv"),
+        # ("results\\methods\\Simple_GVNS_F\\200", "result_summaries/summaries/new_synch/new/summary_Simple_GVNS_F_200.csv"),
+        # ("results/methods/Hyperparams_controller", "result_summaries/summaries/new_synch/GVNS_PPO.csv"), 
 
     ]
 
