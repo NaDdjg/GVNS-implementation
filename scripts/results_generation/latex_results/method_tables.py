@@ -4,7 +4,7 @@ from collections import defaultdict
 
 # === PATHS ===
 INPUT_DIR = r"result_summaries\summaries\new_synch\temp"
-OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\qlearning_bf"
+OUTPUT_DIR = r"result_summaries\papers\results_tables\contribution\ppo"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

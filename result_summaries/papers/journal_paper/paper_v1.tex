@@ -1,0 +1,222 @@
+\documentclass[preprint,12pt]{elsarticle}
+
+%% ==================================================================== 
+%% Packages 
+%% ====================================================================
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}    
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{subcaption}
+\usepackage{algorithmic} 
+\usepackage[table]{xcolor}
+\usepackage[colorlinks=true, citecolor=blue, linkcolor=black]{hyperref}
+\usepackage[textheight=9in, textwidth=6.5in]{geometry}
+
+%% ====================================================================
+%% Configurations
+%% ====================================================================
+\setlist[itemize]{
+    topsep=2pt,
+    itemsep=2pt,
+    parsep=0pt,
+    partopsep=0pt
+}
+
+%% ==================================================================== 
+%% Journal
+%% ====================================================================
+\journal{Computers \& Industrial Engineering}
+\biboptions{sort&compress}
+
+%% ==================================================================== 
+%% Document 
+%% ====================================================================
+\begin{document}
+\begin{frontmatter}
+
+\title{ Learning-Guided Adaptive GVNS for the Vehicle Routing Problem with Time Windows and Synchronization Constraints }
+
+%% ==================================================================== 
+%% Authors
+%% ====================================================================
+\author[1]{Nada Farah Djedjig}
+\ead{nadadjedjig@gmail.com}
+
+\author[1]{Supervisor Name}
+\ead{supervisor@gmail.com}
+
+\author[1]{Supervisor Name}
+\ead{supervisor@gmail.com}
+
+\address[1]{Department of Computer Science, University Name, City, Country}
+
+%% ==================================================================== 
+%% Abstract
+%% ==================================================================== 
+\begin{abstract}
+\noindent
+The Vehicle Routing Problem with Time Windows and Synchronization constraints (VRPTW-S) is a challenging variant of the classical vehicle routing problem arising in home healthcare and collaborative service operations. In addition to routing and scheduling decisions, the problem requires the coordinated execution of synchronized visits, creating strong temporal dependencies between routes and significantly increasing computational complexity. Although recent metaheuristics, particularly Generalized Variable Neighborhood Search (GVNS), have achieved competitive results on benchmark instances, their performance still relies on static search policies, including fixed neighborhood orders, predefined local search strategies, and offline parameter calibration.
+
+This paper proposes a learning-guided adaptive GVNS framework for the VRPTW-S, introducing adaptive control mechanisms at multiple levels of the search process. First, reinforcement learning is used to dynamically select neighborhood operators during the Variable Neighborhood Descent phase through both tabular Q-learning and Deep Q-Network (DQN) approaches. Second, a two-head Random Forest model is introduced to adaptively choose between First Improvement and Best Improvement local search strategies according to the current search context. Third, a Proximal Policy Optimization (PPO) controller is used to dynamically regulate key search hyperparameters online.
+
+Experiments conducted on Solomon-derived synchronized benchmark instances ranging from 50 to 400 customers demonstrate that learning-guided adaptation improves both scalability and solution quality compared with static GVNS configurations. In particular, DQN-based operator selection exhibits superior robustness on large-scale instances, while hybrid adaptive strategies provide additional gains by improving search diversification and intensification balance.
+\end{abstract}
+
+
+%% ==================================================================== 
+%% Keywords
+%% ==================================================================== 
+\begin{keyword}
+\small
+Vehicle Routing Problem \sep 
+Synchronization Constraints \sep 
+Variable Neighborhood Search \sep 
+Reinforcement Learning \sep 
+Deep Q-Network \sep 
+Proximal Policy Optimization \sep 
+Adaptive Metaheuristics
+\end{keyword}
+
+\end{frontmatter}
+\newpage
+
+%% ==================================================================== 
+%% 1. INTRODUCTION 
+%% ====================================================================
+\section{Introduction}
+\label{sec:intro}
+Home healthcare logistics has become an increasingly important optimization domain due to population aging, the growing prevalence of chronic diseases, and the transition toward decentralized healthcare services. In such systems, caregivers must travel between geographically distributed patients while respecting operational constraints including service time windows, staff availability, competency requirements, and workload limitations. Efficient routing and scheduling are therefore essential for maintaining both service quality and operational efficiency.
+
+Among the many routing problems arising in healthcare logistics, the Vehicle Routing Problem with Time Windows and Synchronization constraints (VRPTW-S) represents one of the most challenging variants. In addition to classical routing and scheduling decisions, certain visits require the simultaneous presence of multiple caregivers. These synchronization requirements commonly arise in collaborative medical procedures, treatments involving complementary competencies, or interventions requiring specialized equipment handling. As a consequence, route decisions become strongly interdependent: modifying one route may propagate temporal infeasibilities across several others simultaneously.
+
+The VRPTW-S belongs to the class of NP-hard combinatorial optimization problems and rapidly becomes computationally intractable as instance size increases. Although exact methods such as branch-and-price and mixed-integer programming formulations can provide optimal solutions for small instances, their scalability remains severely limited in the presence of synchronization constraints. The temporal coupling induced by synchronized visits substantially increases feasibility management complexity and weakens classical relaxation mechanisms. Consequently, recent research has increasingly focused on metaheuristic approaches capable of generating high-quality solutions within acceptable computational times.
+
+Several metaheuristics have been proposed for the VRPTW-S, including Simulated Annealing, Adaptive Large Neighborhood Search, and Variable Neighborhood Search variants. Among these approaches, the Generalized Variable Neighborhood Search (GVNS) framework introduced by \citet{masmoudi2025generalized} achieved state-of-the-art performance on synchronized benchmark instances through an effective combination of shaking procedures, Variable Neighborhood Descent (VND), and adaptive penalty management mechanisms.
+
+Despite their strong performance, existing metaheuristics for synchronized routing remain largely based on static search policies. In most approaches, the neighborhood exploration order, local search strategy, and search hyperparameters are calibrated offline and remain fixed throughout the optimization process. However, the search dynamics of the VRPTW-S are highly non-stationary. Synchronization constraints continuously alter route interactions and modify the structure of the search landscape during optimization. Consequently, the effectiveness of neighborhood operators and search strategies strongly depends on the current search state.
+
+For instance, operators promoting diversification may be beneficial during early exploration phases but become inefficient near high-quality local optima. Similarly, exhaustive Best Improvement local search may provide strong intensification capabilities in some regions of the search space while becoming computationally prohibitive in heavily constrained configurations. Static search policies therefore limit the adaptability of metaheuristics to evolving optimization contexts.
+
+Recent advances in reinforcement learning and machine learning have demonstrated the potential of learning-guided optimization for combinatorial problems. Instead of relying exclusively on handcrafted search rules, learning-based methods can dynamically adapt decision policies according to the current optimization state and accumulated search experience. Although reinforcement learning has shown promising results for several routing problems, most existing works focus either on constructive heuristics or isolated adaptive mechanisms for classical VRP variants without synchronization constraints.
+
+The present study investigates adaptive search control within a GVNS framework for the VRPTW-S through the integration of reinforcement learning and machine learning mechanisms operating at multiple decision levels of the optimization process.
+
+The proposed framework is built upon an enhanced GVNS baseline inspired by the method of \citet{masmoudi2025generalized}. The baseline implementation extends the original neighborhood system with additional local search operators, including cross-exchange, $k$-relocate, 2-opt, and 2-opt* neighborhoods. The resulting implementation was experimentally validated against state-of-the-art results before introducing adaptive learning components.
+
+Three complementary adaptive mechanisms are then incorporated into the search process:
+\begin{itemize} 
+    \item Reinforcement learning-based neighborhood operator selection using both tabular Q-learning and Deep Q-Network (DQN) agents.
+    \item A two-head Random Forest model for adaptive selection between First Improvement and Best Improvement local search strategies.
+    \item A Proximal Policy Optimization (PPO) controller for online hyperparameter adaptation during the search process.
+\end{itemize}
+    
+Extensive experiments conducted on Solomon-derived synchronized benchmark instances ranging from 50 to 400 customers demonstrate that learning-guided adaptation improves both scalability and solution quality compared with static GVNS configurations. In particular, DQN-based operator selection exhibits superior robustness on large-scale instances, while hybrid adaptive strategies further improve the balance between diversification and intensification.
+
+The remainder of the paper is organized as follows. Section~\ref{sec:related} reviews related work on synchronized vehicle routing and learning-guided combinatorial optimization. Section~\ref{sec:problem} introduces the VRPTW-S and the enhanced baseline GVNS framework. Section~\ref{sec:framework} presents the proposed learning-based adaptive mechanisms. Experimental settings and benchmark generation procedures are described in Section~\ref{sec:setup}. Results and discussion are presented in Section~\ref{sec:results}, followed by concluding remarks and future research directions.
+
+%% ==================================================================== 
+%% 2. Related work  
+%% ====================================================================
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Optimization approaches for the VRPTW-S}
+\label{sec:approaches}
+
+The Vehicle Routing Problem with Time Windows and Synchronization constraints has attracted increasing attention due to its practical relevance in home healthcare logistics, collaborative transportation systems, and technician routing applications. The synchronization component substantially increases problem complexity by introducing temporal dependencies between routes, making feasibility management significantly more difficult than in classical VRPTW formulations.
+
+Early research on synchronized routing problems mainly focused on exact optimization methods. \citet{bredstrom2008combined} proposed one of the first branch-and-price algorithms for synchronized home healthcare routing and introduced benchmark instances that later became standard references in the literature. Although exact methods can produce optimal solutions for small instances, their scalability rapidly deteriorates as synchronization density and instance size increase. Synchronization constraints create strong coupling effects between routes, substantially weakening linear relaxations and increasing branching complexity.
+
+To address these limitations, several metaheuristic approaches have been developed for the VRPTW-S. \citet{afifi2016heuristic} introduced a Simulated Annealing (SA) algorithm integrating synchronization-aware neighborhood operators and adaptive penalty mechanisms. Their work demonstrated the importance of explicitly incorporating synchronization handling into local search procedures.
+
+More recently, \citet{liu2019adaptive} proposed an Adaptive Large Neighborhood Search (ALNS) framework combining adaptive destruction and repair operators specifically designed for synchronized routing problems. Their adaptive operator scoring mechanism improved the balance between diversification and intensification and established new best-known solutions on several benchmark instances.
+
+Variable Neighborhood Search (VNS) approaches have also shown strong performance for synchronized routing. Among them, the Generalized Variable Neighborhood Search (GVNS) framework proposed by \citet{masmoudi2025generalized} currently represents one of the most effective approaches for the VRPTW-S. Their method combines shaking procedures, Variable Neighborhood Descent (VND), and adaptive penalty management to efficiently explore both feasible and infeasible regions of the search space. The framework demonstrated strong robustness across multiple benchmark classes and achieved state-of-the-art performance on large synchronized instances.
+
+Despite these advances, most existing metaheuristics for the VRPTW-S still rely on static search policies. Neighborhood exploration orders, local search strategies, and search hyperparameters are generally calibrated offline and remain unchanged during optimization. However, synchronization constraints continuously modify route interactions and alter the search landscape, making the effectiveness of search operators strongly dependent on the current optimization context.
+
+\subsection{Learning-guided combinatorial optimization}
+Recent progress in reinforcement learning and machine learning has stimulated growing interest in learning-guided optimization for combinatorial problems. Unlike traditional handcrafted heuristics, learning-based approaches aim to dynamically adapt decision policies according to the optimization state and accumulated search experience.
+
+Initial research mainly focused on learning constructive heuristics for routing problems. \citet{bello2017neural} introduced a reinforcement learning framework based on policy gradients for the Traveling Salesman Problem (TSP). Subsequently, \citet{nazari2018reinforcement} extended reinforcement learning approaches to the Capacitated Vehicle Routing Problem (CVRP) using recurrent neural network architectures. Later, \citet{kool2019attention} proposed attention-based models capable of producing competitive routing solutions without handcrafted search procedures.
+
+Beyond constructive routing policies, reinforcement learning has increasingly been used to guide metaheuristic optimization processes. In such approaches, learning agents typically control neighborhood selection, diversification mechanisms, acceptance criteria, or parameter adaptation. \citet{xu2023learning} proposed RL-AVNS, where a PPO agent dynamically selects neighborhood operators within a VNS framework for VRPTW variants. Their results demonstrated that reinforcement learning can effectively adapt search behavior according to the optimization context and improve search efficiency.
+
+Machine learning techniques have also been explored for adaptive local search control. Several studies investigated predictive models for neighborhood evaluation, move quality estimation, or dynamic strategy selection. These approaches aim to reduce unnecessary evaluations while preserving intensification capabilities. Nevertheless, adaptive selection between First Improvement and Best Improvement strategies remains relatively unexplored, particularly for synchronized routing problems.
+
+Although learning-guided optimization has produced promising results for classical VRP variants, research on synchronization-constrained routing remains limited. Furthermore, most existing approaches focus on isolated adaptive mechanisms rather than globally adaptive metaheuristic frameworks combining multiple learning components. To the best of our knowledge, no previous work has investigated multi-level adaptive control within a GVNS framework for the VRPTW-S through the combined integration of reinforcement learning and supervised learning techniques.
+%% ==================================================================== 
+%% 3. Problem definition
+%% ====================================================================
+\section{Problem Definition} 
+\label{sec:problem}
+
+\subsection{Vehicle Routing Problem with Time Windows and Synchronization Constraints}
+The Vehicle Routing Problem with Time Windows and Synchronization constraints (VRPTW-S) is defined on a directed graph $G=(V,E)$, where $V=\{0,1,\dots,n\}$ represents the set of vertices and $E$ denotes the set of edges connecting customers and the depot. Vertex $0$ corresponds to the depot, while each vertex $i \in V \setminus \{0\}$ represents a customer requiring service.
+
+A fleet $K$ of homogeneous vehicles is available to serve all customers. Each customer $i$ is associated with a service duration $s_i$ and a time window $[e_i,l_i]$ defining the earliest and latest allowable service start times. Traveling from customer $i$ to customer $j$ incurs a travel cost $c_{ij}$ and a travel time $t_{ij}$.
+
+The objective is to construct a set of feasible routes minimizing the total routing cost while satisfying routing, temporal, and synchronization constraints. Each customer must be visited exactly once, and all vehicle routes must start and terminate at the depot.
+
+Unlike the classical VRPTW, the VRPTW-S introduces synchronization requirements between specific visits. Certain customers require the simultaneous presence of multiple caregivers. Let $P^{sync}$ denote the set of synchronized customer pairs. For each synchronized pair $(i,j)\in P^{sync}$, the associated service start times must satisfy:
+\[ t_i = t_j \]
+These synchronization constraints create strong temporal coupling between routes. A modification applied to one route may propagate timing infeasibilities to several other routes simultaneously, substantially increasing the complexity of local search procedures and feasibility management.
+
+The VRPTW-S belongs to the class of NP-hard combinatorial optimization problems. The synchronization component considerably enlarges the effective search space complexity and limits the scalability of exact optimization methods. Consequently, efficient metaheuristic approaches are required to obtain high-quality solutions for medium- and large-scale instances.
+
+\subsection{Enhanced baseline GVNS framework}
+The proposed adaptive framework is built upon a Generalized Variable Neighborhood Search (GVNS) metaheuristic inspired by the framework introduced by \citet{masmoudi2025generalized}. Variable Neighborhood Search is based on the principle that a solution locally optimal with respect to one neighborhood structure is not necessarily optimal with respect to another.
+
+The baseline GVNS alternates between diversification and intensification phases through three principal components:
+\begin{itemize}
+    \item A shaking phase responsible for diversification through increasingly distant perturbation moves.
+    \item A Variable Neighborhood Descent (VND) phase performing local intensification through sequential neighborhood exploration.
+    \item An acceptance mechanism combined with adaptive penalties allowing exploration of both feasible and infeasible regions of the search space.
+\end{itemize}
+
+Unlike the original implementation, the baseline framework considered in this study extends the neighborhood system with several additional operators designed to improve search diversity and route restructuring capabilities. In addition to classical intra-route and inter-route relocation and exchange moves, the implementation integrates cross-exchange, $k$-relocate, 2-opt, and 2-opt* neighborhoods.
+
+These additional operators were introduced to strengthen both intensification and diversification capabilities, particularly on large synchronized instances where complex route interactions emerge. The resulting implementation was experimentally validated against state-of-the-art benchmark results prior to the integration of learning-based adaptive mechanisms.
+
+Although the enhanced GVNS exhibits strong performance, its search behavior still relies on static decision policies. In particular, neighborhood exploration orders, local search strategies, and search hyperparameters remain fixed during optimization. Such static configurations limit adaptability to the evolving search dynamics induced by synchronization constraints.
+
+The objective of the proposed framework is therefore to augment the enhanced GVNS with learning-guided adaptive mechanisms capable of dynamically adjusting search decisions according to the current optimization context.
+
+%% ====================================================================
+%% 4. PROPOSED LEARNING-GUIDED ADAPTIVE GVNS FRAMEWORK
+%% ====================================================================
+\section{Learning-Based Adaptive Framework} 
+\label{sec:framework}
+
+\subsection{RL-based operator selection} 
+\subsection{RF-based FI/BI selection} 
+\subsection{PPO-based parameter control}
+
+%% =====================================================================
+%% 5. EXPERIMENTAL SETUP
+%% =====================================================================
+\section{Experimental Setup}
+\label{sec:setup}
+
+%% =====================================================================
+%% 6. RESULTS AND DISCUSSION
+%% =====================================================================
+\section{Results and Discussion}
+\label{sec:results}
+
+%% =====================================================================
+%% CONCLUSION
+%% =====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+%% ----------------------------------------------------------------------
+%% BIBLIOGRAPHY
+%% ----------------------------------------------------------------------
+\bibliographystyle{elsarticle-num-names}
+\bibliography{bibliography/references}
+
+\end{document}
