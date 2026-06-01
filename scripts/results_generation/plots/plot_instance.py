@@ -52,9 +52,7 @@ Outputs
 -----------------------------------------------------------
 
 - spatial_graph.png
-- spatial_graph.pdf
 - time_windows.png
-- time_windows.pdf
 
 ===========================================================
 """
@@ -65,7 +63,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 # Input instance file
-INPUT_FILE = r"instances/New_synch/50/RC202_50_5.txt"
+INPUT_FILE = r"instances/New_synch/50/R102_50_5.txt"
 
 # Output directory
 OUTPUT_DIR = r"result_summaries/plots/instance_representation"
@@ -135,20 +133,13 @@ def plot_spatial_graph(instance, save_dir="."):
     """
 
     df = instance["data"]
-    sync_customers = instance["sync_customers"]
 
     # -----------------------------------------------------
     # Separate node types
     # -----------------------------------------------------
 
     depot = df[df["id"] == 0]
-
-    normal = df[
-        (df["id"] != 0) &
-        (~df["id"].isin(sync_customers))
-    ]
-
-    sync = df[df["id"].isin(sync_customers)]
+    normal = df[(df["id"] != 0) ]
 
     # -----------------------------------------------------
     # Figure
@@ -167,20 +158,6 @@ def plot_spatial_graph(instance, save_dir="."):
         marker="o",
         alpha=0.8,
         label="Customers"
-    )
-
-    # -----------------------------------------------------
-    # Plot synchronized customers
-    # -----------------------------------------------------
-
-    plt.scatter(
-        sync["x"],
-        sync["y"],
-        s=200,
-        marker="*",
-        edgecolors="gray",
-        linewidths=1.2,
-        label="Synchronized Customers"
     )
 
     # -----------------------------------------------------
@@ -302,17 +279,9 @@ def plot_time_windows(instance, save_dir="."):
         end = row["due_time"]
 
         width = end - start
-
-        # synchronized customer
-        if cid in sync_customers:
-            alpha = 1.0
-            edgecolor = "black"
-            linewidth = 1.5
-
-        else:
-            alpha = 0.7
-            edgecolor = "none"
-            linewidth = 0
+        alpha = 0.7
+        edgecolor = "none"
+        linewidth = 0
 
         plt.barh(
             y=idx,
@@ -360,17 +329,8 @@ def plot_time_windows(instance, save_dir="."):
             [0],
             [0],
             lw=10,
-            label="Normal Customer"
+            label="Customer"
         ),
-        Line2D(
-            [0],
-            [0],
-            lw=10,
-            marker='s',
-            markersize=10,
-            markeredgecolor='black',
-            label="Synchronized Customer"
-        )
     ]
 
     plt.legend(handles=legend_elements)
@@ -382,15 +342,12 @@ def plot_time_windows(instance, save_dir="."):
     # -----------------------------------------------------
 
     png_path = os.path.join(save_dir, "time_windows.png")
-    pdf_path = os.path.join(save_dir, "time_windows.pdf")
 
     plt.savefig(png_path, dpi=300, bbox_inches="tight")
-    plt.savefig(pdf_path, bbox_inches="tight")
 
     plt.close()
 
     print(f"[INFO] Saved: {png_path}")
-    print(f"[INFO] Saved: {pdf_path}")
 
 
 # =========================================================
@@ -418,7 +375,6 @@ def main():
     print(f"Vehicles               : {instance['num_vehicles']}")
     print(f"Customers              : {instance['num_customers']}")
     print(f"Horizon                : {instance['horizon']}")
-    print(f"Synchronized Customers : {instance['sync_customers']}")
 
     print("================================================\n")
 

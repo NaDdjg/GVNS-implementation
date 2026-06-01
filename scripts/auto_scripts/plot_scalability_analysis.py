@@ -122,7 +122,7 @@ def create_plot(averages, output_folder):
         )
     
     # Add horizontal line at y=0 (GVNS baseline)
-    ax.axhline(y=0, color='black', linestyle='--', linewidth=1.5, alpha=0.5, label='GVNS (baseline)')
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=1.5, alpha=0.5, label='GVNS+ (baseline)')
     
     # Formatting
     ax.set_xlabel('Instance Size (number of customers)', fontsize=12, fontweight='bold')

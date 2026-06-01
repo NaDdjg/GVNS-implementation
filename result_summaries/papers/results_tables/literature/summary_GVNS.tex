@@ -16,7 +16,7 @@
 \begin{adjustbox}{width=\textwidth}
 \begin{tabular}{c c c c c}
 \toprule
-Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
+Instance & GVNS+ & Time & Avg. cost & Avg. Time \\
 \midrule
 \texttt{C102\_50\_5} & 402.04 & 627.93 & 402.04 & 634.52 \\
 \texttt{C105\_50\_5} & 463.42 & 930.92 & 463.42 & 923.99 \\
@@ -50,7 +50,7 @@ Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
 \begin{adjustbox}{width=\textwidth}
 \begin{tabular}{c c c c c}
 \toprule
-Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
+Instance & GVNS+ & Time & Avg. cost & Avg. Time \\
 \midrule
 \texttt{C103\_100\_10} & 904.17 & 5005.29 & 904.17 & 5005.29 \\
 \texttt{C104\_100\_10} & 877.38 & 5888.36 & 877.38 & 5888.36 \\
@@ -84,7 +84,7 @@ Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
 \begin{adjustbox}{width=\textwidth}
 \begin{tabular}{c c c c c}
 \toprule
-Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
+Instance & GVNS+ & Time & Avg. cost & Avg. Time \\
 \midrule
 \texttt{C1\_2\_4\_20} & 3148.29 & 10395.96 & 3148.87 & 10390.14 \\
 \texttt{C1\_2\_8\_20} & 3634.75 & 9985.35 & 3639.12 & 9982.02 \\
@@ -118,7 +118,7 @@ Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
 \begin{adjustbox}{width=\textwidth}
 \begin{tabular}{c c c c c}
 \toprule
-Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
+Instance & GVNS+ & Time & Avg. cost & Avg. Time \\
 \midrule
 \texttt{C1\_4\_10\_40} & 9322.04 & 20087.49 & 9322.04 & 20057.46 \\
 \texttt{C1\_4\_1\_40} & 9683.38 & 19991.64 & 9683.38 & 19100.48 \\
@@ -138,6 +138,46 @@ Instance & Enhanced GVNS & Time & AVG cost & Avg. Time \\
 \texttt{RC2\_4\_10\_40} & 6538.77 & 23985.26 & 6538.77 & 24004.52 \\
 \texttt{RC2\_4\_1\_40} & 8375.34 & 23037.74 & 8375.34 & 23024.04 \\
 \texttt{RC2\_4\_2\_40} & 7222.30 & 23008.38 & 7222.30 & 22802.89 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{Average performance of the enhanced GVNS on the generated benchmark instances}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{c c c c}
+\toprule
+Size & Avg Best Cost & Avg Mean Cost & Avg Runtime \\
+\midrule
+\texttt{50} & 665.61 & 666.74 & 1046.23 \\
+\texttt{100} & 1159.29 & 1159.29 & 4117.89 \\
+\texttt{200} & 3371.48 & 3372.34 & 11258.00 \\
+\texttt{400} & 7773.86 & 7773.86 & 21963.52 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{Average best cost of the enhanced GVNS by instance type}
+\vspace{4mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{c c c c}
+\toprule
+Size & C & R & RC \\
+\midrule
+\texttt{50} & 426.89 & 792.06 & 777.88 \\
+\texttt{100} & 832.58 & 1274.47 & 1370.83 \\
+\texttt{200} & 2948.21 & 3889.14 & 3277.09 \\
+\texttt{400} & 7476.07 & 7943.44 & 7902.05 \\
 \bottomrule
 \end{tabular}
 \end{adjustbox}
