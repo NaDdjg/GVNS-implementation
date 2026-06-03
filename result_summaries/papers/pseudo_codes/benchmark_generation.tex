@@ -1,0 +1,45 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\begin{document}
+\begin{algorithm}[H]
+\caption{Generation of synchronized VRPTW-S instances}
+\begin{algorithmic}[1]
+
+\Require Solomon instance $I=(V,K)$
+\Ensure Synchronized instance $I_s$
+
+\State Extract customer set $V$ in $n$
+\If{$n \leq 100$}
+\State $m \gets 25$
+\ElsIf{$n = 200$}
+\State $m \gets 50$
+\Else
+\State $m \gets 100$
+\EndIf
+\State \phantom{}
+
+\State Determine synchronization set size $|S_{sync}|$
+\State \phantom{}
+
+\State Rank customers according to time-window width
+\State Select synchronization set $S_{sync}\subseteq V$
+\State \phantom{}
+
+\State Add synchronization constraints for all customers in $S_{sync}$
+\State \phantom{}
+
+\State Build synchronized instance
+[
+$I_s=(V,m,S_{sync})$
+]
+\State \phantom{}
+
+\State Verify feasibility of the generated configuration
+\State \Return $I_s$
+
+\end{algorithmic}
+\end{algorithm}
+\end{document}

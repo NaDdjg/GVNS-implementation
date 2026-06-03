@@ -1,0 +1,29 @@
+\documentclass{article}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage[margin=1.5cm]{geometry}
+
+\begin{document}
+\begin{table}[ht]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Average gap relative to the default neighborhood order on 100-customer instances}
+\vspace{3mm}
+\begin{adjustbox}{width=\textwidth}
+\begin{tabular}{l l}
+\toprule
+\textbf{Neighborhood ordering strategy} & \textbf{Average gap (\%)} \\
+\midrule
+Suggested frequency-based order  & -0.04 \\
+Reverse order & +0.15 \\
+Random order & +0.13 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\label{tab:bf_summary}
+\end{table}
+\end{document}
