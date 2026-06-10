@@ -1,0 +1,105 @@
+\begin{algorithm}[H]
+\caption{GVNS with PPO-Driven Local Search}
+\label{alg:ppo_gvns}
+\begin{algorithmic}[1]
+
+\Require Instance, time limit, PPO controller
+\Ensure Best solution found
+
+\State $S \gets \Call{GenerateInitialSolution}{}$
+\State $stagnation \gets 0$
+
+\While{\Call{TerminationCondition}{time limit, stagnation} = false}
+
+    \State Update controller parameters
+
+    \State $S \gets \Call{Shake}{S,\ shakingScale}$
+    
+    \State $S' \gets
+        \Call{LocalSearchWithPPO}
+        {S,\ PPOController}$
+
+    \If{$\Call{Acceptance}{S,S',\delta}$}
+
+        \State $S \gets S'$
+        \State $stagnation \gets 0$
+
+    \Else
+
+        \State $stagnation \gets stagnation + 1$
+
+    \EndIf
+
+    \State \Call{UpdatePenalties}{$S,\alpha$}
+
+\EndWhile
+
+\State \Return $S$
+
+\end{algorithmic}
+\end{algorithm}
+
+
+
+\begin{algorithm}[H]
+\caption{PPO-Guided Local Search}
+\label{alg:ppo_local_search}
+\begin{algorithmic}[1]
+
+\Require Solution $S$, PPO controller
+\Ensure Improved solution $S$
+
+\For{each neighborhood $N_i$}
+
+    \State $state \gets
+    \Call{ExtractFeatures}{S,i}$
+
+    \State $action \gets
+    \Call{SelectAction}{state}$
+
+    \State \Call{ApplyAction}{action}
+
+    \State $F_{\text{before}}
+        \gets
+        \Call{Objective}{S}$
+
+    \State $candidate \gets
+        \Call{ApplyNeighborhood}
+        {S,N_i}$
+
+    \State $F_{\text{after}}
+        \gets
+        \Call{Objective}{candidate}$
+
+    \State $improved
+        \gets
+        (F_{\text{after}} < F_{\text{before}})$
+
+    \State $reward \gets
+        \Call{ComputeReward}
+        {F_{\text{before}},
+         F_{\text{after}},
+         improved}$
+
+    \State $nextState \gets
+        \Call{ExtractFeatures}
+        {candidate,i}$
+
+    \State \Call{StoreTransition}
+        {state,
+         action,
+         reward,
+         nextState}
+
+    \If{$improved$}
+
+        \State $S \gets candidate$
+
+    \EndIf
+
+\EndFor
+
+\State \Return $S$
+
+\end{algorithmic}
+\end{algorithm}

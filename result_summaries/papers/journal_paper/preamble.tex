@@ -1,0 +1,52 @@
+%% Packages
+\usepackage{float}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{subcaption}
+\usepackage{algpseudocode}
+\usepackage[table]{xcolor}
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=black]{hyperref}
+\usepackage[textheight=9in,textwidth=6.5in]{geometry}
+
+\setstretch{0.98}
+
+%% Lists
+\setlist[itemize]{
+    topsep=2pt,
+    itemsep=2pt,
+    parsep=0pt,
+    partopsep=0pt
+}
+
+%% Paragraph formatting
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.4em}
+
+
+%% Custom commands for titles
+\makeatletter
+
+\renewcommand\section{\@startsection
+  {section}{1}{\z@}
+  {-3.5ex \@plus -1ex \@minus -.2ex}
+  {2.3ex \@plus.2ex}
+  {\normalfont\Large\bfseries}}
+
+\renewcommand\subsection{\@startsection
+  {subsection}{2}{\z@}
+  {-3.25ex\@plus -1ex \@minus -.2ex}
+  {1.5ex \@plus .2ex}
+  {\normalfont\large\bfseries}}
+
+\renewcommand\subsubsection{\@startsection
+  {subsubsection}{3}{\z@}
+  {-2.5ex\@plus -1ex \@minus -.2ex}
+  {1ex \@plus .2ex}
+  {\normalfont\normalsize\bfseries}}
+
+\makeatother

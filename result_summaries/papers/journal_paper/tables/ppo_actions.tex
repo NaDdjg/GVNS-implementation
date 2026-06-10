@@ -1,0 +1,35 @@
+\begin{table*}[t]
+\centering
+\caption{Action space of the PPO controller.}
+\label{tab:ppo_actions}
+\begin{tabular}{cll}
+\hline
+Action & Behaviour & Main effect \\
+\hline
+0 & Neutral stabilization &
+Restore moderate baseline parameters \\
+
+1 & Strong diversification &
+Increase shaking intensity and relax acceptance \\
+
+2 & Mild diversification &
+Slightly increase shaking intensity \\
+
+3 & Mild intensification &
+Reduce shaking intensity and tighten acceptance \\
+
+4 & Strong intensification &
+Strong reduction of shaking and stricter acceptance \\
+
+5 & Strong feasibility reinforcement &
+Increase penalty pressure on constraint violations \\
+
+6 & Mild feasibility reinforcement &
+Slight increase of penalty pressure \\
+
+7 & Stagnation reset &
+Reset parameters to escape local optima \\
+
+\hline
+\end{tabular}
+\end{table*}
