@@ -66,7 +66,7 @@ args = parser.parse_args()
 # GVNS hyperparameters 
 # neigh_order can be: "default", "reverse", "random", "suggested"
 # ============================================================
-N_RUNS = 10
+N_RUNS = 1
 NEIGHBORHOOD_NAMES = ['N1','N2','N3','N4','N5','N6','N7','N8']
 
 params = {

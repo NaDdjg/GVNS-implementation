@@ -1,0 +1,18 @@
+\begin{table}[ht]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Global performance summary of PPO compared to GVNS+}
+\vspace{3mm}
+\begin{tabular}{c c c c c}
+\toprule
+\textbf{Size} & \textbf{Avg gap GVNS+ (\%)} & \textbf{Best Improvement (\%)} & \textbf{Worst Degradation (\%)} & \textbf{Avg Time ratio} \\
+\midrule
+50  & -0.89 & -4.29 & 0.00 & 0.93 \\
+100 & -0.49 & -4.07 & +6.40 & 1.20 \\
+200 & -0.44 & -4.41 & +3.44 & 0.94 \\
+400 & -0.14 & -3.83 & +4.94 & 0.99 \\
+\bottomrule
+\end{tabular}
+\label{tab:ppo_summary}
+\end{table}

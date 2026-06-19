@@ -27,7 +27,7 @@ x_t^{ctrl}]
 where the last component corresponds to the current parameter values.
 
 %% action space
-\paragraph{Action space}
+\paragraph{Action space: }
 Rather than directly predicting numerical parameter values, the controller selects among a set of high-level search behaviours. Each action modifies several parameters simultaneously and corresponds to a meaningful optimization strategy.
 
 The controller regulates four key components of GVNS+:
@@ -50,15 +50,13 @@ To avoid unstable parameter oscillations, updates are smoothed using an inertia 
 \]
 
 The resulting values are subsequently clipped to predefined safety ranges.
-
 \input{../tables/ppo_parameter_ranges}
 
 The complete action space is summarized in Table~\ref{tab:ppo_actions}. Each action corresponds to a distinct search behaviour ranging from aggressive diversification to feasibility reinforcement and stagnation recovery.
-
 \input{../tables/ppo_actions}
 
 %% reward function
-\paragraph{Reward function}
+\paragraph{Reward function: }
 
 The reward is designed to measure the quality of the selected parameter configuration while maintaining numerical stability during policy optimization.
 
