@@ -13,13 +13,13 @@ os.makedirs(output_dir, exist_ok=True)
 # ==========================================================
 
 models = [
-    "GVNS+",
-    "BF",
-    "DQN",
-    "DQN+BF",
-    "PPO",
-    "Q-Learning",
-    "QL+BF"
+    "GVNS",
+    "GVNS-BF",
+    "GVNS-DQN",
+    "GVNS-DQN-BF",
+    "GVNS-PPO",
+    "GVNS-QL",
+    "GVNS-QL-BF"
 ]
 
 avg_gap = [
@@ -47,13 +47,13 @@ avg_time = [
 # ==========================================================
 
 colors = {
-    "GVNS+": "#1f77b4",
-    "BF": "#ff7f0e",
-    "DQN": "#2ca02c",
-    "DQN+BF": "#9467bd",
-    "PPO": "#d62728",
-    "Q-Learning": "#8c564b",
-    "QL+BF": "#7f7f7f"
+    "GVNS": "#1f77b4",
+    "GVNS-BF": "#ff7f0e",
+    "GVNS-DQN": "#2ca02c",
+    "GVNS-DQN-BF": "#9467bd",
+    "GVNS-PPO": "#d62728",
+    "GVNS-QL": "#8c564b",
+    "GVNS-QL-BF": "#7f7f7f"
 }
 
 # ==========================================================
@@ -64,7 +64,7 @@ plt.figure(figsize=(10, 7))
 
 for model, x, y in zip(models, avg_time, avg_gap):
 
-    size = 150 if model == "PPO" else 90
+    size = 150 if model == "GVNS-PPO" else 90
 
     plt.scatter(
         x,
@@ -83,15 +83,15 @@ for model, x, y in zip(models, avg_time, avg_gap):
         xytext=(8, 6),
         textcoords="offset points",
         fontsize=10,
-        fontweight="bold" if model == "PPO" else "normal"
+        fontweight="bold" if model == "GVNS-PPO" else "normal"
     )
 
 # ==========================================================
 # Highlight PPO
 # ==========================================================
 
-ppo_x = avg_time[models.index("PPO")]
-ppo_y = avg_gap[models.index("PPO")]
+ppo_x = avg_time[models.index("GVNS-PPO")]
+ppo_y = avg_gap[models.index("GVNS-PPO")]
 
 plt.scatter(
     ppo_x,

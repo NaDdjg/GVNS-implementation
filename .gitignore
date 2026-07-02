@@ -66,6 +66,7 @@ instance/
 results/
 gvns/ls_data/FI/
 gvns/ls_data/BI/
+result_summaries/papers
 .webassets-cache
 
 # Scrapy stuff:

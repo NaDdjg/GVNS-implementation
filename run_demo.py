@@ -1,3 +1,4 @@
+import sys
 import subprocess
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from pathlib import Path
 
 INSTANCES_DIR = "instances/demo_instances"
 
-TMAX = 120
+TMAX = 60
 
 MODELS = [
     (
@@ -79,7 +80,7 @@ def run_model(index, total, model_name, config):
     result_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        "python",
+        sys.executable,
         "run_benchmark.py",
 
         "--mode",

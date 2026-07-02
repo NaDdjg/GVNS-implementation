@@ -115,25 +115,155 @@ def create_pie_chart(counts: pd.Series, output_path: Path, instance_name: str) -
     plt.close(fig)
 
 
+def load_iteration_trace(csv_path: Path) -> pd.DataFrame:
+    """Load iteration-level trace data with neighborhood selection and improvements."""
+    df = pd.read_csv(csv_path)
+
+    # Normalize column names to lowercase for flexible matching
+    df.columns = [col.lower() for col in df.columns]
+
+    # Validate required columns (lowercase)
+    required_cols = {"iteration", "neighborhood_id", "f_before", "f_after"}
+    if not required_cols.issubset(set(df.columns)):
+        raise ValueError(
+            f"CSV must contain columns: {required_cols}, found: {set(df.columns)}"
+        )
+
+    # Coerce numeric columns and drop rows with missing essential values
+    df["iteration"] = pd.to_numeric(df["iteration"], errors="coerce")
+    df["neighborhood_id"] = pd.to_numeric(df["neighborhood_id"], errors="coerce")
+    df["f_before"] = pd.to_numeric(df["f_before"], errors="coerce")
+    df["f_after"] = pd.to_numeric(df["f_after"], errors="coerce")
+
+    df = df.dropna(subset=["iteration", "neighborhood_id", "f_before", "f_after"]) 
+
+    # Ensure neighborhood ids are integers
+    try:
+        df["neighborhood_id"] = df["neighborhood_id"].astype(int)
+    except Exception:
+        df["neighborhood_id"] = df["neighborhood_id"].round().astype(int)
+
+    # Calculate improvement
+    df["improvement"] = df["f_before"] - df["f_after"]
+
+    return df
+
+
+def create_timeseries_plots(
+    trace_path: Path, output_folder: Path, instance_name: str
+) -> None:
+    """Create multi-panel time-series visualization of neighborhood usage."""
+    df = load_iteration_trace(trace_path)
+    
+    # Define colors for neighborhoods
+    colors_map = {
+        0: "#88CCEE",
+        1: "#CC6677",
+        2: "#DDCC77",
+        3: "#117733",
+        4: "#332288",
+        5: "#AA4499",
+        6: "#44AA99",
+        7: "#999933",
+    }
+    
+    fig, axes = plt.subplots(2, 1, figsize=(14, 11))
+    
+    # --- Panel 1: Neighborhood Selection Timeline ---
+    ax1 = axes[0]
+    df_sorted = df.sort_values("iteration")
+    
+    # Plot each neighborhood as a colored line
+    for neigh_id in sorted(df["neighborhood_id"].unique()):
+        neigh_data = df_sorted[df_sorted["neighborhood_id"] == neigh_id]
+        label = NEIGHBORHOOD_LABELS.get(neigh_id, f"N{neigh_id}")
+        ax1.scatter(
+            neigh_data["iteration"],
+            [neigh_id] * len(neigh_data),
+            label=label,
+            color=colors_map.get(neigh_id, "#CCCCCC"),
+            s=100,
+            alpha=0.7,
+            edgecolors="black",
+            linewidth=0.5,
+        )
+    
+    # Draw connecting line to show sequence
+    ax1.plot(
+        df_sorted["iteration"],
+        df_sorted["neighborhood_id"],
+        color="#AAAAAA",
+        alpha=0.3,
+        linewidth=1,
+        zorder=0,
+    )
+    
+    ax1.set_xlabel("Iteration", fontsize=11, fontweight="bold")
+    ax1.set_ylabel("Neighborhood ID", fontsize=11, fontweight="bold")
+    ax1.set_title("Neighborhood Selection Sequence", fontsize=12, fontweight="bold")
+    ax1.set_yticks(sorted(df["neighborhood_id"].unique()))
+    ax1.grid(True, alpha=0.3, linestyle="--")
+    ax1.legend(loc="upper center", ncol=4, fontsize=9, framealpha=0.95)
+    
+    # --- Panel 2: Cumulative Usage Over Time ---
+    ax2 = axes[1]
+    
+    for neigh_id in sorted(NEIGHBORHOOD_LABELS.keys()):
+        if neigh_id in df["neighborhood_id"].values:
+            neigh_data = df_sorted[df_sorted["neighborhood_id"] == neigh_id]
+            cumulative = (df_sorted["neighborhood_id"] == neigh_id).cumsum()
+            label = NEIGHBORHOOD_LABELS.get(neigh_id, f"N{neigh_id}")
+            ax2.plot(
+                df_sorted["iteration"],
+                cumulative,
+                label=label,
+                color=colors_map.get(neigh_id, "#CCCCCC"),
+                linewidth=2.5,
+                marker="o",
+                markersize=3,
+                alpha=0.8,
+            )
+    
+    ax2.set_xlabel("Iteration", fontsize=11, fontweight="bold")
+    ax2.set_ylabel("Cumulative Usage Count", fontsize=11, fontweight="bold")
+    ax2.set_title("Cumulative Neighborhood Usage Over Time", fontsize=12, fontweight="bold")
+    ax2.grid(True, alpha=0.3, linestyle="--")
+    ax2.legend(loc="upper left", fontsize=9, framealpha=0.95)
+    
+    
+    fig.tight_layout()
+    output_folder.mkdir(parents=True, exist_ok=True)
+    output_path = output_folder / f"{instance_name}_timeseries.png"
+    fig.savefig(output_path, bbox_inches="tight", dpi=200)
+    plt.close(fig)
+    print(f"Time-series plot saved to: {output_path}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate a neighborhood usage pie chart from a CSV file."
+        description="Generate neighborhood usage visualization from CSV files."
     )
     parser.add_argument(
         "input_csv",
         type=Path,
-        help="Path to the neighborhood usage CSV file.",
+        help="Path to the neighborhood usage CSV file (with Usage_Count).",
     )
     parser.add_argument(
         "output_folder",
         type=Path,
-        help="Output folder where the PNG file will be saved.",
+        help="Output folder where the PNG files will be saved.",
     )
     parser.add_argument(
         "--output-name",
         type=str,
         default=None,
         help="Optional output filename for the PNG (default derives from the input CSV name).",
+    )
+    parser.add_argument(
+        "--trace-csv",
+        type=Path,
+        default=None,
+        help="Optional path to iteration trace CSV file (with iteration, neighborhood_id, F_before, F_after) to generate time-series plots.",
     )
     return parser.parse_args()
 
@@ -151,6 +281,7 @@ def main() -> int:
     args = parse_args()
     csv_path = args.input_csv
     output_folder = args.output_folder
+    trace_csv = args.trace_csv
 
     if not csv_path.exists():
         print(f"Error: input file not found: {csv_path}", file=sys.stderr)
@@ -162,8 +293,16 @@ def main() -> int:
     instance_name = extract_instance_name(csv_path)
 
     try:
+        # Generate pie chart from usage counts
         counts = load_usage_counts(csv_path)
         create_pie_chart(counts, output_path, instance_name)
+        
+        # Generate time-series plots if trace CSV is provided
+        if trace_csv:
+            if not trace_csv.exists():
+                print(f"Error: trace file not found: {trace_csv}", file=sys.stderr)
+                return 1
+            create_timeseries_plots(trace_csv, output_folder, instance_name)
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2

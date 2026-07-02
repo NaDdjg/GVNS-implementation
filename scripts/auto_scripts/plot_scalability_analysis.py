@@ -19,12 +19,12 @@ OUTPUT_FOLDER = r"result_summaries\plots\scalability_analysis"
 
 # Define method names and their corresponding columns
 METHODS = {
-    "Q-learning": "gap_Qlearning",
-    "DQN": "gap_DQN",
-    "BF Selector": "gap_BF_Slector",
-    "Q-learning + BF": "gap_Qlearning_BF",
-    "DQN + BF": "gap_DQN_BF",
-    "PPO": "gap_PPO",
+    "GVNS-QL": "gap_Qlearning",
+    "GVNS-DQN": "gap_DQN",
+    "GVNS-BF": "gap_BF_Slector",
+    "GVNS-QL-BF": "gap_Qlearning_BF",
+    "GVNS-DQN-BF": "gap_DQN_BF",
+    "GVNS-PPO": "gap_PPO",
 }
 
 # Define sizes in order
@@ -32,12 +32,12 @@ SIZES = [50, 100, 200, 400]
 
 # Color palette - clean and distinct
 COLORS = {
-    "Q-learning": "#FF6B6B",        # Red
-    "DQN": "#4ECDC4",               # Teal
-    "BF Selector": "#95A5A6",       # Gray
-    "Q-learning + BF": "#F39C12",   # Orange
-    "DQN + BF": "#3498DB",          # Blue
-    "PPO": "#2ECC71",               # Green
+    "GVNS-QL": "#FF6B6B",        # Red
+    "GVNS-DQN": "#4ECDC4",       # Teal
+    "GVNS-BF": "#95A5A6",        # Gray
+    "GVNS-QL-BF": "#F39C12",     # Orange
+    "GVNS-DQN-BF": "#3498DB",    # Blue
+    "GVNS-PPO": "#2ECC71",       # Green
 }
 
 def read_and_parse_csv(filepath):
@@ -122,7 +122,7 @@ def create_plot(averages, output_folder):
         )
     
     # Add horizontal line at y=0 (GVNS baseline)
-    ax.axhline(y=0, color='black', linestyle='--', linewidth=1.5, alpha=0.5, label='GVNS+ (baseline)')
+    ax.axhline(y=0, color='black', linestyle='--', linewidth=1.5, alpha=0.5, label='GVNS (baseline)')
     
     # Formatting
     ax.set_xlabel('Instance Size (number of customers)', fontsize=12, fontweight='bold')
